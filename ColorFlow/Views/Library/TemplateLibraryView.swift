@@ -1,0 +1,140 @@
+import SwiftUI
+
+struct TemplateLibraryView: View {
+    @StateObject private var viewModel = TemplateLibraryViewModel()
+    @State private var selectedTemplate: Template?
+
+    let columns = [
+        GridItem(.adaptive(minimum: 220), spacing: 16)
+    ]
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Category filter chips
+                TemplateCategoryView(
+                    selectedCategory: $viewModel.selectedCategory,
+                    categories: TemplateCategory.allCases
+                )
+
+                if viewModel.filteredTemplates.isEmpty {
+                    ContentUnavailableView("No Templates", systemImage: "square.dashed",
+                                          description: Text("Templates will appear here."))
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: columns, spacing: 16) {
+                            ForEach(viewModel.filteredTemplates) { template in
+                                TemplateThumbnailCell(template: template) {
+                                    selectedTemplate = template
+                                }
+                            }
+                        }
+                        .padding()
+                    }
+                }
+            }
+            .navigationTitle("Templates")
+            .fullScreenCover(item: $selectedTemplate) { template in
+                let project = Project(template: template)
+                let canvasVM = CanvasViewModel(project: project, template: template)
+                CanvasView(viewModel: canvasVM)
+            }
+        }
+    }
+}
+
+// MARK: - Thumbnail Cell
+
+private struct TemplateThumbnailCell: View {
+    let template: Template
+    let onSelect: () -> Void
+    @State private var thumbnail: UIImage?
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.secondary.opacity(0.1))
+                        .aspectRatio(1, contentMode: .fit)
+
+                    if let thumb = thumbnail {
+                        Image(uiImage: thumb)
+                            .resizable()
+                            .scaledToFill()
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    } else {
+                        Image(systemName: template.category.systemImageName)
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    // Difficulty badge
+                    VStack {
+                        HStack {
+                            Spacer()
+                            DifficultyBadge(difficulty: template.difficulty)
+                        }
+                        Spacer()
+                    }
+                    .padding(8)
+                }
+
+                Text(template.name)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+
+                Text(template.category.rawValue)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .task { await loadThumbnail() }
+    }
+
+    private func loadThumbnail() async {
+        // Load cached thumbnail PNG from Caches directory
+        let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let thumbURL = cachesURL.appendingPathComponent("thumbnails/\(template.svgFilename).png")
+
+        if let data = try? Data(contentsOf: thumbURL), let img = UIImage(data: data) {
+            thumbnail = img
+            return
+        }
+
+        // Not cached — render SVG thumbnail on background thread
+        guard let svgURL = template.svgURL else { return }
+        let img = await Task.detached(priority: .background) {
+            // SVGKit: let svgImg = SVGKImage(contentsOf: svgURL); svgImg?.size = CGSize(width: 400, height: 400)
+            // return svgImg?.uiImage
+            return UIImage() // TODO: replace with SVGKit
+        }.value
+
+        // Cache it
+        try? FileManager.default.createDirectory(at: thumbURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let data = img.pngData() {
+            try? data.write(to: thumbURL)
+        }
+        thumbnail = img
+    }
+}
+
+private struct DifficultyBadge: View {
+    let difficulty: Difficulty
+    var color: Color {
+        switch difficulty {
+        case .easy: return .green
+        case .medium: return .orange
+        case .hard: return .red
+        }
+    }
+    var body: some View {
+        Text(difficulty.rawValue)
+            .font(.caption2.bold())
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.85), in: Capsule())
+            .foregroundStyle(.white)
+    }
+}

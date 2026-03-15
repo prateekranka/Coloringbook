@@ -1,0 +1,137 @@
+import SwiftUI
+
+/// Collapsible left-side toolbar with tool selection, brush size, and undo/redo.
+struct ToolbarView: View {
+    @ObservedObject var viewModel: CanvasViewModel
+    @Binding var showColorPicker: Bool
+    @Binding var showLayerPanel: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            // Color well — opens full color picker sheet
+            ColorWellButton(color: viewModel.brushSettings.color) {
+                showColorPicker = true
+            }
+
+            Divider().padding(.horizontal, 6)
+
+            // Drawing tools
+            ForEach(DrawingTool.allCases) { tool in
+                ToolButton(
+                    tool: tool,
+                    isSelected: viewModel.brushSettings.tool == tool
+                ) {
+                    HapticService.shared.impact(.light)
+                    viewModel.brushSettings.tool = tool
+                }
+            }
+
+            Divider().padding(.horizontal, 6)
+
+            // Brush size slider (vertical)
+            BrushSizeSlider(size: $viewModel.brushSettings.size)
+
+            Divider().padding(.horizontal, 6)
+
+            // Undo / Redo
+            Button { viewModel.undo() } label: {
+                Image(systemName: "arrow.uturn.backward")
+            }
+            .toolbarButtonStyle()
+
+            Button { viewModel.redo() } label: {
+                Image(systemName: "arrow.uturn.forward")
+            }
+            .toolbarButtonStyle()
+
+            Divider().padding(.horizontal, 6)
+
+            // Layers
+            Button { showLayerPanel = true } label: {
+                Image(systemName: "square.3.layers.3d")
+            }
+            .toolbarButtonStyle()
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 6)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.leading, 12)
+        .padding(.vertical, 60)
+    }
+}
+
+// MARK: - Sub-components
+
+private struct ColorWellButton: View {
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Circle()
+                .fill(color)
+                .frame(width: 32, height: 32)
+                .overlay(Circle().stroke(Color.primary.opacity(0.25), lineWidth: 1.5))
+                .padding(6)
+        }
+    }
+}
+
+private struct ToolButton: View {
+    let tool: DrawingTool
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: tool.systemImageName)
+                .font(.system(size: 18, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                .frame(width: 40, height: 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct BrushSizeSlider: View {
+    @Binding var size: CGFloat
+
+    var body: some View {
+        VStack(spacing: 4) {
+            // Preview dot
+            Circle()
+                .fill(Color.primary)
+                .frame(width: size.clamped(to: 4...24), height: size.clamped(to: 4...24))
+                .frame(height: 28)
+
+            Slider(value: $size, in: BrushSettings.sizeRange)
+                .rotationEffect(.degrees(-90))
+                .frame(width: 100)
+                .frame(width: 44, height: 100)
+        }
+    }
+}
+
+// MARK: - ViewModifier
+
+private extension View {
+    func toolbarButtonStyle() -> some View {
+        self
+            .font(.system(size: 18))
+            .frame(width: 40, height: 40)
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.primary)
+    }
+}
+
+// MARK: - Helpers
+
+private extension CGFloat {
+    func clamped(to range: ClosedRange<CGFloat>) -> CGFloat {
+        min(max(self, range.lowerBound), range.upperBound)
+    }
+}

@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Dark indigo background gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="42%" r="68%">
+      <stop offset="0%" stop-color="#2A2460"/>
+      <stop offset="100%" stop-color="#080618"/>
+    </radialGradient>
+
+    <!-- Soft inner glow on mandala -->
+    <filter id="glow" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="14" result="blur"/>
+      <feFlood flood-color="#ffffff" flood-opacity="0.18" result="glowColor"/>
+      <feComposite in="glowColor" in2="blur" operator="in" result="softGlow"/>
+      <feMerge>
+        <feMergeNode in="softGlow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Drop shadow for center circle -->
+    <filter id="centerShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="10" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+
+    <!-- Clip path for rounded corners (iOS icon shape) -->
+    <clipPath id="iosShape">
+      <rect width="1024" height="1024" rx="226" ry="226"/>
+    </clipPath>
+  </defs>
+
+  <!-- ── Background ── -->
+  <g clip-path="url(#iosShape)">
+    <rect width="1024" height="1024" fill="url(#bgGrad)"/>
+
+    <!-- Subtle outer haze rings -->
+    <circle cx="512" cy="512" r="430" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="80"/>
+    <circle cx="512" cy="512" r="380" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="40"/>
+
+    <!-- ── 6-segment mandala (R = 310) ── -->
+    <!--
+      Boundary points (Pillow-angle / screen-coordinate convention):
+        Top        270° → (512, 202)
+        Top-right  330° → (781, 357)
+        Bot-right   30° → (781, 667)
+        Bottom      90° → (512, 822)
+        Bot-left   150° → (243, 667)
+        Top-left   210° → (243, 357)
+    -->
+    <g filter="url(#glow)">
+      <!-- Segment 1 – Coral Red  (top → top-right) -->
+      <path d="M512,512 L512,202 A310,310 0 0,1 781,357 Z" fill="#FF6B6B"/>
+      <!-- Segment 2 – Warm Orange (top-right → bottom-right) -->
+      <path d="M512,512 L781,357 A310,310 0 0,1 781,667 Z" fill="#FF9F43"/>
+      <!-- Segment 3 – Sunny Yellow (bottom-right → bottom) -->
+      <path d="M512,512 L781,667 A310,310 0 0,1 512,822 Z" fill="#FECA57"/>
+      <!-- Segment 4 – Mint Teal  (bottom → bottom-left) -->
+      <path d="M512,512 L512,822 A310,310 0 0,1 243,667 Z" fill="#1DD1A1"/>
+      <!-- Segment 5 – Sky Blue   (bottom-left → top-left) -->
+      <path d="M512,512 L243,667 A310,310 0 0,1 243,357 Z" fill="#54A0FF"/>
+      <!-- Segment 6 – Soft Violet (top-left → top) -->
+      <path d="M512,512 L243,357 A310,310 0 0,1 512,202 Z" fill="#C77DFF"/>
+    </g>
+
+    <!-- ── Inner decorative ring (coloring-book line-art feel) ── -->
+    <circle cx="512" cy="512" r="176" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="3"/>
+
+    <!-- Small petal accents at inner ring intersections -->
+    <!-- Top -->
+    <circle cx="512" cy="336" r="10" fill="rgba(255,255,255,0.30)"/>
+    <!-- Top-right -->
+    <circle cx="664" cy="424" r="10" fill="rgba(255,255,255,0.30)"/>
+    <!-- Bottom-right -->
+    <circle cx="664" cy="600" r="10" fill="rgba(255,255,255,0.30)"/>
+    <!-- Bottom -->
+    <circle cx="512" cy="688" r="10" fill="rgba(255,255,255,0.30)"/>
+    <!-- Bottom-left -->
+    <circle cx="360" cy="600" r="10" fill="rgba(255,255,255,0.30)"/>
+    <!-- Top-left -->
+    <circle cx="360" cy="424" r="10" fill="rgba(255,255,255,0.30)"/>
+
+    <!-- ── White divider lines (coloring-book stroke lines) ── -->
+    <g stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.90">
+      <line x1="512" y1="512" x2="512" y2="202"/>
+      <line x1="512" y1="512" x2="781" y2="357"/>
+      <line x1="512" y1="512" x2="781" y2="667"/>
+      <line x1="512" y1="512" x2="512" y2="822"/>
+      <line x1="512" y1="512" x2="243" y2="667"/>
+      <line x1="512" y1="512" x2="243" y2="357"/>
+    </g>
+
+    <!-- Outer circle outline -->
+    <circle cx="512" cy="512" r="310" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="4"/>
+
+    <!-- Tip accent dots at segment boundaries -->
+    <g fill="white" opacity="0.90">
+      <circle cx="512" cy="202" r="9"/>
+      <circle cx="781" cy="357" r="9"/>
+      <circle cx="781" cy="667" r="9"/>
+      <circle cx="512" cy="822" r="9"/>
+      <circle cx="243" cy="667" r="9"/>
+      <circle cx="243" cy="357" r="9"/>
+    </g>
+
+    <!-- ── White center circle ── -->
+    <circle cx="512" cy="512" r="90" fill="white" filter="url(#centerShadow)"/>
+
+    <!-- "CF" monogram — SF Rounded / Helvetica Neue Bold fallback -->
+    <text
+      x="512" y="538"
+      text-anchor="middle"
+      font-family="'SF Pro Rounded', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
+      font-weight="800"
+      font-size="72"
+      letter-spacing="-2"
+      fill="#1E1A4E">CF</text>
+
+    <!-- ── Paintbrush accent (lower-right quadrant) ── -->
+    <!--
+      A small stylised pencil/brush tip icon placed inside the bottom-right
+      segment to reinforce the coloring-book concept.
+      Drawn as: handle → ferrule → tapered bristle tip, rotated -45°.
+    -->
+    <g transform="translate(672,672) rotate(-45)" opacity="0.70">
+      <!-- Handle -->
+      <rect x="-8" y="-90" width="16" height="62" rx="6" fill="#FECA57"/>
+      <!-- Ferrule (silver band) -->
+      <rect x="-8" y="-28" width="16" height="12" rx="2" fill="#E0E0E0"/>
+      <!-- Bristle body -->
+      <rect x="-7" y="-16" width="14" height="30" rx="3" fill="#F0F0F0"/>
+      <!-- Bristle tip -->
+      <polygon points="-7,-16 7,-16 3,20 -3,20" fill="#D0D0D0"/>
+      <polygon points="-3,18 3,18 0,28" fill="#B0B0B0"/>
+    </g>
+  </g>
+</svg>

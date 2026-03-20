@@ -7,6 +7,7 @@ struct OpenedProjectItem: Identifiable {
     let template: Template
 }
 
+@MainActor
 class GalleryViewModel: ObservableObject {
     @Published var projects: [Project] = []
     @Published var openedProject: OpenedProjectItem?

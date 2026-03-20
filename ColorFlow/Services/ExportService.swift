@@ -6,20 +6,34 @@ enum ExportFormat { case png, jpeg }
 
 class ExportService {
 
-    /// Composites all layers and returns the final UIImage.
+    /// Composites all layers using TemplateRenderer and returns the final UIImage.
     func compositeImage(
-        background: Color,
-        fillLayer: UIImage?,
+        geometry: TemplateGeometry?,
+        fills: [String: String],
         drawing: PKDrawing,
-        template: UIImage?,
+        background: Color,
         canvasSize: CGSize,
         includeLineArt: Bool = true
     ) -> UIImage {
-        ImageProcessing.composite(
-            background: UIColor(background),
-            fillLayer: fillLayer,
-            drawing: drawing,
-            template: includeLineArt ? template : nil,
+        guard let geometry = geometry else {
+            // Fallback: render just the drawing on a solid background
+            return ImageProcessing.composite(
+                background: UIColor(background),
+                fillLayer: nil,
+                drawing: drawing,
+                template: nil,
+                size: canvasSize
+            )
+        }
+
+        // Render pencil strokes to an image
+        let pencilImage = drawing.image(from: CGRect(origin: .zero, size: canvasSize), scale: 1.0)
+
+        return TemplateRenderer.renderExport(
+            geometry: geometry,
+            fills: fills,
+            pencilImage: pencilImage,
+            backgroundColor: UIColor(background),
             size: canvasSize
         )
     }

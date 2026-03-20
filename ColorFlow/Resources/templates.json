@@ -4,199 +4,47 @@
     "name": "Lotus Mandala",
     "category": "Mandalas",
     "difficulty": "Medium",
-    "svgFilename": "mandalas/lotus_mandala.svg",
+    "svgFilename": "lotus_mandala.svg",
     "thumbnailFilename": "thumb_lotus_mandala.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000002",
-    "name": "Geometric Star",
-    "category": "Mandalas",
-    "difficulty": "Easy",
-    "svgFilename": "mandalas/geometric_star.svg",
-    "thumbnailFilename": "thumb_geometric_star.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000003",
-    "name": "Celtic Knot",
-    "category": "Mandalas",
-    "difficulty": "Hard",
-    "svgFilename": "mandalas/celtic_knot.svg",
-    "thumbnailFilename": "thumb_celtic_knot.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000004",
-    "name": "Sunflower Mandala",
-    "category": "Mandalas",
-    "difficulty": "Medium",
-    "svgFilename": "mandalas/sunflower_mandala.svg",
-    "thumbnailFilename": "thumb_sunflower_mandala.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000005",
-    "name": "Peacock Feather",
-    "category": "Mandalas",
-    "difficulty": "Hard",
-    "svgFilename": "mandalas/peacock_feather.svg",
-    "thumbnailFilename": "thumb_peacock_feather.png"
   },
   {
     "id": "33333333-0000-0000-0000-000000000006",
     "name": "Owl Portrait",
     "category": "Animals",
     "difficulty": "Medium",
-    "svgFilename": "animals/owl_portrait.svg",
+    "svgFilename": "owl_portrait.svg",
     "thumbnailFilename": "thumb_owl_portrait.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000007",
-    "name": "Hummingbird",
-    "category": "Animals",
-    "difficulty": "Medium",
-    "svgFilename": "animals/hummingbird.svg",
-    "thumbnailFilename": "thumb_hummingbird.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000008",
-    "name": "Fox in Forest",
-    "category": "Animals",
-    "difficulty": "Easy",
-    "svgFilename": "animals/fox_forest.svg",
-    "thumbnailFilename": "thumb_fox_forest.png"
   },
   {
     "id": "33333333-0000-0000-0000-000000000009",
     "name": "Butterfly Garden",
     "category": "Animals",
     "difficulty": "Easy",
-    "svgFilename": "animals/butterfly_garden.svg",
+    "svgFilename": "butterfly_garden.svg",
     "thumbnailFilename": "thumb_butterfly_garden.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000010",
-    "name": "Koi Fish",
-    "category": "Animals",
-    "difficulty": "Hard",
-    "svgFilename": "animals/koi_fish.svg",
-    "thumbnailFilename": "thumb_koi_fish.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000011",
-    "name": "Paris Skyline",
-    "category": "Architecture",
-    "difficulty": "Hard",
-    "svgFilename": "architecture/paris_skyline.svg",
-    "thumbnailFilename": "thumb_paris_skyline.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000012",
-    "name": "Cathedral Window",
-    "category": "Architecture",
-    "difficulty": "Medium",
-    "svgFilename": "architecture/cathedral_window.svg",
-    "thumbnailFilename": "thumb_cathedral_window.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000013",
-    "name": "Japanese Temple",
-    "category": "Architecture",
-    "difficulty": "Medium",
-    "svgFilename": "architecture/japanese_temple.svg",
-    "thumbnailFilename": "thumb_japanese_temple.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000014",
-    "name": "Moroccan Arch",
-    "category": "Architecture",
-    "difficulty": "Easy",
-    "svgFilename": "architecture/moroccan_arch.svg",
-    "thumbnailFilename": "thumb_moroccan_arch.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000015",
-    "name": "Treehouse",
-    "category": "Architecture",
-    "difficulty": "Easy",
-    "svgFilename": "architecture/treehouse.svg",
-    "thumbnailFilename": "thumb_treehouse.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000016",
-    "name": "Hexagon Grid",
-    "category": "Abstract",
-    "difficulty": "Easy",
-    "svgFilename": "abstract/hexagon_grid.svg",
-    "thumbnailFilename": "thumb_hexagon_grid.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000017",
-    "name": "Wave Pattern",
-    "category": "Abstract",
-    "difficulty": "Medium",
-    "svgFilename": "abstract/wave_pattern.svg",
-    "thumbnailFilename": "thumb_wave_pattern.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000018",
-    "name": "Cubism Faces",
-    "category": "Abstract",
-    "difficulty": "Hard",
-    "svgFilename": "abstract/cubism_faces.svg",
-    "thumbnailFilename": "thumb_cubism_faces.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000019",
-    "name": "Zentangle",
-    "category": "Abstract",
-    "difficulty": "Hard",
-    "svgFilename": "abstract/zentangle.svg",
-    "thumbnailFilename": "thumb_zentangle.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000020",
-    "name": "Spiral Geometry",
-    "category": "Abstract",
-    "difficulty": "Medium",
-    "svgFilename": "abstract/spiral_geometry.svg",
-    "thumbnailFilename": "thumb_spiral_geometry.png"
   },
   {
     "id": "33333333-0000-0000-0000-000000000021",
     "name": "Rose Bouquet",
     "category": "Botanicals",
     "difficulty": "Medium",
-    "svgFilename": "botanicals/rose_bouquet.svg",
+    "svgFilename": "rose_bouquet.svg",
     "thumbnailFilename": "thumb_rose_bouquet.png"
   },
   {
-    "id": "33333333-0000-0000-0000-000000000022",
-    "name": "Monstera Leaf",
-    "category": "Botanicals",
-    "difficulty": "Easy",
-    "svgFilename": "botanicals/monstera_leaf.svg",
-    "thumbnailFilename": "thumb_monstera_leaf.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000023",
-    "name": "Cherry Blossom",
-    "category": "Botanicals",
+    "id": "33333333-0000-0000-0000-000000000017",
+    "name": "Wave Pattern",
+    "category": "Abstract",
     "difficulty": "Medium",
-    "svgFilename": "botanicals/cherry_blossom.svg",
-    "thumbnailFilename": "thumb_cherry_blossom.png"
+    "svgFilename": "wave_pattern.svg",
+    "thumbnailFilename": "thumb_wave_pattern.png"
   },
   {
-    "id": "33333333-0000-0000-0000-000000000024",
-    "name": "Succulent Garden",
-    "category": "Botanicals",
+    "id": "33333333-0000-0000-0000-000000000016",
+    "name": "Hexagon Grid",
+    "category": "Abstract",
     "difficulty": "Easy",
-    "svgFilename": "botanicals/succulent_garden.svg",
-    "thumbnailFilename": "thumb_succulent_garden.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000025",
-    "name": "Wildflower Meadow",
-    "category": "Botanicals",
-    "difficulty": "Hard",
-    "svgFilename": "botanicals/wildflower_meadow.svg",
-    "thumbnailFilename": "thumb_wildflower_meadow.png"
+    "svgFilename": "hexagon_grid.svg",
+    "thumbnailFilename": "thumb_hexagon_grid.png"
   }
 ]

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Honeycomb hexagon grid - flat-top hexagons, radius=160 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" width="2048" height="2048">
+
+  <!-- Row 0 (y center=60) -->
+  <polygon id="hex_r0c0" fill="none" stroke="black" stroke-width="3" points="218.6,60.0 138.6,198.6 -21.4,198.6 -101.4,60.0 -21.4,-78.6 138.6,-78.6"/>
+  <polygon id="hex_r0c1" fill="none" stroke="black" stroke-width="3" points="495.7,60.0 415.7,198.6 255.7,198.6 175.7,60.0 255.7,-78.6 415.7,-78.6"/>
+  <polygon id="hex_r0c2" fill="none" stroke="black" stroke-width="3" points="772.8,60.0 692.8,198.6 532.8,198.6 452.8,60.0 532.8,-78.6 692.8,-78.6"/>
+  <polygon id="hex_r0c3" fill="none" stroke="black" stroke-width="3" points="1049.9,60.0 969.9,198.6 809.9,198.6 729.9,60.0 809.9,-78.6 969.9,-78.6"/>
+  <polygon id="hex_r0c4" fill="none" stroke="black" stroke-width="3" points="1327.1,60.0 1247.1,198.6 1087.1,198.6 1007.1,60.0 1087.1,-78.6 1247.1,-78.6"/>
+  <polygon id="hex_r0c5" fill="none" stroke="black" stroke-width="3" points="1604.2,60.0 1524.2,198.6 1364.2,198.6 1284.2,60.0 1364.2,-78.6 1524.2,-78.6"/>
+  <polygon id="hex_r0c6" fill="none" stroke="black" stroke-width="3" points="1881.3,60.0 1801.3,198.6 1641.3,198.6 1561.3,60.0 1641.3,-78.6 1801.3,-78.6"/>
+  <polygon id="hex_r0c7" fill="none" stroke="black" stroke-width="3" points="2158.5,60.0 2078.5,198.6 1918.5,198.6 1838.5,60.0 1918.5,-78.6 2078.5,-78.6"/>
+
+  <!-- Row 1 (offset, y center=300) -->
+  <polygon id="hex_r1c0" fill="none" stroke="black" stroke-width="3" points="357.1,300.0 277.1,438.6 117.1,438.6 37.1,300.0 117.1,161.4 277.1,161.4"/>
+  <polygon id="hex_r1c1" fill="none" stroke="black" stroke-width="3" points="634.3,300.0 554.3,438.6 394.3,438.6 314.3,300.0 394.3,161.4 554.3,161.4"/>
+  <polygon id="hex_r1c2" fill="none" stroke="black" stroke-width="3" points="911.4,300.0 831.4,438.6 671.4,438.6 591.4,300.0 671.4,161.4 831.4,161.4"/>
+  <polygon id="hex_r1c3" fill="none" stroke="black" stroke-width="3" points="1188.5,300.0 1108.5,438.6 948.5,438.6 868.5,300.0 948.5,161.4 1108.5,161.4"/>
+  <polygon id="hex_r1c4" fill="none" stroke="black" stroke-width="3" points="1465.6,300.0 1385.6,438.6 1225.6,438.6 1145.6,300.0 1225.6,161.4 1385.6,161.4"/>
+  <polygon id="hex_r1c5" fill="none" stroke="black" stroke-width="3" points="1742.8,300.0 1662.8,438.6 1502.8,438.6 1422.8,300.0 1502.8,161.4 1662.8,161.4"/>
+  <polygon id="hex_r1c6" fill="none" stroke="black" stroke-width="3" points="2019.9,300.0 1939.9,438.6 1779.9,438.6 1699.9,300.0 1779.9,161.4 1939.9,161.4"/>
+
+  <!-- Row 2 (y center=540) -->
+  <polygon id="hex_r2c0" fill="none" stroke="black" stroke-width="3" points="218.6,540.0 138.6,678.6 -21.4,678.6 -101.4,540.0 -21.4,401.4 138.6,401.4"/>
+  <polygon id="hex_r2c1" fill="none" stroke="black" stroke-width="3" points="495.7,540.0 415.7,678.6 255.7,678.6 175.7,540.0 255.7,401.4 415.7,401.4"/>
+  <polygon id="hex_r2c2" fill="none" stroke="black" stroke-width="3" points="772.8,540.0 692.8,678.6 532.8,678.6 452.8,540.0 532.8,401.4 692.8,401.4"/>
+  <polygon id="hex_r2c3" fill="none" stroke="black" stroke-width="3" points="1049.9,540.0 969.9,678.6 809.9,678.6 729.9,540.0 809.9,401.4 969.9,401.4"/>
+  <polygon id="hex_r2c4" fill="none" stroke="black" stroke-width="3" points="1327.1,540.0 1247.1,678.6 1087.1,678.6 1007.1,540.0 1087.1,401.4 1247.1,401.4"/>
+  <polygon id="hex_r2c5" fill="none" stroke="black" stroke-width="3" points="1604.2,540.0 1524.2,678.6 1364.2,678.6 1284.2,540.0 1364.2,401.4 1524.2,401.4"/>
+  <polygon id="hex_r2c6" fill="none" stroke="black" stroke-width="3" points="1881.3,540.0 1801.3,678.6 1641.3,678.6 1561.3,540.0 1641.3,401.4 1801.3,401.4"/>
+  <polygon id="hex_r2c7" fill="none" stroke="black" stroke-width="3" points="2158.5,540.0 2078.5,678.6 1918.5,678.6 1838.5,540.0 1918.5,401.4 2078.5,401.4"/>
+
+  <!-- Row 3 (offset, y center=780) -->
+  <polygon id="hex_r3c0" fill="none" stroke="black" stroke-width="3" points="357.1,780.0 277.1,918.6 117.1,918.6 37.1,780.0 117.1,641.4 277.1,641.4"/>
+  <polygon id="hex_r3c1" fill="none" stroke="black" stroke-width="3" points="634.3,780.0 554.3,918.6 394.3,918.6 314.3,780.0 394.3,641.4 554.3,641.4"/>
+  <polygon id="hex_r3c2" fill="none" stroke="black" stroke-width="3" points="911.4,780.0 831.4,918.6 671.4,918.6 591.4,780.0 671.4,641.4 831.4,641.4"/>
+  <polygon id="hex_r3c3" fill="none" stroke="black" stroke-width="3" points="1188.5,780.0 1108.5,918.6 948.5,918.6 868.5,780.0 948.5,641.4 1108.5,641.4"/>
+  <polygon id="hex_r3c4" fill="none" stroke="black" stroke-width="3" points="1465.6,780.0 1385.6,918.6 1225.6,918.6 1145.6,780.0 1225.6,641.4 1385.6,641.4"/>
+  <polygon id="hex_r3c5" fill="none" stroke="black" stroke-width="3" points="1742.8,780.0 1662.8,918.6 1502.8,918.6 1422.8,780.0 1502.8,641.4 1662.8,641.4"/>
+  <polygon id="hex_r3c6" fill="none" stroke="black" stroke-width="3" points="2019.9,780.0 1939.9,918.6 1779.9,918.6 1699.9,780.0 1779.9,641.4 1939.9,641.4"/>
+
+  <!-- Row 4 (y center=1020) -->
+  <polygon id="hex_r4c0" fill="none" stroke="black" stroke-width="3" points="218.6,1020.0 138.6,1158.6 -21.4,1158.6 -101.4,1020.0 -21.4,881.4 138.6,881.4"/>
+  <polygon id="hex_r4c1" fill="none" stroke="black" stroke-width="3" points="495.7,1020.0 415.7,1158.6 255.7,1158.6 175.7,1020.0 255.7,881.4 415.7,881.4"/>
+  <polygon id="hex_r4c2" fill="none" stroke="black" stroke-width="3" points="772.8,1020.0 692.8,1158.6 532.8,1158.6 452.8,1020.0 532.8,881.4 692.8,881.4"/>
+  <polygon id="hex_r4c3" fill="none" stroke="black" stroke-width="3" points="1049.9,1020.0 969.9,1158.6 809.9,1158.6 729.9,1020.0 809.9,881.4 969.9,881.4"/>
+  <polygon id="hex_r4c4" fill="none" stroke="black" stroke-width="3" points="1327.1,1020.0 1247.1,1158.6 1087.1,1158.6 1007.1,1020.0 1087.1,881.4 1247.1,881.4"/>
+  <polygon id="hex_r4c5" fill="none" stroke="black" stroke-width="3" points="1604.2,1020.0 1524.2,1158.6 1364.2,1158.6 1284.2,1020.0 1364.2,881.4 1524.2,881.4"/>
+  <polygon id="hex_r4c6" fill="none" stroke="black" stroke-width="3" points="1881.3,1020.0 1801.3,1158.6 1641.3,1158.6 1561.3,1020.0 1641.3,881.4 1801.3,881.4"/>
+  <polygon id="hex_r4c7" fill="none" stroke="black" stroke-width="3" points="2158.5,1020.0 2078.5,1158.6 1918.5,1158.6 1838.5,1020.0 1918.5,881.4 2078.5,881.4"/>
+
+  <!-- Row 5 (offset, y center=1260) -->
+  <polygon id="hex_r5c0" fill="none" stroke="black" stroke-width="3" points="357.1,1260.0 277.1,1398.6 117.1,1398.6 37.1,1260.0 117.1,1121.4 277.1,1121.4"/>
+  <polygon id="hex_r5c1" fill="none" stroke="black" stroke-width="3" points="634.3,1260.0 554.3,1398.6 394.3,1398.6 314.3,1260.0 394.3,1121.4 554.3,1121.4"/>
+  <polygon id="hex_r5c2" fill="none" stroke="black" stroke-width="3" points="911.4,1260.0 831.4,1398.6 671.4,1398.6 591.4,1260.0 671.4,1121.4 831.4,1121.4"/>
+  <polygon id="hex_r5c3" fill="none" stroke="black" stroke-width="3" points="1188.5,1260.0 1108.5,1398.6 948.5,1398.6 868.5,1260.0 948.5,1121.4 1108.5,1121.4"/>
+  <polygon id="hex_r5c4" fill="none" stroke="black" stroke-width="3" points="1465.6,1260.0 1385.6,1398.6 1225.6,1398.6 1145.6,1260.0 1225.6,1121.4 1385.6,1121.4"/>
+  <polygon id="hex_r5c5" fill="none" stroke="black" stroke-width="3" points="1742.8,1260.0 1662.8,1398.6 1502.8,1398.6 1422.8,1260.0 1502.8,1121.4 1662.8,1121.4"/>
+  <polygon id="hex_r5c6" fill="none" stroke="black" stroke-width="3" points="2019.9,1260.0 1939.9,1398.6 1779.9,1398.6 1699.9,1260.0 1779.9,1121.4 1939.9,1121.4"/>
+
+  <!-- Row 6 (y center=1500) -->
+  <polygon id="hex_r6c0" fill="none" stroke="black" stroke-width="3" points="218.6,1500.0 138.6,1638.6 -21.4,1638.6 -101.4,1500.0 -21.4,1361.4 138.6,1361.4"/>
+  <polygon id="hex_r6c1" fill="none" stroke="black" stroke-width="3" points="495.7,1500.0 415.7,1638.6 255.7,1638.6 175.7,1500.0 255.7,1361.4 415.7,1361.4"/>
+  <polygon id="hex_r6c2" fill="none" stroke="black" stroke-width="3" points="772.8,1500.0 692.8,1638.6 532.8,1638.6 452.8,1500.0 532.8,1361.4 692.8,1361.4"/>
+  <polygon id="hex_r6c3" fill="none" stroke="black" stroke-width="3" points="1049.9,1500.0 969.9,1638.6 809.9,1638.6 729.9,1500.0 809.9,1361.4 969.9,1361.4"/>
+  <polygon id="hex_r6c4" fill="none" stroke="black" stroke-width="3" points="1327.1,1500.0 1247.1,1638.6 1087.1,1638.6 1007.1,1500.0 1087.1,1361.4 1247.1,1361.4"/>
+  <polygon id="hex_r6c5" fill="none" stroke="black" stroke-width="3" points="1604.2,1500.0 1524.2,1638.6 1364.2,1638.6 1284.2,1500.0 1364.2,1361.4 1524.2,1361.4"/>
+  <polygon id="hex_r6c6" fill="none" stroke="black" stroke-width="3" points="1881.3,1500.0 1801.3,1638.6 1641.3,1638.6 1561.3,1500.0 1641.3,1361.4 1801.3,1361.4"/>
+  <polygon id="hex_r6c7" fill="none" stroke="black" stroke-width="3" points="2158.5,1500.0 2078.5,1638.6 1918.5,1638.6 1838.5,1500.0 1918.5,1361.4 2078.5,1361.4"/>
+
+  <!-- Row 7 (offset, y center=1740) -->
+  <polygon id="hex_r7c0" fill="none" stroke="black" stroke-width="3" points="357.1,1740.0 277.1,1878.6 117.1,1878.6 37.1,1740.0 117.1,1601.4 277.1,1601.4"/>
+  <polygon id="hex_r7c1" fill="none" stroke="black" stroke-width="3" points="634.3,1740.0 554.3,1878.6 394.3,1878.6 314.3,1740.0 394.3,1601.4 554.3,1601.4"/>
+  <polygon id="hex_r7c2" fill="none" stroke="black" stroke-width="3" points="911.4,1740.0 831.4,1878.6 671.4,1878.6 591.4,1740.0 671.4,1601.4 831.4,1601.4"/>
+  <polygon id="hex_r7c3" fill="none" stroke="black" stroke-width="3" points="1188.5,1740.0 1108.5,1878.6 948.5,1878.6 868.5,1740.0 948.5,1601.4 1108.5,1601.4"/>
+  <polygon id="hex_r7c4" fill="none" stroke="black" stroke-width="3" points="1465.6,1740.0 1385.6,1878.6 1225.6,1878.6 1145.6,1740.0 1225.6,1601.4 1385.6,1601.4"/>
+  <polygon id="hex_r7c5" fill="none" stroke="black" stroke-width="3" points="1742.8,1740.0 1662.8,1878.6 1502.8,1878.6 1422.8,1740.0 1502.8,1601.4 1662.8,1601.4"/>
+  <polygon id="hex_r7c6" fill="none" stroke="black" stroke-width="3" points="2019.9,1740.0 1939.9,1878.6 1779.9,1878.6 1699.9,1740.0 1779.9,1601.4 1939.9,1601.4"/>
+
+  <!-- Row 8 (y center=1980) -->
+  <polygon id="hex_r8c0" fill="none" stroke="black" stroke-width="3" points="218.6,1980.0 138.6,2118.6 -21.4,2118.6 -101.4,1980.0 -21.4,1841.4 138.6,1841.4"/>
+  <polygon id="hex_r8c1" fill="none" stroke="black" stroke-width="3" points="495.7,1980.0 415.7,2118.6 255.7,2118.6 175.7,1980.0 255.7,1841.4 415.7,1841.4"/>
+  <polygon id="hex_r8c2" fill="none" stroke="black" stroke-width="3" points="772.8,1980.0 692.8,2118.6 532.8,2118.6 452.8,1980.0 532.8,1841.4 692.8,1841.4"/>
+  <polygon id="hex_r8c3" fill="none" stroke="black" stroke-width="3" points="1049.9,1980.0 969.9,2118.6 809.9,2118.6 729.9,1980.0 809.9,1841.4 969.9,1841.4"/>
+  <polygon id="hex_r8c4" fill="none" stroke="black" stroke-width="3" points="1327.1,1980.0 1247.1,2118.6 1087.1,2118.6 1007.1,1980.0 1087.1,1841.4 1247.1,1841.4"/>
+  <polygon id="hex_r8c5" fill="none" stroke="black" stroke-width="3" points="1604.2,1980.0 1524.2,2118.6 1364.2,2118.6 1284.2,1980.0 1364.2,1841.4 1524.2,1841.4"/>
+  <polygon id="hex_r8c6" fill="none" stroke="black" stroke-width="3" points="1881.3,1980.0 1801.3,2118.6 1641.3,2118.6 1561.3,1980.0 1641.3,1841.4 1801.3,1841.4"/>
+  <polygon id="hex_r8c7" fill="none" stroke="black" stroke-width="3" points="2158.5,1980.0 2078.5,2118.6 1918.5,2118.6 1838.5,1980.0 1918.5,1841.4 2078.5,1841.4"/>
+
+</svg>

@@ -96,7 +96,7 @@ private struct LayerRow: View {
                     .foregroundStyle(isVisible ? Color.primary : Color.secondary)
             }
             .buttonStyle(.plain)
-            .disabled(isLocked && name == "Line Art" && false) // allow toggle on line art
+            .disabled(isLocked && name == "Line Art")
         }
         .padding(.vertical, 2)
     }

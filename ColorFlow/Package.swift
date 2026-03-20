@@ -1,8 +1,7 @@
 // swift-tools-version: 5.9
 // This Package.swift is for reference and local Swift build testing.
 // The authoritative build target is the Xcode project (ColorFlow.xcodeproj).
-// Add SVGKit via Xcode > File > Add Package Dependencies:
-//   https://github.com/SVGKit/SVGKit  (pin to a specific commit for stability)
+// No external dependencies — SVG parsing uses native Foundation XMLParser.
 
 import PackageDescription
 
@@ -14,16 +13,11 @@ let package = Package(
     products: [
         .library(name: "ColorFlow", targets: ["ColorFlow"])
     ],
-    dependencies: [
-        // SVGKit for rendering royalty-free SVG templates
-        .package(url: "https://github.com/SVGKit/SVGKit.git", branch: "master"),
-    ],
+    dependencies: [],
     targets: [
         .target(
             name: "ColorFlow",
-            dependencies: [
-                .product(name: "SVGKit", package: "SVGKit"),
-            ],
+            dependencies: [],
             path: ".",
             exclude: ["Package.swift"],
             resources: [

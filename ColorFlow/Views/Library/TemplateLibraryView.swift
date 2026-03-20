@@ -103,12 +103,16 @@ private struct TemplateThumbnailCell: View {
             return
         }
 
-        // Not cached — render SVG thumbnail on background thread
+        // Not cached — parse SVG and render thumbnail on background thread
         guard let svgURL = template.svgURL else { return }
         let img = await Task.detached(priority: .background) {
-            // SVGKit: let svgImg = SVGKImage(contentsOf: svgURL); svgImg?.size = CGSize(width: 400, height: 400)
-            // return svgImg?.uiImage
-            return UIImage() // TODO: replace with SVGKit
+            guard case .success(let geometry) = SVGParser.parse(url: svgURL) else {
+                return UIImage()
+            }
+            return TemplateRenderer.renderThumbnail(
+                geometry: geometry,
+                size: CGSize(width: 400, height: 400)
+            )
         }.value
 
         // Cache it

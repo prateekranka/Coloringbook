@@ -51,6 +51,7 @@ targets:
         INFOPLIST_FILE: ColorFlow/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "2"
+        CODE_SIGN_STYLE: Automatic
 
         # Linker flags (none needed currently — SVGKit is stubbed out)
         OTHER_LDFLAGS: ""
@@ -60,6 +61,7 @@ targets:
           DEBUG_INFORMATION_FORMAT: dwarf
           SWIFT_OPTIMIZATION_LEVEL: "-Onone"
           ENABLE_TESTABILITY: "YES"
+          CODE_SIGN_IDENTITY: "-"
         Release:
           DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
           SWIFT_OPTIMIZATION_LEVEL: "-O"

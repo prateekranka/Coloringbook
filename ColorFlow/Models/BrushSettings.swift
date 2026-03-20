@@ -39,7 +39,7 @@ enum DrawingTool: String, CaseIterable, Identifiable {
             // Watercolor approximated via monoline ink with reduced opacity
             return PKInkingTool(.monoline, color: color.withAlphaComponent(0.4), width: width)
         case .eraser:
-            return PKEraserTool(.bitmap)
+            return PKEraserTool(.bitmap, width: width)
         case .floodFill, .eyedropper:
             // These don't use PKTool — return a no-op pencil tool
             return PKInkingTool(.pencil, color: .clear, width: 1)

@@ -80,6 +80,6 @@ struct CanvasView: View {
         .task {
             await viewModel.loadTemplate()
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
     }
 }

@@ -74,10 +74,9 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         let coordinator = context.coordinator
 
         // ── PencilKit tool ─────────────────────────────────────────────────
-        // PKTool doesn't conform to Equatable, so compare by identity.
-        if canvas.tool !== viewModel.currentPKTool as AnyObject {
-            canvas.tool = viewModel.currentPKTool
-        }
+        // currentPKTool is a computed property (new instance each call),
+        // so identity comparison is unreliable — always sync the tool.
+        canvas.tool = viewModel.currentPKTool
 
         // ── Drawing ────────────────────────────────────────────────────────
         // Only push the drawing back when it changed externally (e.g. undo).

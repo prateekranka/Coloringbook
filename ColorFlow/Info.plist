@@ -74,5 +74,15 @@
 		<false/>
 	</dict>
 
+	<!-- ── Privacy ─────────────────────────────────────────────── -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>ColorFlow needs permission to save your artwork to the Photos library.</string>
+
+	<!-- ── Base orientation key (required alongside ~ipad variant) ── -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+
 </dict>
 </plist>

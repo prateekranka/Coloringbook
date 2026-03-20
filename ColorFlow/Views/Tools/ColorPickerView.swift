@@ -206,7 +206,7 @@ private struct LabeledSlider: View {
                 .font(.caption.bold())
                 .frame(width: 16)
             Slider(value: $value, in: range)
-                .onChange(of: value) { _ in onChange() }
+                .onChange(of: value) { _, _ in onChange() }
         }
     }
 }

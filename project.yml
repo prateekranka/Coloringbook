@@ -42,6 +42,8 @@ targets:
       - path: ColorFlow/Assets.xcassets
       - path: ColorFlow/Resources/templates.json
       - path: ColorFlow/Resources/Palettes/palettes.json
+      - path: ColorFlow/Resources/Templates          # SVG template files
+      - path: ColorFlow/PrivacyInfo.xcprivacy        # Required for App Store submission
 
     # ── Build settings ───────────────────────────────────────────────────────
     settings:
@@ -51,6 +53,13 @@ targets:
         INFOPLIST_FILE: ColorFlow/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "2"
+
+        # Code signing — replace XXXXXXXXXX with your 10-character Apple Developer Team ID
+        # Find it at: https://developer.apple.com/account (Membership Details)
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: XXXXXXXXXX
+        CODE_SIGN_IDENTITY: "Apple Development"
+        CODE_SIGN_ENTITLEMENTS: ColorFlow/ColorFlow.entitlements
 
         # Linker flags (none needed currently — SVGKit is stubbed out)
         OTHER_LDFLAGS: ""

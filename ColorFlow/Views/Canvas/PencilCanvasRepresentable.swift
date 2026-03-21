@@ -47,14 +47,17 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         // Build the layer stack
         context.coordinator.setupLayers(in: canvas)
 
-        // Finger-only tap recogniser for fill / eyedropper / region selection
+        // Tap recogniser for fill / eyedropper / region selection.
+        // allowedTouchTypes is kept up-to-date in updateUIView so that
+        // Apple Pencil taps work for non-drawing tools while still letting
+        // PencilKit own pencil input when a drawing tool is active.
         let tap = UITapGestureRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.handleTap(_:))
         )
-        // Restrict to direct (finger) touch types; value 0 == UITouch.TouchType.direct
         tap.allowedTouchTypes = [UITouch.TouchType.direct.rawValue as NSNumber]
         canvas.addGestureRecognizer(tap)
+        context.coordinator.tapGesture = tap
 
         // Hand the PKCanvasView reference back to the view model (weak)
         DispatchQueue.main.async {
@@ -102,6 +105,25 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         if size != .zero && canvas.contentSize != size {
             coordinator.updateContentSize(size, in: canvas)
         }
+
+        // ── Tool-aware gesture configuration ───────────────────────────────
+        // For non-drawing tools (flood fill, eyedropper):
+        //   • Disable the pan gesture so the canvas doesn't drift while the
+        //     user taps to colour — pinch-to-zoom remains available via the
+        //     separate pinchGestureRecognizer.
+        //   • Also allow Apple Pencil touch type on the tap recogniser so the
+        //     user can tap with the Pencil to fill or pick a colour.
+        // For drawing tools restore normal scroll/pan behaviour and restrict
+        // the tap recogniser back to finger-only so PencilKit owns pencil input.
+        let isNonDrawingTool = viewModel.brushSettings.tool == .floodFill
+                            || viewModel.brushSettings.tool == .eyedropper
+        canvas.panGestureRecognizer.isEnabled = !isNonDrawingTool
+        canvas.pinchGestureRecognizer?.isEnabled = true   // always allow zoom
+
+        coordinator.tapGesture?.allowedTouchTypes = isNonDrawingTool
+            ? [UITouch.TouchType.direct.rawValue as NSNumber,
+               UITouch.TouchType.pencil.rawValue as NSNumber]
+            : [UITouch.TouchType.direct.rawValue as NSNumber]
     }
 
     // MARK: - Coordinator factory
@@ -118,6 +140,13 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         let fillImageView   = UIImageView()
         let lineArtImageView = UIImageView()
         let selectionLayer  = CAShapeLayer()
+
+        /// Kept so updateUIView can toggle allowedTouchTypes dynamically.
+        weak var tapGesture: UITapGestureRecognizer?
+
+        /// Guards against an infinite delegate loop when we revert pencil strokes
+        /// drawn while a non-drawing tool is active.
+        private var isRevertingDrawing = false
 
         init(_ parent: PencilCanvasRepresentable) {
             self.parent = parent
@@ -182,6 +211,8 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             )
             // Allow zooming out to half the fit scale for context.
             canvas.minimumZoomScale = fitScale * 0.5
+            // Allow zooming in up to 10× the fit scale (two-finger pinch).
+            canvas.maximumZoomScale = fitScale * 10.0
             // Only snap to fit-scale if the user hasn't already zoomed manually
             // (zoomScale == 1.0 is the PKCanvasView default before any interaction).
             if canvas.zoomScale >= 0.99 {
@@ -221,6 +252,19 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         // MARK: PKCanvasViewDelegate
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+            guard !isRevertingDrawing else { return }
+
+            let tool = parent.viewModel.brushSettings.tool
+            if tool == .floodFill || tool == .eyedropper {
+                // A pencil tap on a non-drawing tool produces an invisible stroke
+                // (the PKTool colour is .clear).  Revert it immediately so the
+                // undo history stays clean and no ghost strokes accumulate.
+                isRevertingDrawing = true
+                canvasView.drawing = parent.viewModel.drawing
+                isRevertingDrawing = false
+                return
+            }
+
             parent.viewModel.drawing = canvasView.drawing
             parent.viewModel.scheduleAutoSave()
         }

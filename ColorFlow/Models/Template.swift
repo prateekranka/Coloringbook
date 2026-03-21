@@ -9,6 +9,7 @@ enum TemplateCategory: String, CaseIterable, Codable {
     case architecture = "Architecture"
     case abstract = "Abstract"
     case botanicals = "Botanicals"
+    case lifestyle = "Lifestyle"
 
     var systemImageName: String {
         switch self {
@@ -17,6 +18,7 @@ enum TemplateCategory: String, CaseIterable, Codable {
         case .architecture: return "building.2"
         case .abstract: return "square.on.square"
         case .botanicals: return "leaf"
+        case .lifestyle: return "cup.and.saucer"
         }
     }
 }
@@ -122,5 +124,37 @@ extension Template {
                  difficulty: .easy,
                  svgFilename: "hexagon_grid.svg",
                  thumbnailFilename: "thumb_hexagon_grid.png"),
+
+        // ── New lifestyle / scene templates ─────────────────────────────────
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000030")!,
+                 name: "Coffee Morning",
+                 category: .lifestyle,
+                 difficulty: .medium,
+                 svgFilename: "coffee_morning.svg",
+                 thumbnailFilename: "thumb_coffee_morning.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000031")!,
+                 name: "Sleeping Cats",
+                 category: .animals,
+                 difficulty: .medium,
+                 svgFilename: "sleeping_cats.svg",
+                 thumbnailFilename: "thumb_sleeping_cats.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000032")!,
+                 name: "Cloud Sofa",
+                 category: .lifestyle,
+                 difficulty: .easy,
+                 svgFilename: "cloud_sofa.svg",
+                 thumbnailFilename: "thumb_cloud_sofa.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000033")!,
+                 name: "Cat Fish Dinner",
+                 category: .animals,
+                 difficulty: .medium,
+                 svgFilename: "cat_fish_dinner.svg",
+                 thumbnailFilename: "thumb_cat_fish_dinner.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000034")!,
+                 name: "Kitchen Morning",
+                 category: .lifestyle,
+                 difficulty: .hard,
+                 svgFilename: "kitchen_morning.svg",
+                 thumbnailFilename: "thumb_kitchen_morning.png"),
     ]
 }

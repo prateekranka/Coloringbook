@@ -39,7 +39,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         canvas.delegate = context.coordinator
 
         // ProMotion 120 fps where supported
-        canvas.preferredFrameRateRange = CAFrameRateRange(
+        canvas.layer.preferredFrameRateRange = CAFrameRateRange(
             minimum: 60, maximum: 120, preferred: 120
         )
 

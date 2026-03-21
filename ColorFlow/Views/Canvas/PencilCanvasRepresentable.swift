@@ -108,17 +108,18 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
 
         // ── Tool-aware gesture configuration ───────────────────────────────
         // For non-drawing tools (flood fill, eyedropper):
-        //   • Disable the pan gesture so the canvas doesn't drift while the
-        //     user taps to colour — pinch-to-zoom remains available via the
-        //     separate pinchGestureRecognizer.
+        //   • Require 2 fingers to pan so a single tap cannot drift the
+        //     canvas. Two-finger pinch-to-zoom keeps working normally.
+        //     (Disabling panGestureRecognizer entirely breaks PKCanvasView's
+        //     internal touch dispatch, which is why we use minimumNumberOfTouches
+        //     instead of isEnabled.)
         //   • Also allow Apple Pencil touch type on the tap recogniser so the
         //     user can tap with the Pencil to fill or pick a colour.
-        // For drawing tools restore normal scroll/pan behaviour and restrict
-        // the tap recogniser back to finger-only so PencilKit owns pencil input.
+        // For drawing tools restore single-finger panning and restrict the tap
+        // recogniser to fingers only so PencilKit owns pencil input.
         let isNonDrawingTool = viewModel.brushSettings.tool == .floodFill
                             || viewModel.brushSettings.tool == .eyedropper
-        canvas.panGestureRecognizer.isEnabled = !isNonDrawingTool
-        canvas.pinchGestureRecognizer?.isEnabled = true   // always allow zoom
+        canvas.panGestureRecognizer.minimumNumberOfTouches = isNonDrawingTool ? 2 : 1
 
         coordinator.tapGesture?.allowedTouchTypes = isNonDrawingTool
             ? [UITouch.TouchType.direct.rawValue as NSNumber,
@@ -274,12 +275,13 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
             guard let canvas = gesture.view as? PKCanvasView else { return }
 
-            // `location(in:)` returns a point in the scroll view's content
-            // coordinate space, which equals document/canvas coordinates when
-            // zoom scale is 1.  At other zoom scales PKCanvasView already
-            // accounts for the scale in its coordinate system, so we pass the
-            // point directly to view-model methods that expect canvas coords.
-            let point    = gesture.location(in: canvas)
+            // gesture.location(in:) returns coordinates in the UIScrollView's
+            // content space, which is scaled by zoomScale relative to the
+            // underlying document space.  Dividing by zoomScale converts to
+            // document coordinates, which is what the view model expects.
+            let raw = gesture.location(in: canvas)
+            let point = CGPoint(x: raw.x / canvas.zoomScale,
+                                y: raw.y / canvas.zoomScale)
             let canvasSize = parent.viewModel.canvasSize
             guard canvasSize != .zero else { return }
 

@@ -63,7 +63,7 @@ targets:
     # ── Build settings ───────────────────────────────────────────────────────
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.colorflow.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.prateekranka.colorflow
         GENERATE_INFOPLIST_FILE: "NO"
         INFOPLIST_FILE: ColorFlow/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

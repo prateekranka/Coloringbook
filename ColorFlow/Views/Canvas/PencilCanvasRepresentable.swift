@@ -103,6 +103,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         // canvasSize is derived from the SVG viewBox and set after loadTemplate().
         let size = viewModel.canvasSize
         if size != .zero && canvas.contentSize != size {
+            print("[Canvas] contentSize mismatch — setting \(size), zoomScale=\(canvas.zoomScale)")
             coordinator.updateContentSize(size, in: canvas)
         }
 
@@ -120,6 +121,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         let isNonDrawingTool = viewModel.brushSettings.tool == .floodFill
                             || viewModel.brushSettings.tool == .eyedropper
         canvas.panGestureRecognizer.minimumNumberOfTouches = isNonDrawingTool ? 2 : 1
+        print("[Canvas] tool=\(viewModel.brushSettings.tool.rawValue) panMinTouches=\(canvas.panGestureRecognizer.minimumNumberOfTouches) zoomScale=\(canvas.zoomScale)")
 
         coordinator.tapGesture?.allowedTouchTypes = isNonDrawingTool
             ? [UITouch.TouchType.direct.rawValue as NSNumber,
@@ -205,11 +207,15 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             // Auto-fit: zoom so the full template is visible on first load.
             // canvas.bounds is valid here because SwiftUI lays out the view
             // before calling updateUIView.
-            guard canvas.bounds.width > 0, canvas.bounds.height > 0 else { return }
+            guard canvas.bounds.width > 0, canvas.bounds.height > 0 else {
+                print("[Canvas] updateContentSize — bounds not ready yet, skipping zoom")
+                return
+            }
             let fitScale = min(
                 canvas.bounds.width  / size.width,
                 canvas.bounds.height / size.height
             )
+            print("[Canvas] updateContentSize — docSize=\(size) bounds=\(canvas.bounds.size) fitScale=\(fitScale) currentZoom=\(canvas.zoomScale)")
             // Allow zooming out to half the fit scale for context.
             canvas.minimumZoomScale = fitScale * 0.5
             // Allow zooming in up to 10× the fit scale (two-finger pinch).
@@ -222,6 +228,9 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
                 let cx = max(0, (canvas.contentSize.width  * fitScale - canvas.bounds.width)  / 2)
                 let cy = max(0, (canvas.contentSize.height * fitScale - canvas.bounds.height) / 2)
                 canvas.contentOffset = CGPoint(x: cx, y: cy)
+                print("[Canvas] updateContentSize — applied fitScale=\(fitScale) contentOffset=(\(cx),\(cy))")
+            } else {
+                print("[Canvas] updateContentSize — skipped zoom snap (zoomScale=\(canvas.zoomScale) already set by user)")
             }
         }
 
@@ -257,15 +266,14 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
 
             let tool = parent.viewModel.brushSettings.tool
             if tool == .floodFill || tool == .eyedropper {
-                // A pencil tap on a non-drawing tool produces an invisible stroke
-                // (the PKTool colour is .clear).  Revert it immediately so the
-                // undo history stays clean and no ghost strokes accumulate.
+                print("[Canvas] drawingDidChange while tool=\(tool.rawValue) — reverting ghost stroke")
                 isRevertingDrawing = true
                 canvasView.drawing = parent.viewModel.drawing
                 isRevertingDrawing = false
                 return
             }
 
+            print("[Canvas] drawingDidChange — tool=\(tool.rawValue) strokeCount=\(canvasView.drawing.strokes.count)")
             parent.viewModel.drawing = canvasView.drawing
             parent.viewModel.scheduleAutoSave()
         }
@@ -283,9 +291,16 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             let point = CGPoint(x: raw.x / canvas.zoomScale,
                                 y: raw.y / canvas.zoomScale)
             let canvasSize = parent.viewModel.canvasSize
-            guard canvasSize != .zero else { return }
+            let tool = parent.viewModel.brushSettings.tool
 
-            switch parent.viewModel.brushSettings.tool {
+            print("[Canvas] handleTap — tool=\(tool.rawValue) raw=(\(Int(raw.x)),\(Int(raw.y))) zoomScale=\(canvas.zoomScale) docPoint=(\(Int(point.x)),\(Int(point.y))) canvasSize=\(canvasSize) geometryLoaded=\(parent.viewModel.templateGeometry != nil)")
+
+            guard canvasSize != .zero else {
+                print("[Canvas] handleTap — SKIPPED: canvasSize is zero")
+                return
+            }
+
+            switch tool {
             case .floodFill:
                 Task { @MainActor in
                     await parent.viewModel.performRegionFill(at: point, in: canvasSize)

@@ -147,7 +147,10 @@ class CanvasViewModel: ObservableObject {
     /// Convert a view-space tap point to document space, hit-test the geometry,
     /// apply the current brush color, and re-render the fill layer.
     func performRegionFill(at viewPoint: CGPoint, in viewSize: CGSize) async {
-        guard let geometry = templateGeometry else { return }
+        guard let geometry = templateGeometry else {
+            print("[ViewModel] performRegionFill — SKIPPED: templateGeometry is nil")
+            return
+        }
 
         let transform = TemplateRenderer.documentToViewTransform(
             viewBox: geometry.viewBox,
@@ -155,7 +158,13 @@ class CanvasViewModel: ObservableObject {
         )
         let docPoint = viewPoint.applying(transform.inverted())
 
-        guard let region = geometry.region(at: docPoint) else { return }
+        print("[ViewModel] performRegionFill — viewPoint=(\(Int(viewPoint.x)),\(Int(viewPoint.y))) viewSize=\(viewSize) viewBox=\(geometry.viewBox) docPoint=(\(Int(docPoint.x)),\(Int(docPoint.y))) regions=\(geometry.regions.count)")
+
+        guard let region = geometry.region(at: docPoint) else {
+            print("[ViewModel] performRegionFill — NO region hit at docPoint=(\(Int(docPoint.x)),\(Int(docPoint.y)))")
+            return
+        }
+        print("[ViewModel] performRegionFill — hit region '\(region.id)' filling with \(UIColor(brushSettings.color).hexString)")
 
         isFilling = true
 

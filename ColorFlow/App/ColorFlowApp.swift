@@ -95,6 +95,8 @@ struct MainTabView: View {
                     Label("My Work", systemImage: "person.fill")
                 }
         }
+        // Force classic bottom tab bar — iOS 18 iPad defaults to a sidebar/top style.
+        .tabViewStyle(.tabBar)
         .tint(AppTheme.accent)
         // Single canvas presenter — avoids duplicate fullScreenCover conflicts
         // across tabs that all share the same openedProject binding.

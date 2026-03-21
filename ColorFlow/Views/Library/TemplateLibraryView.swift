@@ -55,18 +55,20 @@ private struct TemplateThumbnailCell: View {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.secondary.opacity(0.1))
+                        .fill(Color.white)
                         .aspectRatio(1, contentMode: .fit)
+                        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
 
                     if let thumb = thumbnail {
                         Image(uiImage: thumb)
                             .resizable()
-                            .scaledToFill()
+                            .scaledToFit()
+                            .padding(10)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     } else {
                         Image(systemName: template.category.systemImageName)
                             .font(.largeTitle)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gray.opacity(0.4))
                     }
 
                     // Difficulty badge

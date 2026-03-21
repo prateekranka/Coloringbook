@@ -11,7 +11,7 @@ import PencilKit
 /// overlay) live inside `PencilCanvasRepresentable` so that PKCanvasView's
 /// built-in UIScrollView zoom/pan keeps every layer in sync automatically.
 struct CanvasView: View {
-    @StateObject var viewModel: CanvasViewModel
+    @ObservedObject var viewModel: CanvasViewModel
     @State private var showToolbar = true
     @State private var showColorPicker = false
     @State private var showLayerPanel = false
@@ -70,6 +70,9 @@ struct CanvasView: View {
             }
         }
         .ignoresSafeArea(edges: .all)
+        .onAppear {
+            NSLog("[CanvasView] onAppear — template: %@", viewModel.template.svgFilename)
+        }
         // ── Sheets ────────────────────────────────────────────────────────
         .sheet(isPresented: $showColorPicker) {
             ColorPickerView(

@@ -64,8 +64,11 @@ extension Template {
            let data = try? Data(contentsOf: url),
            let templates = try? JSONDecoder().decode([Template].self, from: data),
            !templates.isEmpty {
+            print("[Template] Loaded \(templates.count) templates from bundle JSON")
             return templates
         }
+        print("[Template] Bundle JSON not found — using hardcoded catalogue (\(Self.bundledTemplates.count) templates)")
+        print("[Template] Bundle resource URL: \(Bundle.main.resourceURL?.path ?? "nil")")
         return Self.bundledTemplates
     }
 

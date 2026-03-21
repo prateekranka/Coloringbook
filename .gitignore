@@ -10,8 +10,5 @@ DerivedData/
 *.dSYM.zip
 *.dSYM
 
-# Local signing config (contains your personal Team ID — keep off remote)
-local.xcconfig
-
 # macOS
 .DS_Store

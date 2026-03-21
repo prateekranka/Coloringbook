@@ -67,14 +67,14 @@ extension Template {
            let data = try? Data(contentsOf: url),
            let templates = try? JSONDecoder().decode([Template].self, from: data),
            !templates.isEmpty {
-            templateLogger.debug("[Template] Loaded \(templates.count) templates from bundle JSON")
-            print("[Template] Loaded \(templates.count) templates from bundle JSON")
+            templateLogger.fault("[Template] Loaded \(templates.count) templates from bundle JSON")
+            NSLog("[Template] Loaded %d templates from bundle JSON", templates.count)
             return templates
         }
-        templateLogger.debug("[Template] Bundle JSON not found — using hardcoded catalogue (\(Self.bundledTemplates.count) templates)")
-        templateLogger.debug("[Template] Bundle resource URL: \(Bundle.main.resourceURL?.path ?? "nil")")
-        print("[Template] Bundle JSON not found — using hardcoded catalogue (\(Self.bundledTemplates.count) templates)")
-        print("[Template] Bundle resource URL: \(Bundle.main.resourceURL?.path ?? "nil")")
+        templateLogger.fault("[Template] Bundle JSON not found — using hardcoded catalogue (\(Self.bundledTemplates.count) templates)")
+        templateLogger.fault("[Template] Bundle resource URL: \(Bundle.main.resourceURL?.path ?? "nil")")
+        NSLog("[Template] Bundle JSON not found — using hardcoded catalogue (%d templates)", Self.bundledTemplates.count)
+        NSLog("[Template] Bundle resource URL: %@", Bundle.main.resourceURL?.path ?? "nil")
         return Self.bundledTemplates
     }
 

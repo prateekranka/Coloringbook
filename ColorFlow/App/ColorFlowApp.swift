@@ -8,8 +8,8 @@ struct ColorFlowApp: App {
     @StateObject private var galleryViewModel = GalleryViewModel()
 
     init() {
-        appLogger.debug("[ColorFlowApp] init — app is starting")
-        print("[ColorFlowApp] init — app is starting")
+        appLogger.fault("[ColorFlowApp] init — app is starting")
+        NSLog("[ColorFlowApp] init — app is starting")
     }
 
     var body: some Scene {

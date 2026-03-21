@@ -62,6 +62,7 @@ struct CanvasView: View {
                             showColorPicker: $showColorPicker,
                             showLayerPanel: $showLayerPanel
                         )
+                        .fixedSize()
                         .transition(.move(edge: .leading))
                     }
                     Spacer(minLength: 0)

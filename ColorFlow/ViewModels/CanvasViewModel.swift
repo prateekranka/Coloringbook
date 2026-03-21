@@ -32,7 +32,7 @@ class CanvasViewModel: ObservableObject {
     @Published var selectedRegionID: String?
 
     /// Canvas size derived from the SVG viewBox after loading.
-    @Published var canvasSize: CGSize = CGSize(width: 2732, height: 2048)
+    @Published var canvasSize: CGSize = .zero
 
     // MARK: - Layer Visibility Helpers
 

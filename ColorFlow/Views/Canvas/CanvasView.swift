@@ -18,52 +18,58 @@ struct CanvasView: View {
 
     var body: some View {
         ZStack {
-            // Single representable that hosts ALL pixel layers internally.
-            // Zoom/pan is provided by PKCanvasView's UIScrollView; finger
-            // taps are intercepted by the representable's gesture recogniser
-            // and forwarded to the view model.
-            Color.white.ignoresSafeArea()   // explicit background so ZStack fills the screen
+            // Canvas (fills entire screen including safe areas)
+            Color.white.ignoresSafeArea()
             PencilCanvasRepresentable(viewModel: viewModel)
                 .ignoresSafeArea()
 
-            // Flood-fill progress overlay — intentionally outside the
-            // representable so it floats above the canvas at screen coords.
+            // Flood-fill progress overlay
             if viewModel.isFilling {
                 Color.black.opacity(0.15)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
-
                 ProgressView("Filling…")
                     .padding()
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
-        }
-        // ── Side toolbar ──────────────────────────────────────────────────
-        .overlay(alignment: .leading) {
-            if showToolbar {
-                ToolbarView(
-                    viewModel: viewModel,
-                    showColorPicker: $showColorPicker,
-                    showLayerPanel: $showLayerPanel
-                )
-                .transition(.move(edge: .leading))
-            }
-        }
-        // ── Toolbar toggle button (top-leading corner) ────────────────────
-        .overlay(alignment: .topLeading) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    showToolbar.toggle()
+
+            // ── Chrome layer (toolbar + back button) ──────────────────────
+            // Use an HStack so the toolbar is always left-anchored regardless
+            // of safe-area or presentation context.
+            VStack(spacing: 0) {
+                // Back / hide-toolbar button pinned to top-leading
+                HStack {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            showToolbar.toggle()
+                        }
+                    } label: {
+                        Image(systemName: showToolbar
+                              ? "chevron.left.circle.fill"
+                              : "chevron.right.circle.fill")
+                            .font(.title2)
+                            .padding(12)
+                    }
+                    .tint(.primary)
+                    Spacer()
                 }
-            } label: {
-                Image(systemName: showToolbar
-                      ? "chevron.left.circle.fill"
-                      : "chevron.right.circle.fill")
-                    .font(.title2)
-                    .padding(12)
+
+                // Toolbar below the button, left-aligned
+                HStack(alignment: .top, spacing: 0) {
+                    if showToolbar {
+                        ToolbarView(
+                            viewModel: viewModel,
+                            showColorPicker: $showColorPicker,
+                            showLayerPanel: $showLayerPanel
+                        )
+                        .transition(.move(edge: .leading))
+                    }
+                    Spacer(minLength: 0)
+                }
+                Spacer(minLength: 0)
             }
-            .tint(.primary)
         }
+        .ignoresSafeArea(edges: .all)
         // ── Sheets ────────────────────────────────────────────────────────
         .sheet(isPresented: $showColorPicker) {
             ColorPickerView(

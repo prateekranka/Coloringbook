@@ -38,8 +38,9 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         canvas.isOpaque = false
         canvas.delegate = context.coordinator
 
-        // Zoom limits — PKCanvasView honours these as a UIScrollView
-        canvas.minimumZoomScale = 1.0
+        // Zoom limits — set a generous range; updateContentSize tightens the
+        // minimum and sets the initial zoom to fit the template on screen.
+        canvas.minimumZoomScale = 0.1
         canvas.maximumZoomScale = 5.0
         canvas.bouncesZoom = true
 
@@ -170,6 +171,26 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             backgroundView.frame   = rect
             fillImageView.frame    = rect
             lineArtImageView.frame = rect
+
+            // Auto-fit: zoom so the full template is visible on first load.
+            // canvas.bounds is valid here because SwiftUI lays out the view
+            // before calling updateUIView.
+            guard canvas.bounds.width > 0, canvas.bounds.height > 0 else { return }
+            let fitScale = min(
+                canvas.bounds.width  / size.width,
+                canvas.bounds.height / size.height
+            )
+            // Allow zooming out to half the fit scale for context.
+            canvas.minimumZoomScale = fitScale * 0.5
+            // Only snap to fit-scale if the user hasn't already zoomed manually
+            // (zoomScale == 1.0 is the PKCanvasView default before any interaction).
+            if canvas.zoomScale >= 0.99 {
+                canvas.setZoomScale(fitScale, animated: false)
+                // Centre the content after zoom.
+                let cx = max(0, (canvas.contentSize.width  * fitScale - canvas.bounds.width)  / 2)
+                let cy = max(0, (canvas.contentSize.height * fitScale - canvas.bounds.height) / 2)
+                canvas.contentOffset = CGPoint(x: cx, y: cy)
+            }
         }
 
         // MARK: Selection highlight

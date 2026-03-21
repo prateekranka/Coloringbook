@@ -5,9 +5,36 @@ struct ToolbarView: View {
     @ObservedObject var viewModel: CanvasViewModel
     @Binding var showColorPicker: Bool
     @Binding var showLayerPanel: Bool
+    var onDismiss: (() -> Void)? = nil
+    var onToggleToolbar: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 4) {
+            // Back + toggle row at the top of the panel
+            HStack(spacing: 0) {
+                if let onDismiss {
+                    Button(action: onDismiss) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(width: 36, height: 36)
+                            .foregroundStyle(Color.primary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer(minLength: 0)
+                if let onToggleToolbar {
+                    Button(action: onToggleToolbar) {
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(width: 36, height: 36)
+                            .foregroundStyle(Color.primary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Divider().padding(.horizontal, 6)
+
             // Color well — opens full color picker sheet
             ColorWellButton(color: viewModel.brushSettings.color) {
                 showColorPicker = true
@@ -56,7 +83,7 @@ struct ToolbarView: View {
         .padding(.horizontal, 6)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .padding(.leading, 12)
-        .padding(.vertical, 60)
+        .padding(.top, 12)
     }
 }
 

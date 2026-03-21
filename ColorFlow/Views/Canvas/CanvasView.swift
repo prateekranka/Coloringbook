@@ -34,51 +34,58 @@ struct CanvasView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
 
-            // ── Chrome layer (toolbar + back button) ──────────────────────
-            VStack(spacing: 0) {
-                // Top row: back-to-gallery button + toolbar toggle
-                HStack {
-                    // Back button — dismisses the fullScreenCover
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.title2)
-                            .padding(12)
-                    }
-                    .tint(.primary)
-
-                    // Toolbar show / hide toggle
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.22)) {
-                            showToolbar.toggle()
+            // ── Chrome layer (toolbar) ────────────────────────────────────
+            // NOTE: do NOT put .ignoresSafeArea on the ZStack itself — that
+            // clears safe-area insets for ALL children, hiding chrome under
+            // the status bar.  Each full-bleed layer (canvas, white bg) has
+            // its own .ignoresSafeArea() above.
+            HStack(alignment: .top, spacing: 0) {
+                if showToolbar {
+                    ToolbarView(
+                        viewModel: viewModel,
+                        showColorPicker: $showColorPicker,
+                        showLayerPanel: $showLayerPanel,
+                        onDismiss: { dismiss() },
+                        onToggleToolbar: {
+                            withAnimation(.easeInOut(duration: 0.22)) {
+                                showToolbar.toggle()
+                            }
                         }
-                    } label: {
-                        Image(systemName: showToolbar ? "sidebar.left" : "sidebar.right")
-                            .font(.title2)
-                            .padding(12)
-                    }
-                    .tint(.primary)
-                    Spacer()
-                }
+                    )
+                    .fixedSize()
+                    .transition(.move(edge: .leading))
+                } else {
+                    // When toolbar is hidden, show a small floating button
+                    // to restore it (back button is inside the toolbar).
+                    VStack(spacing: 4) {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.title3)
+                                .padding(10)
+                                .background(.regularMaterial, in: Circle())
+                        }
+                        .tint(.primary)
 
-                // Toolbar below the button, left-aligned
-                HStack(alignment: .top, spacing: 0) {
-                    if showToolbar {
-                        ToolbarView(
-                            viewModel: viewModel,
-                            showColorPicker: $showColorPicker,
-                            showLayerPanel: $showLayerPanel
-                        )
-                        .fixedSize()
-                        .transition(.move(edge: .leading))
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.22)) {
+                                showToolbar.toggle()
+                            }
+                        } label: {
+                            Image(systemName: "sidebar.right")
+                                .font(.title3)
+                                .padding(10)
+                                .background(.regularMaterial, in: Circle())
+                        }
+                        .tint(.primary)
                     }
-                    Spacer(minLength: 0)
+                    .padding(.leading, 12)
+                    .padding(.top, 12)
                 }
                 Spacer(minLength: 0)
             }
         }
-        .ignoresSafeArea(edges: .all)
         .onAppear {
             NSLog("[CanvasView] onAppear — template: %@", viewModel.template.svgFilename)
         }

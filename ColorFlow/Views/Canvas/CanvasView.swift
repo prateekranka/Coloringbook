@@ -12,6 +12,7 @@ import PencilKit
 /// built-in UIScrollView zoom/pan keeps every layer in sync automatically.
 struct CanvasView: View {
     @ObservedObject var viewModel: CanvasViewModel
+    @Environment(\.dismiss) private var dismiss
     @State private var showToolbar = true
     @State private var showColorPicker = false
     @State private var showLayerPanel = false
@@ -34,19 +35,26 @@ struct CanvasView: View {
             }
 
             // ── Chrome layer (toolbar + back button) ──────────────────────
-            // Use an HStack so the toolbar is always left-anchored regardless
-            // of safe-area or presentation context.
             VStack(spacing: 0) {
-                // Back / hide-toolbar button pinned to top-leading
+                // Top row: back-to-gallery button + toolbar toggle
                 HStack {
+                    // Back button — dismisses the fullScreenCover
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.title2)
+                            .padding(12)
+                    }
+                    .tint(.primary)
+
+                    // Toolbar show / hide toggle
                     Button {
                         withAnimation(.easeInOut(duration: 0.22)) {
                             showToolbar.toggle()
                         }
                     } label: {
-                        Image(systemName: showToolbar
-                              ? "chevron.left.circle.fill"
-                              : "chevron.right.circle.fill")
+                        Image(systemName: showToolbar ? "sidebar.left" : "sidebar.right")
                             .font(.title2)
                             .padding(12)
                     }

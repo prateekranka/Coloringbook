@@ -2,127 +2,139 @@ import SwiftUI
 import PencilKit
 import CoreGraphics
 
-/// UIViewRepresentable that wraps PKCanvasView and owns every pixel layer of
-/// the coloring canvas.
+/// UIViewRepresentable that wraps a custom UIScrollView + PKCanvasView stack.
 ///
-/// Layer order inside PKCanvasView (bottom → top):
-///   1. `backgroundView`    – solid UIView filled with the canvas background colour
-///   2. `fillImageView`     – UIImageView showing flood-filled regions
-///   3. PKCanvasView drawing surface (built-in, not a separate subview)
-///   4. `lineArtImageView`  – UIImageView with the SVG line art, composited with
-///                            Core Animation's "multiplyBlendMode" filter
-///   5. `selectionLayer`    – CAShapeLayer drawn as a marching-ants dashed border
-///                            around the currently selected region
+/// WHY a wrapper scroll view?
+/// --------------------------
+/// PKCanvasView is itself a UIScrollView.  When you call `setZoomScale` on it,
+/// UIKit only scales PencilKit's *internal* canvas layer (its "zoom view").
+/// Any OTHER subviews we add (background, fill image, line-art overlay) are
+/// siblings of that internal layer and are NOT scaled — they stay at full
+/// document size while the drawing surface shrinks, causing the visual split
+/// visible in the screenshot.
 ///
-/// Zoom / Pan
-/// ----------
-/// PKCanvasView is a UIScrollView subclass. Setting `drawingPolicy = .pencilOnly`
-/// lets finger touches scroll/zoom while the Apple Pencil draws. We only
-/// configure the zoom scale limits here; PKCanvasView handles the rest.
+/// The fix is to wrap everything inside ONE UIScrollView and return a single
+/// content container as the `viewForZooming`.  All layers then scale together.
 ///
-/// Tap handling
-/// ------------
-/// A UITapGestureRecognizer restricted to direct (finger) touches intercepts
-/// taps and forwards them to the view model as document-space coordinates.
+/// Layer order inside contentContainer (bottom → top):
+///   1. backgroundView    – solid colour background
+///   2. fillImageView     – rendered fill regions
+///   3. PKCanvasView      – PencilKit strokes (scroll + zoom DISABLED; outer SV owns that)
+///   4. lineArtImageView  – SVG line art with multiplyBlendMode compositing filter
+///   5. selectionLayer    – CAShapeLayer marching-ants selection highlight
 struct PencilCanvasRepresentable: UIViewRepresentable {
     @ObservedObject var viewModel: CanvasViewModel
 
     // MARK: - makeUIView
 
-    func makeUIView(context: Context) -> PKCanvasView {
+    func makeUIView(context: Context) -> UIView {
+        let coordinator = context.coordinator
+
+        // ── Outer container (fills SwiftUI's allocated space) ───────────────
+        let container = UIView()
+        container.backgroundColor = .white
+
+        // ── Scroll view (zoom + pan for ALL layers) ─────────────────────────
+        let scrollView = UIScrollView()
+        scrollView.delegate = coordinator
+        scrollView.minimumZoomScale = 0.1
+        scrollView.maximumZoomScale = 10.0
+        scrollView.bouncesZoom = true
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.backgroundColor = .white
+        scrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        scrollView.frame = container.bounds
+        container.addSubview(scrollView)
+        coordinator.scrollView = scrollView
+
+        // ── Content container (the UIScrollView zoom view) ──────────────────
+        // All pixel layers live here so they zoom / pan as a unit.
+        let content = UIView()
+        content.backgroundColor = .clear
+        scrollView.addSubview(content)
+        coordinator.contentContainer = content
+
+        // ── PKCanvasView (drawing only; no scroll / zoom of its own) ────────
         let canvas = PKCanvasView()
         canvas.drawing = viewModel.drawing
         canvas.tool = viewModel.currentPKTool
-        canvas.drawingPolicy = .pencilOnly   // fingers → scroll / zoom
+        canvas.drawingPolicy = .pencilOnly   // fingers → outer scroll view
         canvas.backgroundColor = .clear
         canvas.isOpaque = false
-        canvas.delegate = context.coordinator
+        canvas.isScrollEnabled = false       // outer scroll view owns panning
+        canvas.minimumZoomScale = 1.0        // disable PK's own zoom
+        canvas.maximumZoomScale = 1.0
+        canvas.delegate = coordinator
+        content.addSubview(canvas)
+        coordinator.canvas = canvas
 
-        // Zoom limits — set a generous range; updateContentSize tightens the
-        // minimum and sets the initial zoom to fit the template on screen.
-        canvas.minimumZoomScale = 0.1
-        canvas.maximumZoomScale = 5.0
-        canvas.bouncesZoom = true
+        // ── Pixel layers ────────────────────────────────────────────────────
+        coordinator.setupLayers(in: content, canvas: canvas)
 
-        // Build the layer stack
-        context.coordinator.setupLayers(in: canvas)
-
-        // Tap recogniser for fill / eyedropper / region selection.
-        // allowedTouchTypes is kept up-to-date in updateUIView so that
-        // Apple Pencil taps work for non-drawing tools while still letting
-        // PencilKit own pencil input when a drawing tool is active.
+        // ── Tap gesture (fill / eyedropper / region selection) ──────────────
+        // Placed on the scroll view so it fires before scroll gestures.
         let tap = UITapGestureRecognizer(
-            target: context.coordinator,
+            target: coordinator,
             action: #selector(Coordinator.handleTap(_:))
         )
         tap.allowedTouchTypes = [UITouch.TouchType.direct.rawValue as NSNumber]
-        canvas.addGestureRecognizer(tap)
-        context.coordinator.tapGesture = tap
+        scrollView.addGestureRecognizer(tap)
+        coordinator.tapGesture = tap
 
-        // Hand the PKCanvasView reference back to the view model (weak)
+        // Expose the PKCanvasView to the view model (weak ref).
         DispatchQueue.main.async {
             viewModel.pencilCanvas = canvas
         }
 
-        return canvas
+        return container
     }
 
     // MARK: - updateUIView
 
-    func updateUIView(_ canvas: PKCanvasView, context: Context) {
+    func updateUIView(_ container: UIView, context: Context) {
         let coordinator = context.coordinator
+        guard let canvas    = coordinator.canvas,
+              let scrollView = coordinator.scrollView else { return }
 
-        // ── PencilKit tool ─────────────────────────────────────────────────
-        // currentPKTool is a computed property (new instance each call),
-        // so identity comparison is unreliable — always sync the tool.
+        // ── PencilKit tool ──────────────────────────────────────────────────
         canvas.tool = viewModel.currentPKTool
 
-        // ── Drawing ────────────────────────────────────────────────────────
-        // Only push the drawing back when it changed externally (e.g. undo).
+        // ── Drawing ─────────────────────────────────────────────────────────
         if canvas.drawing != viewModel.drawing {
             canvas.drawing = viewModel.drawing
         }
 
-        // ── Background colour ──────────────────────────────────────────────
+        // ── Background colour ───────────────────────────────────────────────
         coordinator.backgroundView.backgroundColor = UIColor(viewModel.backgroundColor)
 
-        // ── Fill layer ─────────────────────────────────────────────────────
+        // ── Fill layer ──────────────────────────────────────────────────────
         coordinator.fillImageView.image = viewModel.showColorLayer
             ? viewModel.fillLayerImage
             : nil
 
-        // ── Line-art overlay ───────────────────────────────────────────────
+        // ── Line-art overlay ────────────────────────────────────────────────
         coordinator.lineArtImageView.image = viewModel.showLineArt
             ? viewModel.templateImage
             : nil
 
-        // ── Selection highlight ────────────────────────────────────────────
+        // ── Selection highlight ─────────────────────────────────────────────
         coordinator.updateSelectionHighlight()
 
-        // ── Content size ───────────────────────────────────────────────────
-        // canvasSize is derived from the SVG viewBox and set after loadTemplate().
+        // ── Content size ────────────────────────────────────────────────────
         let size = viewModel.canvasSize
-        if size != .zero && canvas.contentSize != size {
-            print("[Canvas] contentSize mismatch — setting \(size), zoomScale=\(canvas.zoomScale)")
-            coordinator.updateContentSize(size, in: canvas)
+        if size != .zero && coordinator.contentContainer?.frame.size != size {
+            print("[Canvas] contentSize mismatch — setting \(size), zoomScale=\(scrollView.zoomScale)")
+            coordinator.updateContentSize(size, in: scrollView)
         }
 
-        // ── Tool-aware gesture configuration ───────────────────────────────
-        // For non-drawing tools (flood fill, eyedropper):
-        //   • Require 2 fingers to pan so a single tap cannot drift the
-        //     canvas. Two-finger pinch-to-zoom keeps working normally.
-        //     (Disabling panGestureRecognizer entirely breaks PKCanvasView's
-        //     internal touch dispatch, which is why we use minimumNumberOfTouches
-        //     instead of isEnabled.)
-        //   • Also allow Apple Pencil touch type on the tap recogniser so the
-        //     user can tap with the Pencil to fill or pick a colour.
-        // For drawing tools restore single-finger panning and restrict the tap
-        // recogniser to fingers only so PencilKit owns pencil input.
+        // ── Tool-aware tap / gesture config ─────────────────────────────────
         let isNonDrawingTool = viewModel.brushSettings.tool == .floodFill
                             || viewModel.brushSettings.tool == .eyedropper
-        canvas.panGestureRecognizer.minimumNumberOfTouches = isNonDrawingTool ? 2 : 1
-        print("[Canvas] tool=\(viewModel.brushSettings.tool.rawValue) panMinTouches=\(canvas.panGestureRecognizer.minimumNumberOfTouches) zoomScale=\(canvas.zoomScale)")
+        print("[Canvas] updateUIView tool=\(viewModel.brushSettings.tool.rawValue) isNonDrawing=\(isNonDrawingTool) zoomScale=\(scrollView.zoomScale)")
 
+        // Enable tap recogniser only for non-drawing tools.
+        coordinator.tapGesture?.isEnabled = isNonDrawingTool
         coordinator.tapGesture?.allowedTouchTypes = isNonDrawingTool
             ? [UITouch.TouchType.direct.rawValue as NSNumber,
                UITouch.TouchType.pencil.rawValue as NSNumber]
@@ -135,102 +147,119 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
 
     // MARK: - Coordinator
 
-    class Coordinator: NSObject, PKCanvasViewDelegate {
+    class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate {
         var parent: PencilCanvasRepresentable
 
-        // ── Subviews / sublayers ──────────────────────────────────────────
-        let backgroundView  = UIView()
-        let fillImageView   = UIImageView()
+        // ── Stored UIKit references ───────────────────────────────────────
+        weak var scrollView: UIScrollView?
+        weak var canvas: PKCanvasView?
+        var contentContainer: UIView?
+
+        // ── Pixel-layer subviews ──────────────────────────────────────────
+        let backgroundView   = UIView()
+        let fillImageView    = UIImageView()
         let lineArtImageView = UIImageView()
-        let selectionLayer  = CAShapeLayer()
+        let selectionLayer   = CAShapeLayer()
 
         /// Kept so updateUIView can toggle allowedTouchTypes dynamically.
         weak var tapGesture: UITapGestureRecognizer?
 
-        /// Guards against an infinite delegate loop when we revert pencil strokes
-        /// drawn while a non-drawing tool is active.
+        /// Guards against infinite delegate loop when reverting ghost strokes.
         private var isRevertingDrawing = false
 
         init(_ parent: PencilCanvasRepresentable) {
             self.parent = parent
         }
 
+        // MARK: UIScrollViewDelegate — zoom view
+
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+            return contentContainer
+        }
+
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            // Keep the content container centred when smaller than the scroll view.
+            guard let content = contentContainer else { return }
+            let offsetX = max(0, (scrollView.bounds.width  - content.frame.width)  / 2)
+            let offsetY = max(0, (scrollView.bounds.height - content.frame.height) / 2)
+            content.frame.origin = CGPoint(x: offsetX, y: offsetY)
+        }
+
         // MARK: Layer setup
 
-        func setupLayers(in canvas: PKCanvasView) {
-            // 1. Background — inserted at index 0 (below PK drawing surface)
+        func setupLayers(in container: UIView, canvas: PKCanvasView) {
+            // 1. Background — behind the PKCanvasView
             backgroundView.backgroundColor = UIColor(parent.viewModel.backgroundColor)
             backgroundView.isUserInteractionEnabled = false
-            canvas.insertSubview(backgroundView, at: 0)
+            container.insertSubview(backgroundView, at: 0)
 
-            // 2. Fill image — above background, below PK drawing surface
-            fillImageView.contentMode = .scaleAspectFit
+            // 2. Fill image — above background, below PKCanvasView strokes
+            fillImageView.contentMode = .scaleToFill
             fillImageView.isUserInteractionEnabled = false
-            canvas.insertSubview(fillImageView, aboveSubview: backgroundView)
+            container.insertSubview(fillImageView, aboveSubview: backgroundView)
 
-            // 4. Line-art overlay — on top of the PK drawing surface.
-            //    Use Core Animation's string-based compositing filter so the
-            //    white areas of the line-art image become transparent.
-            lineArtImageView.contentMode = .scaleAspectFit
+            // canvas was inserted at index 2 by the representable
+
+            // 3. Line-art overlay — above PKCanvasView strokes
+            lineArtImageView.contentMode = .scaleToFill
             lineArtImageView.isUserInteractionEnabled = false
             lineArtImageView.layer.compositingFilter = "multiplyBlendMode"
-            canvas.addSubview(lineArtImageView)
+            container.addSubview(lineArtImageView)
 
-            // 5. Selection highlight (CAShapeLayer with marching-ants animation)
+            // 4. Selection highlight (marching-ants)
             selectionLayer.fillColor   = nil
             selectionLayer.strokeColor = UIColor.systemBlue.cgColor
             selectionLayer.lineWidth   = 2.0
             selectionLayer.lineDashPattern = [8, 4]
             selectionLayer.isHidden    = true
 
-            // Marching-ants: animate the dash phase continuously
-            let dashAnimation = CABasicAnimation(keyPath: "lineDashPhase")
-            dashAnimation.fromValue  = 0
-            dashAnimation.toValue    = 12          // sum of dash + gap = 8 + 4
-            dashAnimation.duration   = 0.5
-            dashAnimation.repeatCount = .infinity
-            selectionLayer.add(dashAnimation, forKey: "marchingAnts")
+            let dashAnim = CABasicAnimation(keyPath: "lineDashPhase")
+            dashAnim.fromValue   = 0
+            dashAnim.toValue     = 12
+            dashAnim.duration    = 0.5
+            dashAnim.repeatCount = .infinity
+            selectionLayer.add(dashAnim, forKey: "marchingAnts")
 
-            canvas.layer.addSublayer(selectionLayer)
+            container.layer.addSublayer(selectionLayer)
         }
 
-        // MARK: Content size / frame updates
+        // MARK: Content size / layout
 
-        /// Called when `viewModel.canvasSize` changes (after template load).
-        func updateContentSize(_ size: CGSize, in canvas: PKCanvasView) {
-            canvas.contentSize = size
+        func updateContentSize(_ size: CGSize, in scrollView: UIScrollView) {
             let rect = CGRect(origin: .zero, size: size)
-            backgroundView.frame   = rect
-            fillImageView.frame    = rect
-            lineArtImageView.frame = rect
 
-            // Auto-fit: zoom so the full template is visible on first load.
-            // canvas.bounds is valid here because SwiftUI lays out the view
-            // before calling updateUIView.
-            guard canvas.bounds.width > 0, canvas.bounds.height > 0 else {
-                print("[Canvas] updateContentSize — bounds not ready yet, skipping zoom")
+            // Size all layers to the document dimensions.
+            contentContainer?.frame = rect
+            canvas?.frame           = rect
+            canvas?.contentSize     = size
+            backgroundView.frame    = rect
+            fillImageView.frame     = rect
+            lineArtImageView.frame  = rect
+
+            // The scroll view's contentSize matches the document too; UIKit
+            // will expand it as needed when zoom applies the scale transform.
+            scrollView.contentSize = size
+
+            guard scrollView.bounds.width > 0, scrollView.bounds.height > 0 else {
+                print("[Canvas] updateContentSize — bounds not ready, skipping fit-zoom")
                 return
             }
+
             let fitScale = min(
-                canvas.bounds.width  / size.width,
-                canvas.bounds.height / size.height
+                scrollView.bounds.width  / size.width,
+                scrollView.bounds.height / size.height
             )
-            print("[Canvas] updateContentSize — docSize=\(size) bounds=\(canvas.bounds.size) fitScale=\(fitScale) currentZoom=\(canvas.zoomScale)")
-            // Allow zooming out to half the fit scale for context.
-            canvas.minimumZoomScale = fitScale * 0.5
-            // Allow zooming in up to 10× the fit scale (two-finger pinch).
-            canvas.maximumZoomScale = fitScale * 10.0
-            // Only snap to fit-scale if the user hasn't already zoomed manually
-            // (zoomScale == 1.0 is the PKCanvasView default before any interaction).
-            if canvas.zoomScale >= 0.99 {
-                canvas.setZoomScale(fitScale, animated: false)
-                // Centre the content after zoom.
-                let cx = max(0, (canvas.contentSize.width  * fitScale - canvas.bounds.width)  / 2)
-                let cy = max(0, (canvas.contentSize.height * fitScale - canvas.bounds.height) / 2)
-                canvas.contentOffset = CGPoint(x: cx, y: cy)
-                print("[Canvas] updateContentSize — applied fitScale=\(fitScale) contentOffset=(\(cx),\(cy))")
+            print("[Canvas] updateContentSize — docSize=\(size) bounds=\(scrollView.bounds.size) fitScale=\(fitScale) currentZoom=\(scrollView.zoomScale)")
+
+            scrollView.minimumZoomScale = fitScale * 0.5
+            scrollView.maximumZoomScale = fitScale * 10.0
+
+            if scrollView.zoomScale >= 0.99 {
+                scrollView.setZoomScale(fitScale, animated: false)
+                scrollViewDidZoom(scrollView)
+                print("[Canvas] updateContentSize — applied fitScale=\(fitScale)")
             } else {
-                print("[Canvas] updateContentSize — skipped zoom snap (zoomScale=\(canvas.zoomScale) already set by user)")
+                print("[Canvas] updateContentSize — skipped zoom snap (user already zoomed to \(scrollView.zoomScale))")
             }
         }
 
@@ -247,14 +276,10 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
                 return
             }
 
-            // Build the transform that maps SVG document coords → canvas coords.
             var transform = TemplateRenderer.documentToViewTransform(
                 viewBox: geometry.viewBox,
                 viewSize: parent.viewModel.canvasSize
             )
-
-            // CGPath.copy(using:) requires an UnsafePointer<CGAffineTransform>.
-            // We pass &transform — the address of the local `var`.
             selectionLayer.path    = region.path.copy(using: &transform)
             selectionLayer.isHidden = false
         }
@@ -281,21 +306,17 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         // MARK: Tap gesture
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
-            guard let canvas = gesture.view as? PKCanvasView else { return }
+            // gesture.location(in: contentContainer) gives coordinates directly
+            // in the document / content space — no zoomScale division needed.
+            guard let content = contentContainer else { return }
 
-            // gesture.location(in:) returns coordinates in the UIScrollView's
-            // content space, which is scaled by zoomScale relative to the
-            // underlying document space.  Dividing by zoomScale converts to
-            // document coordinates, which is what the view model expects.
-            let raw = gesture.location(in: canvas)
-            let point = CGPoint(x: raw.x / canvas.zoomScale,
-                                y: raw.y / canvas.zoomScale)
-            let canvasSize = parent.viewModel.canvasSize
-            let tool = parent.viewModel.brushSettings.tool
+            let point    = gesture.location(in: content)
+            let docSize  = parent.viewModel.canvasSize
+            let tool     = parent.viewModel.brushSettings.tool
 
-            print("[Canvas] handleTap — tool=\(tool.rawValue) raw=(\(Int(raw.x)),\(Int(raw.y))) zoomScale=\(canvas.zoomScale) docPoint=(\(Int(point.x)),\(Int(point.y))) canvasSize=\(canvasSize) geometryLoaded=\(parent.viewModel.templateGeometry != nil)")
+            print("[Canvas] handleTap — tool=\(tool.rawValue) docPoint=(\(Int(point.x)),\(Int(point.y))) docSize=\(docSize) geometryLoaded=\(parent.viewModel.templateGeometry != nil)")
 
-            guard canvasSize != .zero else {
+            guard docSize != .zero else {
                 print("[Canvas] handleTap — SKIPPED: canvasSize is zero")
                 return
             }
@@ -303,16 +324,14 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             switch tool {
             case .floodFill:
                 Task { @MainActor in
-                    await parent.viewModel.performRegionFill(at: point, in: canvasSize)
+                    await parent.viewModel.performRegionFill(at: point, in: docSize)
                 }
 
             case .eyedropper:
-                parent.viewModel.pickColor(at: point, in: canvasSize)
+                parent.viewModel.pickColor(at: point, in: docSize)
 
             default:
-                // For pencil / marker / eraser tools a tap can still select a
-                // region for the selection-highlight overlay.
-                parent.viewModel.selectRegion(at: point, in: canvasSize)
+                parent.viewModel.selectRegion(at: point, in: docSize)
             }
         }
     }

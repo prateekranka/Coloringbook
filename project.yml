@@ -82,8 +82,6 @@ schemes:
         ColorFlow: all
     run:
       config: Debug
-      askForAppToLaunch: false
-      launchAutomaticallySubstyle: 2   # launch at login
     test:
       config: Debug
     profile:

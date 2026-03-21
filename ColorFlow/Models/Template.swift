@@ -44,10 +44,15 @@ struct Template: Identifiable, Codable, Hashable {
     let thumbnailFilename: String // pre-rendered 400×400 PNG cached on first launch
 
     var svgURL: URL? {
-        // Try bundle root first (flat copy), then inside a "Templates" subdirectory
-        // (XcodeGen folder-reference copy).
-        Bundle.main.url(forResource: svgFilename, withExtension: nil)
-            ?? Bundle.main.url(forResource: "Templates/\(svgFilename)", withExtension: nil)
+        // Bundle.url(forResource:withExtension:subdirectory:) is the correct API
+        // for files inside a folder reference (folder reference → Templates/ in bundle).
+        let name = (svgFilename as NSString).deletingPathExtension
+        let ext  = (svgFilename as NSString).pathExtension
+
+        return Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Templates")
+            // Flat copy fallback (files copied directly to bundle root)
+            ?? Bundle.main.url(forResource: name, withExtension: ext)
+            // Manual path fallback
             ?? Bundle.main.resourceURL.flatMap {
                 let url = $0.appendingPathComponent("Templates/\(svgFilename)")
                 return FileManager.default.fileExists(atPath: url.path) ? url : nil

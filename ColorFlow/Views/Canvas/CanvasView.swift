@@ -22,6 +22,7 @@ struct CanvasView: View {
             // Zoom/pan is provided by PKCanvasView's UIScrollView; finger
             // taps are intercepted by the representable's gesture recogniser
             // and forwarded to the view model.
+            Color.white.ignoresSafeArea()   // explicit background so ZStack fills the screen
             PencilCanvasRepresentable(viewModel: viewModel)
                 .ignoresSafeArea()
 

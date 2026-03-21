@@ -1,8 +1,16 @@
 import SwiftUI
+import OSLog
+
+private let appLogger = Logger(subsystem: "com.colorflow.app", category: "App")
 
 @main
 struct ColorFlowApp: App {
     @StateObject private var galleryViewModel = GalleryViewModel()
+
+    init() {
+        appLogger.debug("[ColorFlowApp] init — app is starting")
+        print("[ColorFlowApp] init — app is starting")
+    }
 
     var body: some Scene {
         WindowGroup {

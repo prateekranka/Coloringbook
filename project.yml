@@ -38,20 +38,27 @@ targets:
           - "Resources/**"         # bundled via resources below
 
     # ── Bundle resources ─────────────────────────────────────────────────────
-    # List each file explicitly so xcodegen adds them to Copy Bundle Resources.
-    # Individual files land at the bundle root; the hardcoded svgURL fallback
-    # finds them via Bundle.main.url(forResource:withExtension:).
     resources:
       - path: ColorFlow/Assets.xcassets
       - path: ColorFlow/Resources/templates.json
       - path: ColorFlow/Resources/Palettes/palettes.json
-      - path: ColorFlow/Resources/Templates/lotus_mandala.svg
-      - path: ColorFlow/Resources/Templates/owl_portrait.svg
-      - path: ColorFlow/Resources/Templates/butterfly_garden.svg
-      - path: ColorFlow/Resources/Templates/rose_bouquet.svg
-      - path: ColorFlow/Resources/Templates/wave_pattern.svg
-      - path: ColorFlow/Resources/Templates/hexagon_grid.svg
       - path: ColorFlow/PrivacyInfo.xcprivacy        # Required for App Store submission
+
+    # ── Run Script: copy SVG templates into the app bundle ────────────────
+    # xcodegen does not reliably add .svg files to Copy Bundle Resources,
+    # so we use an explicit script to guarantee they land in the bundle root
+    # where Bundle.main.url(forResource:withExtension:) can find them.
+    preBuildScripts:
+      - name: "Copy SVG Templates"
+        script: |
+          set -e
+          DEST="${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}"
+          mkdir -p "${DEST}"
+          for SVG in "${SRCROOT}/ColorFlow/Resources/Templates/"*.svg; do
+            cp -f "${SVG}" "${DEST}/"
+          done
+        shell: /bin/sh
+        basedOnDependencyAnalysis: false
 
     # ── Build settings ───────────────────────────────────────────────────────
     settings:

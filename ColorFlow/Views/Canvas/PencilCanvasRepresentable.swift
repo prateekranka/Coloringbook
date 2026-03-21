@@ -38,11 +38,6 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         canvas.isOpaque = false
         canvas.delegate = context.coordinator
 
-        // ProMotion 120 fps where supported
-        canvas.layer.preferredFrameRateRange = CAFrameRateRange(
-            minimum: 60, maximum: 120, preferred: 120
-        )
-
         // Zoom limits — PKCanvasView honours these as a UIScrollView
         canvas.minimumZoomScale = 1.0
         canvas.maximumZoomScale = 5.0

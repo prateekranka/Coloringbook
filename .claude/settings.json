@@ -1,0 +1,11 @@
+{
+  "plugins": [
+    "EveryInc/compound-engineering-plugin:compound-engineering"
+  ],
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    }
+  }
+}

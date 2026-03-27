@@ -25,8 +25,31 @@ enum AppTheme {
     static let textPrimary      = Color.white
     static let textSecondary    = Color(white: 0.65)
 
+    // MARK: - Spacing scale
+
+    static let spacingXS:  CGFloat =  4
+    static let spacingSM:  CGFloat =  8
+    static let spacingMD:  CGFloat = 12
+    static let spacingLG:  CGFloat = 16   // == screenPadding
+    static let spacingXL:  CGFloat = 24
+    static let spacing2XL: CGFloat = 32
+
     // MARK: - Metrics
 
     static let cardCornerRadius: CGFloat = 14
     static let screenPadding:    CGFloat = 16
+}
+
+// MARK: - Shadow view modifiers
+
+extension View {
+    /// Subtle card shadow: black 12% opacity, radius 4, y-offset 2.
+    func cardShadow() -> some View {
+        shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+    }
+
+    /// Heavier artwork card shadow: black 25% opacity, radius 4, y-offset 2.
+    func heavyShadow() -> some View {
+        shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+    }
 }

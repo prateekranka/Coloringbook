@@ -49,6 +49,7 @@ struct HomeView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(AppTheme.accent)
                     .padding(.top, 4)
+                    .accessibilityHint("Opens the template library")
             }
             .padding(20)
         }
@@ -118,6 +119,7 @@ struct HomeView: View {
                     .foregroundStyle(AppTheme.accent)
                     .font(.title3)
             }
+            .accessibilityLabel("Browse templates")
         }
     }
 }
@@ -170,9 +172,12 @@ private struct RecentWorkCell: View {
                     .foregroundStyle(AppTheme.surface)
                     .background(Circle().fill(Color.white).padding(2))
                     .padding(6)
+                    .accessibilityHidden(true)
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(project.templateName)
+        .accessibilityHint("Continue coloring")
         .task { thumbnail = await loadThumbnail() }
     }
 
@@ -220,6 +225,8 @@ private struct SuggestedTemplateCell: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(template.name)
+        .accessibilityHint("Start coloring")
         .task { thumbnail = await loadThumbnail() }
     }
 

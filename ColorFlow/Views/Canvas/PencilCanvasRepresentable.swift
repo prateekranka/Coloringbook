@@ -218,7 +218,9 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             dashAnim.toValue     = 12
             dashAnim.duration    = 0.5
             dashAnim.repeatCount = .infinity
-            selectionLayer.add(dashAnim, forKey: "marchingAnts")
+            if !UIAccessibility.isReduceMotionEnabled {
+                selectionLayer.add(dashAnim, forKey: "marchingAnts")
+            }
 
             container.layer.addSublayer(selectionLayer)
         }

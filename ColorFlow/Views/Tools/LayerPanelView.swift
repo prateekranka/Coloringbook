@@ -89,6 +89,7 @@ private struct LayerRow: View {
                 Image(systemName: "lock.fill")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .accessibilityLabel("Locked")
             }
 
             Button { onToggle() } label: {
@@ -96,6 +97,10 @@ private struct LayerRow: View {
                     .foregroundStyle(isVisible ? Color.primary : Color.secondary)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("\(name) layer visibility")
+            .accessibilityValue(isVisible ? "Visible" : "Hidden")
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .disabled(isLocked && name == "Line Art")
         }
         .padding(.vertical, 2)

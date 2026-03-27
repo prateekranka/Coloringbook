@@ -73,6 +73,7 @@ struct MyWorkView: View {
                     .padding(.vertical, 10)
                     .background(Capsule().fill(AppTheme.accent))
             }
+            .accessibilityHint("Shares your most recent artwork")
 
             // Stats row
             HStack(spacing: 0) {
@@ -187,6 +188,7 @@ private struct StatCell: View {
                 .font(.caption)
                 .foregroundStyle(AppTheme.textSecondary)
         }
+        .accessibilityElement(children: .combine)
         .frame(minWidth: 70)
     }
 }
@@ -206,7 +208,7 @@ private struct ArtworkCard: View {
                 RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
                     .fill(Color.white)
                     .aspectRatio(1, contentMode: .fit)
-                    .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+                    .heavyShadow()
 
                 if let img = thumbnail {
                     Image(uiImage: img)
@@ -221,6 +223,8 @@ private struct ArtworkCard: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(project.templateName)
+        .accessibilityHint("Double-tap to continue coloring")
         .contextMenu {
             Button(role: .destructive) { onDelete() } label: {
                 Label("Delete", systemImage: "trash")

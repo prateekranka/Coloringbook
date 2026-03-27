@@ -34,6 +34,7 @@ struct GalleryView: View {
                     } label: {
                         Label("New", systemImage: "plus")
                     }
+                    .accessibilityLabel("New project")
                 }
             }
             .sheet(isPresented: $showTemplateLibrary) {
@@ -59,6 +60,7 @@ struct GalleryView: View {
             }
             .buttonStyle(.borderedProminent)
         }
+        .accessibilityElement(children: .combine)
         .padding()
     }
 }
@@ -101,6 +103,8 @@ private struct ProjectCell: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(project.templateName)
+        .accessibilityValue("Modified \(project.modifiedAt.formatted(.relative(presentation: .named)))")
         .contextMenu {
             Button(role: .destructive) { onDelete() } label: {
                 Label("Delete", systemImage: "trash")

@@ -6,6 +6,7 @@ import SwiftUI
 struct LibraryTabView: View {
     @StateObject private var viewModel = TemplateLibraryViewModel()
     @State private var searchText = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject var galleryViewModel: GalleryViewModel
 
     private let columns = [GridItem(.adaptive(minimum: 200), spacing: 14)]
@@ -81,16 +82,17 @@ struct LibraryTabView: View {
 struct LibraryCategoryBar: View {
     @Binding var selectedCategory: TemplateCategory?
     let categories: [TemplateCategory]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 0) {
                 CategoryTab(label: "All", isSelected: selectedCategory == nil) {
-                    withAnimation(.easeInOut(duration: 0.18)) { selectedCategory = nil }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { selectedCategory = nil }
                 }
                 ForEach(categories, id: \.self) { cat in
                     CategoryTab(label: cat.rawValue, isSelected: selectedCategory == cat) {
-                        withAnimation(.easeInOut(duration: 0.18)) { selectedCategory = cat }
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { selectedCategory = cat }
                     }
                 }
             }
@@ -105,6 +107,7 @@ private struct CategoryTab: View {
     let label: String
     let isSelected: Bool
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -122,7 +125,10 @@ private struct CategoryTab: View {
             }
         }
         .buttonStyle(.plain)
-        .animation(.easeInOut(duration: 0.18), value: isSelected)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityHint("Show \(label) templates")
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: isSelected)
     }
 }
 
@@ -153,7 +159,7 @@ struct LibraryTemplateCard: View {
                             .foregroundStyle(AppTheme.accent.opacity(0.4))
                     }
                 }
-                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+                .heavyShadow()
 
                 // Name + difficulty
                 Text(template.name)
@@ -165,6 +171,8 @@ struct LibraryTemplateCard: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(template.name), \(template.difficulty.rawValue) difficulty")
+        .accessibilityHint("Double-tap to start coloring")
         .task { thumbnail = await loadThumbnail() }
     }
 
@@ -205,5 +213,6 @@ struct DifficultyPill: View {
             .background(
                 Capsule().fill(color.opacity(0.18))
             )
+            .accessibilityHidden(true)
     }
 }

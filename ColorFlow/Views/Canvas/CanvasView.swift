@@ -16,6 +16,7 @@ struct CanvasView: View {
     @State private var showToolbar = true
     @State private var showColorPicker = false
     @State private var showLayerPanel = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -23,6 +24,8 @@ struct CanvasView: View {
             Color.white.ignoresSafeArea()
             PencilCanvasRepresentable(viewModel: viewModel)
                 .ignoresSafeArea()
+                .accessibilityLabel("Coloring canvas")
+                .accessibilityHint("Draw with Apple Pencil, or tap to fill regions")
 
             // Flood-fill progress overlay
             if viewModel.isFilling {
@@ -30,6 +33,7 @@ struct CanvasView: View {
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
                 ProgressView("Filling…")
+                    .accessibilityLabel("Filling region, please wait")
                     .padding()
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
@@ -47,7 +51,7 @@ struct CanvasView: View {
                         showLayerPanel: $showLayerPanel,
                         onDismiss: { dismiss() },
                         onToggleToolbar: {
-                            withAnimation(.easeInOut(duration: 0.22)) {
+                            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
                                 showToolbar.toggle()
                             }
                         }
@@ -67,9 +71,10 @@ struct CanvasView: View {
                                 .background(.regularMaterial, in: Circle())
                         }
                         .tint(.primary)
+                        .accessibilityLabel("Back")
 
                         Button {
-                            withAnimation(.easeInOut(duration: 0.22)) {
+                            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
                                 showToolbar.toggle()
                             }
                         } label: {
@@ -79,6 +84,7 @@ struct CanvasView: View {
                                 .background(.regularMaterial, in: Circle())
                         }
                         .tint(.primary)
+                        .accessibilityLabel("Show toolbar")
                     }
                     .padding(.leading, 12)
                     .padding(.top, 12)

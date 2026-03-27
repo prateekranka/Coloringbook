@@ -22,6 +22,17 @@ enum DrawingTool: String, CaseIterable, Identifiable {
         }
     }
 
+    var accessibilityName: String {
+        switch self {
+        case .pencil:     return "Pencil"
+        case .marker:     return "Marker"
+        case .watercolor: return "Watercolor"
+        case .eraser:     return "Eraser"
+        case .floodFill:  return "Flood fill"
+        case .eyedropper: return "Eyedropper"
+        }
+    }
+
     var isPencilKitTool: Bool {
         switch self {
         case .pencil, .marker, .watercolor, .eraser: return true

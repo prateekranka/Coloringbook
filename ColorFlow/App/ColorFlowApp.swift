@@ -27,10 +27,10 @@ struct ColorFlowApp: App {
         // ── Tab bar ──────────────────────────────────────────────────────────
         let tabAppearance = UITabBarAppearance()
         tabAppearance.configureWithOpaqueBackground()
-        tabAppearance.backgroundColor = UIColor(red: 0.110, green: 0.110, blue: 0.118, alpha: 1) // CFBackground
+        tabAppearance.backgroundColor = UIColor(AppTheme.background)
 
         // Selected item: accent purple
-        let accentColor = UIColor(red: 0.482, green: 0.373, blue: 0.910, alpha: 1)
+        let accentColor = UIColor(AppTheme.accent)
         tabAppearance.stackedLayoutAppearance.selected.iconColor   = accentColor
         tabAppearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: accentColor]
 
@@ -45,7 +45,7 @@ struct ColorFlowApp: App {
         // ── Navigation bar ───────────────────────────────────────────────────
         let navAppearance = UINavigationBarAppearance()
         navAppearance.configureWithOpaqueBackground()
-        navAppearance.backgroundColor = UIColor(red: 0.110, green: 0.110, blue: 0.118, alpha: 1)
+        navAppearance.backgroundColor = UIColor(AppTheme.background)
         navAppearance.titleTextAttributes      = [.foregroundColor: UIColor.white]
         navAppearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
 

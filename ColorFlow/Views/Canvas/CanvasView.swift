@@ -26,6 +26,7 @@ struct CanvasView: View {
                 .ignoresSafeArea()
                 .accessibilityLabel("Coloring canvas")
                 .accessibilityHint("Draw with Apple Pencil, or tap to fill regions")
+                .accessibilityAddTraits(.allowsDirectInteraction)
 
             // Flood-fill progress overlay
             if viewModel.isFilling {

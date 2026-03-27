@@ -32,7 +32,7 @@ class CanvasViewModel: ObservableObject {
     @Published var selectedRegionID: String?
 
     /// Canvas size derived from the SVG viewBox after loading.
-    @Published var canvasSize: CGSize = CGSize(width: 2732, height: 2048)
+    @Published var canvasSize: CGSize = .zero
 
     // MARK: - Layer Visibility Helpers
 
@@ -81,7 +81,16 @@ class CanvasViewModel: ObservableObject {
     // MARK: - Template Loading
 
     func loadTemplate() async {
-        guard let svgURL = template.svgURL else { return }
+        NSLog("[CanvasVM] loadTemplate: svgFilename=%@", template.svgFilename)
+        NSLog("[CanvasVM] loadTemplate: svgURL=%@", template.svgURL?.path ?? "nil")
+        NSLog("[CanvasVM] loadTemplate: bundleResourceURL=%@", Bundle.main.resourceURL?.path ?? "nil")
+
+        guard let svgURL = template.svgURL else {
+            NSLog("[CanvasVM] loadTemplate: FAILED — svgURL is nil for '%@'", template.svgFilename)
+            return
+        }
+
+        NSLog("[CanvasVM] loadTemplate: parsing SVG...")
 
         // Parse the SVG on a background thread.
         let parseResult = await Task.detached(priority: .userInitiated) {
@@ -90,11 +99,13 @@ class CanvasViewModel: ObservableObject {
 
         switch parseResult {
         case .failure(let error):
-            // Surface the error via console; caller can observe templateImage remaining nil.
-            print("[CanvasViewModel] SVG parse error: \(error.localizedDescription)")
+            NSLog("[CanvasVM] loadTemplate: SVG parse FAILED — %@", error.localizedDescription)
             return
 
         case .success(let geometry):
+            NSLog("[CanvasVM] loadTemplate: parse OK — %d regions, viewBox=%@",
+                  geometry.regions.count,
+                  NSCoder.string(for: geometry.viewBox))
             templateGeometry = geometry
 
             // Derive canvas size from viewBox.
@@ -136,7 +147,10 @@ class CanvasViewModel: ObservableObject {
     /// Convert a view-space tap point to document space, hit-test the geometry,
     /// apply the current brush color, and re-render the fill layer.
     func performRegionFill(at viewPoint: CGPoint, in viewSize: CGSize) async {
-        guard let geometry = templateGeometry else { return }
+        guard let geometry = templateGeometry else {
+            print("[ViewModel] performRegionFill — SKIPPED: templateGeometry is nil")
+            return
+        }
 
         let transform = TemplateRenderer.documentToViewTransform(
             viewBox: geometry.viewBox,
@@ -144,7 +158,13 @@ class CanvasViewModel: ObservableObject {
         )
         let docPoint = viewPoint.applying(transform.inverted())
 
-        guard let region = geometry.region(at: docPoint) else { return }
+        print("[ViewModel] performRegionFill — viewPoint=(\(Int(viewPoint.x)),\(Int(viewPoint.y))) viewSize=\(viewSize) viewBox=\(geometry.viewBox) docPoint=(\(Int(docPoint.x)),\(Int(docPoint.y))) regions=\(geometry.regions.count)")
+
+        guard let region = geometry.region(at: docPoint) else {
+            print("[ViewModel] performRegionFill — NO region hit at docPoint=(\(Int(docPoint.x)),\(Int(docPoint.y)))")
+            return
+        }
+        print("[ViewModel] performRegionFill — hit region '\(region.id)' filling with \(UIColor(brushSettings.color).hexString)")
 
         isFilling = true
 

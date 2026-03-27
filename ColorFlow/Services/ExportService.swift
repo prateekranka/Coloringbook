@@ -12,8 +12,7 @@ class ExportService {
         fills: [String: String],
         drawing: PKDrawing,
         background: Color,
-        canvasSize: CGSize,
-        includeLineArt: Bool = true
+        canvasSize: CGSize
     ) -> UIImage {
         guard let geometry = geometry else {
             // Fallback: render just the drawing on a solid background

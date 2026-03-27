@@ -11,57 +11,90 @@ import PencilKit
 /// overlay) live inside `PencilCanvasRepresentable` so that PKCanvasView's
 /// built-in UIScrollView zoom/pan keeps every layer in sync automatically.
 struct CanvasView: View {
-    @StateObject var viewModel: CanvasViewModel
+    @ObservedObject var viewModel: CanvasViewModel
+    @Environment(\.dismiss) private var dismiss
     @State private var showToolbar = true
     @State private var showColorPicker = false
     @State private var showLayerPanel = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
-            // Single representable that hosts ALL pixel layers internally.
-            // Zoom/pan is provided by PKCanvasView's UIScrollView; finger
-            // taps are intercepted by the representable's gesture recogniser
-            // and forwarded to the view model.
+            // Canvas (fills entire screen including safe areas)
+            Color.white.ignoresSafeArea()
             PencilCanvasRepresentable(viewModel: viewModel)
                 .ignoresSafeArea()
+                .accessibilityLabel("Coloring canvas")
+                .accessibilityHint("Draw with Apple Pencil, or tap to fill regions")
+                .accessibilityAddTraits(.allowsDirectInteraction)
 
-            // Flood-fill progress overlay — intentionally outside the
-            // representable so it floats above the canvas at screen coords.
+            // Flood-fill progress overlay
             if viewModel.isFilling {
                 Color.black.opacity(0.15)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
-
                 ProgressView("Filling…")
+                    .accessibilityLabel("Filling region, please wait")
                     .padding()
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
-        }
-        // ── Side toolbar ──────────────────────────────────────────────────
-        .overlay(alignment: .leading) {
-            if showToolbar {
-                ToolbarView(
-                    viewModel: viewModel,
-                    showColorPicker: $showColorPicker,
-                    showLayerPanel: $showLayerPanel
-                )
-                .transition(.move(edge: .leading))
-            }
-        }
-        // ── Toolbar toggle button (top-leading corner) ────────────────────
-        .overlay(alignment: .topLeading) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    showToolbar.toggle()
+
+            // ── Chrome layer (toolbar) ────────────────────────────────────
+            // NOTE: do NOT put .ignoresSafeArea on the ZStack itself — that
+            // clears safe-area insets for ALL children, hiding chrome under
+            // the status bar.  Each full-bleed layer (canvas, white bg) has
+            // its own .ignoresSafeArea() above.
+            HStack(alignment: .top, spacing: 0) {
+                if showToolbar {
+                    ToolbarView(
+                        viewModel: viewModel,
+                        showColorPicker: $showColorPicker,
+                        showLayerPanel: $showLayerPanel,
+                        onDismiss: { dismiss() },
+                        onToggleToolbar: {
+                            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
+                                showToolbar.toggle()
+                            }
+                        }
+                    )
+                    .fixedSize()
+                    .transition(.move(edge: .leading))
+                } else {
+                    // When toolbar is hidden, show a small floating button
+                    // to restore it (back button is inside the toolbar).
+                    VStack(spacing: 4) {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.title3)
+                                .padding(10)
+                                .background(.regularMaterial, in: Circle())
+                        }
+                        .tint(.primary)
+                        .accessibilityLabel("Back")
+
+                        Button {
+                            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
+                                showToolbar.toggle()
+                            }
+                        } label: {
+                            Image(systemName: "sidebar.right")
+                                .font(.title3)
+                                .padding(10)
+                                .background(.regularMaterial, in: Circle())
+                        }
+                        .tint(.primary)
+                        .accessibilityLabel("Show toolbar")
+                    }
+                    .padding(.leading, 12)
+                    .padding(.top, 12)
                 }
-            } label: {
-                Image(systemName: showToolbar
-                      ? "chevron.left.circle.fill"
-                      : "chevron.right.circle.fill")
-                    .font(.title2)
-                    .padding(12)
+                Spacer(minLength: 0)
             }
-            .tint(.primary)
+        }
+        .onAppear {
+            NSLog("[CanvasView] onAppear — template: %@", viewModel.template.svgFilename)
         }
         // ── Sheets ────────────────────────────────────────────────────────
         .sheet(isPresented: $showColorPicker) {
@@ -80,6 +113,6 @@ struct CanvasView: View {
         .task {
             await viewModel.loadTemplate()
         }
-        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
     }
 }

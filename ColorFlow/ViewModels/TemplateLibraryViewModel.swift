@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 class TemplateLibraryViewModel: ObservableObject {
     @Published var templates: [Template] = []
     @Published var selectedCategory: TemplateCategory? = nil

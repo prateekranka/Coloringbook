@@ -60,6 +60,8 @@ struct ColorPickerView: View {
             .fill(selectedColor)
             .frame(height: 60)
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.2), lineWidth: 1))
+            .accessibilityLabel("Selected color: \(hexInput)")
+            .accessibilityAddTraits(.isImage)
     }
 
     private var palettePicker: some View {
@@ -81,6 +83,8 @@ struct ColorPickerView: View {
                             .foregroundStyle(selectedPalette?.id == palette.id ? .white : .primary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(palette.name)
+                    .accessibilityAddTraits(selectedPalette?.id == palette.id ? .isSelected : [])
                 }
             }
         }
@@ -90,7 +94,7 @@ struct ColorPickerView: View {
     private func swatchGrid(palette: ColorPalette) -> some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 8) {
             ForEach(palette.swatches) { swatch in
-                SwatchCell(color: swatch.color, isSelected: selectedColor == swatch.color) {
+                SwatchCell(color: swatch.color, isSelected: selectedColor == swatch.color, name: swatch.name) {
                     selectedColor = swatch.color
                     syncFromSelectedColor()
                 }
@@ -106,7 +110,7 @@ struct ColorPickerView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(recentColors.indices, id: \.self) { i in
-                        SwatchCell(color: recentColors[i], isSelected: selectedColor == recentColors[i]) {
+                        SwatchCell(color: recentColors[i], isSelected: selectedColor == recentColors[i], name: nil) {
                             selectedColor = recentColors[i]
                             syncFromSelectedColor()
                         }
@@ -144,6 +148,7 @@ struct ColorPickerView: View {
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .onSubmit { applyHex() }
+                .accessibilityLabel("Hex color value")
             Button("Apply") { applyHex() }
                 .buttonStyle(.bordered)
         }
@@ -177,6 +182,7 @@ struct ColorPickerView: View {
 private struct SwatchCell: View {
     let color: Color
     let isSelected: Bool
+    let name: String?
     let action: () -> Void
 
     var body: some View {
@@ -190,6 +196,8 @@ private struct SwatchCell: View {
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(name ?? "Color swatch")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -200,13 +208,23 @@ private struct LabeledSlider: View {
     let gradient: Gradient
     let onChange: () -> Void
 
+    private var fullLabel: String {
+        switch label {
+        case "H": return "Hue"
+        case "S": return "Saturation"
+        case "B": return "Brightness"
+        default:  return label
+        }
+    }
+
     var body: some View {
         HStack {
             Text(label)
                 .font(.caption.bold())
                 .frame(width: 16)
             Slider(value: $value, in: range)
-                .onChange(of: value) { _ in onChange() }
+                .onChange(of: value) { _, _ in onChange() }
+                .accessibilityLabel(fullLabel)
         }
     }
 }

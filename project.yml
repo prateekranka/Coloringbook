@@ -42,15 +42,38 @@ targets:
       - path: ColorFlow/Assets.xcassets
       - path: ColorFlow/Resources/templates.json
       - path: ColorFlow/Resources/Palettes/palettes.json
+      - path: ColorFlow/PrivacyInfo.xcprivacy        # Required for App Store submission
+
+    # ── Run Script: copy SVG templates into the app bundle ────────────────
+    # xcodegen does not reliably add .svg files to Copy Bundle Resources,
+    # so we use an explicit script to guarantee they land in the bundle root
+    # where Bundle.main.url(forResource:withExtension:) can find them.
+    preBuildScripts:
+      - name: "Copy SVG Templates"
+        script: |
+          set -e
+          DEST="${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}"
+          mkdir -p "${DEST}"
+          for SVG in "${SRCROOT}/ColorFlow/Resources/Templates/"*.svg; do
+            cp -f "${SVG}" "${DEST}/"
+          done
+        shell: /bin/sh
+        basedOnDependencyAnalysis: false
 
     # ── Build settings ───────────────────────────────────────────────────────
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.colorflow.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.prateekranka.colorflow
         GENERATE_INFOPLIST_FILE: "NO"
         INFOPLIST_FILE: ColorFlow/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "2"
+
+        # Code signing
+        DEVELOPMENT_TEAM: Y4QMMY38ZN
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        CODE_SIGN_ENTITLEMENTS: ColorFlow/ColorFlow.entitlements
 
         # Linker flags (none needed currently — SVGKit is stubbed out)
         OTHER_LDFLAGS: ""
@@ -73,8 +96,6 @@ schemes:
         ColorFlow: all
     run:
       config: Debug
-      askForAppToLaunch: false
-      launchAutomaticallySubstyle: 2   # launch at login
     test:
       config: Debug
     profile:

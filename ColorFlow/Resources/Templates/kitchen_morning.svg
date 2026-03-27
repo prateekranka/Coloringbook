@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900">
+
+  <!-- ═══ PINK TILE WALL BACKGROUND ═══ -->
+  <rect id="wall" x="0" y="0" width="600" height="560" rx="0"
+        fill="none" stroke="black" stroke-width="3"/>
+  <!-- Wall tile grid (decorative) -->
+  <path d="M 0,80 L 600,80" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 0,160 L 600,160" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 0,240 L 600,240" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 0,320 L 600,320" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 0,400 L 600,400" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 0,480 L 600,480" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 100,0 L 100,560" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 200,0 L 200,560" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 300,0 L 300,560" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 400,0 L 400,560" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 500,0 L 500,560" fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- ═══ HANGING LAMP (upper left) ═══ -->
+
+  <!-- Lamp cord (decorative) -->
+  <path d="M 95,0 L 95,58" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Lamp shade -->
+  <path id="lamp_shade"
+        d="M 50,58 L 140,58 L 128,120 L 62,120 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Lamp shade inner highlight -->
+  <path id="lamp_inner"
+        d="M 65,65 L 125,65 L 116,112 L 74,112 Z"
+        fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- ═══ WINDOW (upper center) ═══ -->
+
+  <!-- Window frame outer -->
+  <rect id="window_frame" x="180" y="20" width="240" height="220" rx="8"
+        fill="none" stroke="black" stroke-width="4"/>
+
+  <!-- Window sky -->
+  <rect id="window_sky" x="192" y="32" width="216" height="110" rx="4"
+        fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Window sill / lower section (city view) -->
+  <rect id="window_city" x="192" y="142" width="216" height="86" rx="4"
+        fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Window divider (cross bar) -->
+  <path d="M 192,140 L 408,140" fill="none" stroke="black" stroke-width="3"/>
+  <path d="M 300,32 L 300,228" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- City buildings (decorative rectangles in window) -->
+  <rect x="198" y="150" width="28" height="70" fill="none" stroke="black" stroke-width="2"/>
+  <rect x="232" y="162" width="22" height="58" fill="none" stroke="black" stroke-width="2"/>
+  <rect x="260" y="155" width="18" height="65" fill="none" stroke="black" stroke-width="2"/>
+  <rect x="310" y="145" width="32" height="75" fill="none" stroke="black" stroke-width="2"/>
+  <rect x="348" y="158" width="24" height="62" fill="none" stroke="black" stroke-width="2"/>
+  <rect x="376" y="150" width="26" height="70" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Clouds in window sky (decorative) -->
+  <path d="M 204,70 C 204,62 210,56 220,58 C 222,50 232,48 238,56 C 244,50 254,54 252,64 L 208,64 Z"
+        fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 310,52 C 310,44 316,38 326,40 C 328,32 338,30 344,38 C 350,32 360,36 358,46 L 314,46 Z"
+        fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- Bird on window sill (decorative) -->
+  <path d="M 188,143 C 192,136 200,133 206,137 C 202,143 196,145 188,143 Z"
+        fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- ═══ WALL SHELVES (right side) ═══ -->
+
+  <!-- Top shelf board -->
+  <rect id="shelf_top_board" x="425" y="88" width="175" height="14" rx="4"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Bottom shelf board -->
+  <rect id="shelf_bottom_board" x="425" y="200" width="175" height="14" rx="4"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Shelf bracket left (decorative) -->
+  <path d="M 430,88 L 430,64" fill="none" stroke="black" stroke-width="3"/>
+  <path d="M 430,200 L 430,174" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Items on top shelf: mug and cup -->
+  <rect id="shelf_mug" x="438" y="50" width="34" height="36" rx="4"
+        fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 472,60 C 482,60 486,66 486,72 C 486,78 482,84 472,84" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Small plate on top shelf -->
+  <ellipse id="shelf_plate" cx="554" cy="72" rx="30" ry="18" fill="none" stroke="black" stroke-width="2"/>
+  <ellipse cx="554" cy="72" rx="22" ry="12" fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- Plant pot on bottom shelf -->
+  <rect id="plant_pot" x="436" y="158" width="36" height="40" rx="4"
+        fill="none" stroke="black" stroke-width="2"/>
+  <!-- Plant leaves (decorative paths) -->
+  <path d="M 454,158 C 444,140 430,128 434,118 C 438,108 450,112 454,124" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 454,158 C 464,140 478,128 474,118 C 470,108 458,112 454,124" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 454,145 C 460,128 472,118 480,122" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Wine glasses on bottom shelf -->
+  <path id="wine_glass_1"
+        d="M 520,170 L 544,170 L 540,214 L 536,214 L 536,220 M 526,220 L 546,220"
+        fill="none" stroke="black" stroke-width="2"/>
+  <path id="wine_glass_2"
+        d="M 548,170 L 572,170 L 568,214 L 564,214 L 564,220 M 554,220 L 574,220"
+        fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- ═══ KITCHEN COUNTER / CABINET (blue) ═══ -->
+
+  <!-- Counter top surface -->
+  <rect id="counter_top" x="0" y="560" width="600" height="28" rx="4"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cabinet body -->
+  <rect id="cabinet_body" x="0" y="588" width="420" height="230" rx="0"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cabinet door left -->
+  <rect id="cabinet_door_left" x="10" y="598" width="195" height="210" rx="6"
+        fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Cabinet door right -->
+  <rect id="cabinet_door_right" x="215" y="598" width="195" height="210" rx="6"
+        fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Cabinet door handles (decorative) -->
+  <rect x="90" y="688" width="36" height="10" rx="5" fill="none" stroke="black" stroke-width="2"/>
+  <rect x="295" y="688" width="36" height="10" rx="5" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- ═══ TEAL FLOOR ═══ -->
+  <rect id="floor" x="0" y="818" width="600" height="82" rx="0"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- ═══ ITEMS ON COUNTER ═══ -->
+
+  <!-- Green kettle / gooseneck coffee pot -->
+  <path id="kettle_body"
+        d="M 40,490 C 38,470 46,452 60,448
+           L 108,448 C 120,452 130,468 130,488
+           L 130,556 L 40,556 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Kettle lid -->
+  <ellipse id="kettle_lid" cx="85" cy="448" rx="46" ry="14"
+           fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Kettle spout (gooseneck) -->
+  <path id="kettle_spout"
+        d="M 40,490 C 20,485 5,468 10,450
+           C 15,432 30,425 45,435"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Kettle handle (decorative) -->
+  <path d="M 130,465 C 160,460 175,478 175,495 C 175,512 160,528 130,525"
+        fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Cereal box -->
+  <rect id="cereal_box" x="160" y="476" width="68" height="82" rx="4"
+        fill="none" stroke="black" stroke-width="3"/>
+  <!-- Box label area -->
+  <rect id="cereal_label" x="166" y="486" width="56" height="60" rx="3"
+        fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Milk carton -->
+  <path id="milk_carton"
+        d="M 250,490 L 250,556 L 316,556 L 316,490 L 284,472 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+  <!-- Milk carton crease (decorative) -->
+  <path d="M 250,490 L 284,472 L 316,490" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Fruit bowl -->
+  <path id="fruit_bowl"
+        d="M 315,510 C 315,490 330,476 350,476
+           C 370,476 385,490 385,510
+           L 400,510 C 400,535 375,548 350,548
+           C 325,548 300,535 300,510 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Apples in bowl (circles, decorative) -->
+  <circle cx="335" cy="496" r="16" fill="none" stroke="black" stroke-width="2"/>
+  <circle cx="357" cy="492" r="16" fill="none" stroke="black" stroke-width="2"/>
+  <circle cx="375" cy="498" r="14" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Breakfast bowl -->
+  <ellipse id="breakfast_bowl" cx="442" cy="550" rx="50" ry="14"
+           fill="none" stroke="black" stroke-width="3"/>
+  <path id="breakfast_bowl_body"
+        d="M 392,550 C 392,578 414,594 442,594
+           C 470,594 492,578 492,550"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- ═══ CHECKERED TABLECLOTH / MAT ═══ -->
+  <path id="tablemat"
+        d="M 0,560 L 0,680 L 220,680 L 220,560"
+        fill="none" stroke="black" stroke-width="2"/>
+  <!-- Mat checker pattern (decorative) -->
+  <path d="M 0,590 L 220,590" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 0,620 L 220,620" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 0,650 L 220,650" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 44,560 L 44,680" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 88,560 L 88,680" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 132,560 L 132,680" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 176,560 L 176,680" fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- ═══ WOMAN FIGURE (sitting on stool, center-right) ═══ -->
+
+  <!-- Hair bun / updo -->
+  <path id="hair_bun"
+        d="M 398,280 C 395,260 407,245 422,245
+           C 437,245 448,260 448,278
+           C 456,265 448,252 436,248
+           C 420,242 404,248 398,260 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Head -->
+  <circle id="head" cx="422" cy="310" r="44" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Face features (decorative) -->
+  <path d="M 404,305 C 410,300 418,302 422,308" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 425,308 C 429,302 437,300 442,305" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 414,325 C 420,332 428,332 434,325" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Hand near face (decorative) -->
+  <path d="M 380,314 C 375,306 376,296 382,292" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- White shirt / top -->
+  <path id="shirt"
+        d="M 362,355 C 350,342 345,326 352,314
+           C 362,302 382,298 400,308
+           L 408,354 C 400,360 380,362 362,355 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Shirt body -->
+  <path id="shirt_body"
+        d="M 362,355 L 408,354 L 430,480 L 345,480 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Shirt sleeve right -->
+  <path id="shirt_sleeve"
+        d="M 408,354 C 430,348 452,340 468,352
+           C 484,364 484,388 468,396
+           L 440,408 L 428,480 L 408,480 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Arm and hand (near face) -->
+  <path id="arm_raised"
+        d="M 362,355 C 345,344 332,326 338,308
+           C 344,292 360,286 374,294
+           L 380,314 C 370,318 362,330 366,348 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Patterned trousers / skirt -->
+  <path id="trousers"
+        d="M 345,480 L 430,480 L 445,680 L 330,680 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Trouser pattern details (banana/leaf shapes, decorative) -->
+  <path d="M 356,510 C 360,504 368,504 370,510 C 368,516 360,516 356,510 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 376,530 C 380,524 388,524 390,530 C 388,536 380,536 376,530 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 358,555 C 362,549 370,549 372,555 C 370,561 362,561 358,555 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 380,580 C 384,574 392,574 394,580 C 392,586 384,586 380,580 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 400,510 C 404,504 412,504 414,510 C 412,516 404,516 400,510 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 395,548 C 399,542 407,542 409,548 C 407,554 399,554 395,548 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 410,580 C 414,574 422,574 424,580 C 422,586 414,586 410,580 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 355,610 C 359,604 367,604 369,610 C 367,616 359,616 355,610 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 380,635 C 384,629 392,629 394,635 C 392,641 384,641 380,635 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 405,618 C 409,612 417,612 419,618 C 417,624 409,624 405,618 Z" fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- Bare feet / foot left -->
+  <path id="foot_bare"
+        d="M 330,680 C 328,698 336,712 350,714
+           C 364,716 374,704 375,688
+           L 344,688 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Slipper / shoe right -->
+  <path id="slipper"
+        d="M 428,720 C 426,702 438,692 452,694
+           C 466,696 472,710 470,724
+           C 465,738 450,742 438,736
+           C 430,730 428,724 428,720 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Stool seat -->
+  <ellipse id="stool_seat" cx="400" cy="688" rx="56" ry="16"
+           fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Stool leg -->
+  <rect id="stool_leg" x="388" y="704" width="24" height="120" rx="4"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Stool base -->
+  <ellipse id="stool_base" cx="400" cy="826" rx="40" ry="10"
+           fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- ═══ ORANGE CAT SLEEPING ON FLOOR ═══ -->
+
+  <!-- Cat body (curled oval) -->
+  <path id="cat_body"
+        d="M 118,790 C 115,755 135,730 162,728
+           C 189,726 210,748 212,778
+           C 220,765 230,758 238,762
+           C 246,766 246,780 238,788
+           C 230,796 218,798 212,795
+           C 208,820 195,840 172,843
+           C 149,846 128,828 118,808
+           C 112,798 118,790 118,790 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cat head -->
+  <circle id="cat_head" cx="182" cy="760" r="36" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cat ears (decorative) -->
+  <path d="M 158,740 L 150,718 L 172,732 Z" fill="none" stroke="black" stroke-width="2.5"/>
+  <path d="M 196,733 L 205,712 L 212,734 Z" fill="none" stroke="black" stroke-width="2.5"/>
+
+  <!-- Cat sleeping face (decorative) -->
+  <path d="M 166,758 C 172,752 180,754 184,760" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 185,760 C 189,754 197,752 203,758" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 178,774 C 182,780 188,780 192,774" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Whiskers -->
+  <path d="M 162,768 L 136,762" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 162,774 L 136,776" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 204,768 L 230,762" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 204,774 L 230,776" fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- Cat food bowl on floor -->
+  <ellipse id="cat_bowl_outer" cx="260" cy="840" rx="40" ry="12"
+           fill="none" stroke="black" stroke-width="3"/>
+  <ellipse id="cat_bowl_inner" cx="260" cy="838" rx="30" ry="8"
+           fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Papers on floor (decorative) -->
+  <rect x="330" y="788" width="70" height="90" rx="3" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 338,802 L 392,802" fill="none" stroke="black" stroke-width="1"/>
+  <path d="M 338,814 L 392,814" fill="none" stroke="black" stroke-width="1"/>
+  <path d="M 338,826 L 392,826" fill="none" stroke="black" stroke-width="1"/>
+  <path d="M 338,838 L 392,838" fill="none" stroke="black" stroke-width="1"/>
+  <path d="M 338,850 L 392,850" fill="none" stroke="black" stroke-width="1"/>
+  <path d="M 338,862 L 392,862" fill="none" stroke="black" stroke-width="1"/>
+
+  <!-- Kitchen utensils hanging on wall (decorative) -->
+  <path d="M 530,320 L 530,420" fill="none" stroke="black" stroke-width="2.5"/>
+  <path d="M 530,320 C 524,308 536,300 542,312 C 548,324 538,334 530,320" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 560,325 L 560,420" fill="none" stroke="black" stroke-width="2.5"/>
+  <path d="M 554,345 C 558,335 566,336 568,346 C 570,356 562,362 556,354" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 590,320 L 590,420" fill="none" stroke="black" stroke-width="2.5"/>
+  <path d="M 584,340 C 590,332 600,338 598,348 C 596,358 584,356 584,346" fill="none" stroke="black" stroke-width="2"/>
+
+</svg>

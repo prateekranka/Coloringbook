@@ -3,23 +3,24 @@ import SwiftUI
 struct OnboardingView: View {
     @Binding var isPresented: Bool
     @State private var currentStep = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let steps: [OnboardingStep] = [
         OnboardingStep(
             icon: "drop.fill",
-            iconColor: .blue,
+            iconColor: AppTheme.accent,
             title: "Tap to Fill",
             description: "Tap any enclosed region to instantly fill it with your chosen color."
         ),
         OnboardingStep(
             icon: "applepencil",
-            iconColor: .purple,
+            iconColor: Color(red: 0.20, green: 0.67, blue: 0.86),
             title: "Draw with Pencil",
             description: "Use your Apple Pencil to add fine details with pressure-sensitive strokes."
         ),
         OnboardingStep(
             icon: "arrow.clockwise.icloud",
-            iconColor: .green,
+            iconColor: Color(red: 0.30, green: 0.76, blue: 0.45),
             title: "Auto-saved",
             description: "Your work saves automatically. Pick up where you left off, any time."
         ),
@@ -45,9 +46,10 @@ struct OnboardingView: View {
                     Circle()
                         .fill(i == currentStep ? Color.accentColor : Color.secondary.opacity(0.35))
                         .frame(width: 8, height: 8)
-                        .animation(.easeInOut, value: currentStep)
+                        .animation(reduceMotion ? nil : .easeInOut, value: currentStep)
                 }
             }
+            .accessibilityHidden(true)
             .padding(.vertical, 24)
 
             Spacer()
@@ -55,7 +57,7 @@ struct OnboardingView: View {
             // CTA
             Button {
                 if currentStep < steps.count - 1 {
-                    withAnimation { currentStep += 1 }
+                    withAnimation(reduceMotion ? nil : .default) { currentStep += 1 }
                 } else {
                     isPresented = false
                 }
@@ -99,6 +101,7 @@ private struct StepCard: View {
                     .padding(.horizontal, 32)
             }
         }
+        .accessibilityElement(children: .combine)
         .padding(.top, 20)
     }
 }

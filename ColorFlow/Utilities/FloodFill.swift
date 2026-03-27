@@ -22,10 +22,7 @@ struct FillBitmap {
         self.width = Int(size.width)
         self.height = Int(size.height)
         self.pixels = [UInt8](repeating: 0, count: width * height * 4)
-
-        var mutableSelf = self
-        mutableSelf.draw(image: image)
-        self = mutableSelf
+        self.draw(image: image)
     }
 
     private mutating func draw(image: UIImage) {

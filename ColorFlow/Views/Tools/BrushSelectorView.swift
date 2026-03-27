@@ -28,6 +28,8 @@ struct BrushSelectorView: View {
                     .font(.system(size: 6))
                     .foregroundStyle(.secondary)
                 Slider(value: $brushSettings.size, in: BrushSettings.sizeRange)
+                    .accessibilityLabel("Brush size")
+                    .accessibilityValue("\(Int(brushSettings.size)) points")
                 Image(systemName: "circle.fill")
                     .font(.system(size: 22))
                     .foregroundStyle(.secondary)
@@ -41,6 +43,8 @@ struct BrushSelectorView: View {
                 Image(systemName: "circle.dotted")
                     .foregroundStyle(.secondary)
                 Slider(value: $brushSettings.opacity, in: 0.05...1.0)
+                    .accessibilityLabel("Brush opacity")
+                    .accessibilityValue("\(Int(brushSettings.opacity * 100)) percent")
                 Image(systemName: "circle.fill")
                     .foregroundStyle(.secondary)
             }

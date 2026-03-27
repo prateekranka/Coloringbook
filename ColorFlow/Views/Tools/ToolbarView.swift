@@ -5,9 +5,38 @@ struct ToolbarView: View {
     @ObservedObject var viewModel: CanvasViewModel
     @Binding var showColorPicker: Bool
     @Binding var showLayerPanel: Bool
+    var onDismiss: (() -> Void)? = nil
+    var onToggleToolbar: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 4) {
+            // Back + toggle row at the top of the panel
+            HStack(spacing: 0) {
+                if let onDismiss {
+                    Button(action: onDismiss) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(width: 44, height: 44)
+                            .foregroundStyle(Color.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Back")
+                }
+                Spacer(minLength: 0)
+                if let onToggleToolbar {
+                    Button(action: onToggleToolbar) {
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(width: 44, height: 44)
+                            .foregroundStyle(Color.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Hide toolbar")
+                }
+            }
+
+            Divider().padding(.horizontal, 6)
+
             // Color well — opens full color picker sheet
             ColorWellButton(color: viewModel.brushSettings.color) {
                 showColorPicker = true
@@ -38,11 +67,13 @@ struct ToolbarView: View {
                 Image(systemName: "arrow.uturn.backward")
             }
             .toolbarButtonStyle()
+            .accessibilityLabel("Undo")
 
             Button { viewModel.redo() } label: {
                 Image(systemName: "arrow.uturn.forward")
             }
             .toolbarButtonStyle()
+            .accessibilityLabel("Redo")
 
             Divider().padding(.horizontal, 6)
 
@@ -51,12 +82,14 @@ struct ToolbarView: View {
                 Image(systemName: "square.3.layers.3d")
             }
             .toolbarButtonStyle()
+            .accessibilityLabel("Layers")
+            .accessibilityHint("Opens layer panel")
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 6)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .padding(.leading, 12)
-        .padding(.vertical, 60)
+        .padding(.top, 12)
     }
 }
 
@@ -74,6 +107,8 @@ private struct ColorWellButton: View {
                 .overlay(Circle().stroke(Color.primary.opacity(0.25), lineWidth: 1.5))
                 .padding(6)
         }
+        .accessibilityLabel("Brush color")
+        .accessibilityHint("Opens color picker")
     }
 }
 
@@ -87,13 +122,15 @@ private struct ToolButton: View {
             Image(systemName: tool.systemImageName)
                 .font(.system(size: 18, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
-                .frame(width: 40, height: 40)
+                .frame(width: 44, height: 44)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
                         .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(tool.accessibilityName)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -109,6 +146,8 @@ private struct BrushSizeSlider: View {
                 .frame(height: 28)
 
             Slider(value: $size, in: BrushSettings.sizeRange)
+                .accessibilityLabel("Brush size")
+                .accessibilityValue("\(Int(size)) points")
                 .rotationEffect(.degrees(-90))
                 .frame(width: 100)
                 .frame(width: 44, height: 100)
@@ -132,6 +171,6 @@ private extension View {
 
 private extension CGFloat {
     func clamped(to range: ClosedRange<CGFloat>) -> CGFloat {
-        min(max(self, range.lowerBound), range.upperBound)
+        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
     }
 }

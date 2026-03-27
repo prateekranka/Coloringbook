@@ -22,6 +22,17 @@ enum DrawingTool: String, CaseIterable, Identifiable {
         }
     }
 
+    var accessibilityName: String {
+        switch self {
+        case .pencil:     return "Pencil"
+        case .marker:     return "Marker"
+        case .watercolor: return "Watercolor"
+        case .eraser:     return "Eraser"
+        case .floodFill:  return "Flood fill"
+        case .eyedropper: return "Eyedropper"
+        }
+    }
+
     var isPencilKitTool: Bool {
         switch self {
         case .pencil, .marker, .watercolor, .eraser: return true
@@ -39,7 +50,7 @@ enum DrawingTool: String, CaseIterable, Identifiable {
             // Watercolor approximated via monoline ink with reduced opacity
             return PKInkingTool(.monoline, color: color.withAlphaComponent(0.4), width: width)
         case .eraser:
-            return PKEraserTool(.bitmap)
+            return PKEraserTool(.bitmap, width: width)
         case .floodFill, .eyedropper:
             // These don't use PKTool — return a no-op pencil tool
             return PKInkingTool(.pencil, color: .clear, width: 1)

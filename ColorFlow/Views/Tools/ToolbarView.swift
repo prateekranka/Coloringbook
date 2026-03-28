@@ -118,6 +118,24 @@ struct ToolbarView: View {
             .toolbarButtonStyle()
             .foregroundStyle(viewModel.soundEnabled ? Color.accentColor : Color.primary)
             .accessibilityLabel(viewModel.soundEnabled ? "Disable sounds" : "Enable sounds")
+
+            Divider().padding(.horizontal, 6)
+
+            // Symmetry toggle
+            Button {
+                viewModel.symmetryEnabled.toggle()
+                HapticService.shared.impact(.light)
+            } label: {
+                Image(systemName: "arrow.left.and.right")
+                    .foregroundStyle(viewModel.symmetryEnabled ? Color.accentColor : Color.primary)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(viewModel.symmetryEnabled ? Color.accentColor.opacity(0.15) : Color.clear)
+                            .frame(width: 40, height: 40)
+                    )
+            }
+            .toolbarButtonStyle()
+            .accessibilityLabel(viewModel.symmetryEnabled ? "Disable mirror symmetry" : "Enable mirror symmetry")
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 6)

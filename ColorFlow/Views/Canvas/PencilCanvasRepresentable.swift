@@ -340,7 +340,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             guard !isRevertingDrawing else { return }
 
             let tool = parent.viewModel.brushSettings.tool
-            if tool == .floodFill || tool == .eyedropper {
+            if tool == .floodFill || tool == .eyedropper || tool == .stamp {
                 print("[Canvas] drawingDidChange while tool=\(tool.rawValue) — reverting ghost stroke")
                 isRevertingDrawing = true
                 canvasView.drawing = parent.viewModel.drawing
@@ -351,6 +351,42 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             print("[Canvas] drawingDidChange — tool=\(tool.rawValue) strokeCount=\(canvasView.drawing.strokes.count)")
             parent.viewModel.drawing = canvasView.drawing
             parent.viewModel.scheduleAutoSave()
+
+            // Mirror the latest stroke if symmetry is enabled
+            if parent.viewModel.symmetryEnabled && !isAddingMirroredStroke {
+                let drawing = canvasView.drawing
+                guard let lastStroke = drawing.strokes.last else { return }
+
+                let canvasWidth = parent.viewModel.canvasSize.width
+                guard canvasWidth > 0 else { return }
+
+                // Mirror each point's X coordinate about the canvas centre
+                let mirroredPoints = lastStroke.path.map { sample -> PKStrokePoint in
+                    let loc = sample.location
+                    let mirrored = CGPoint(x: canvasWidth - loc.x, y: loc.y)
+                    return PKStrokePoint(
+                        location: mirrored,
+                        timeOffset: sample.timeOffset,
+                        size: sample.size,
+                        opacity: sample.opacity,
+                        force: sample.force,
+                        azimuth: -sample.azimuth,
+                        altitude: sample.altitude
+                    )
+                }
+
+                let mirroredPath = PKStrokePath(controlPoints: mirroredPoints, creationDate: lastStroke.path.creationDate)
+                let mirroredStroke = PKStroke(ink: lastStroke.ink, path: mirroredPath, transform: lastStroke.transform, mask: lastStroke.mask)
+
+                var newDrawing = drawing
+                newDrawing.strokes.append(mirroredStroke)
+
+                isAddingMirroredStroke = true
+                canvasView.drawing = newDrawing
+                isAddingMirroredStroke = false
+
+                parent.viewModel.drawing = newDrawing
+            }
         }
 
         // MARK: Tap gesture
@@ -379,6 +415,9 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
 
             case .eyedropper:
                 parent.viewModel.pickColor(at: point, in: docSize)
+
+            case .stamp:
+                parent.viewModel.placeStamp(at: point)
 
             default:
                 parent.viewModel.selectRegion(at: point, in: docSize)

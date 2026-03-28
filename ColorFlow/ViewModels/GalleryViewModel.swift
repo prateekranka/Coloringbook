@@ -54,6 +54,11 @@ class GalleryViewModel: ObservableObject {
 
     // MARK: - Home Screen Helpers
 
+    /// Today's daily challenge template (deterministic, date-seeded).
+    var dailyChallengeTemplate: Template? {
+        DailyChallengeService.todayTemplate(from: allTemplates)
+    }
+
     /// The 6 most recently modified projects.
     var recentProjects: [Project] {
         Array(projects.prefix(6))

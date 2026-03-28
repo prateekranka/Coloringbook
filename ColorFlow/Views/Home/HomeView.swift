@@ -6,6 +6,7 @@ struct HomeView: View {
     @EnvironmentObject var galleryViewModel: GalleryViewModel
     @State private var showHelp = false
     @State private var showTemplateLibrary = false
+    @State private var streakCount: Int = DailyChallengeService.currentStreak
 
     var body: some View {
         NavigationStack {
@@ -15,6 +16,7 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 28) {
                         heroPlaceholder
+                        dailyChallengeSection
                         recentWorkSection
                         suggestionsSection
                     }
@@ -59,6 +61,38 @@ struct HomeView: View {
         }
         .padding(.horizontal, AppTheme.screenPadding)
         .padding(.top, 12)
+    }
+
+    // MARK: - Daily Challenge
+
+    private var dailyChallengeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center) {
+                SectionHeader(title: "Daily Challenge")
+                Spacer()
+                if streakCount > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                        Text("\(streakCount)")
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.12), in: Capsule())
+                }
+            }
+            .padding(.horizontal, AppTheme.screenPadding)
+
+            if let template = galleryViewModel.dailyChallengeTemplate {
+                DailyChallengeCard(template: template) {
+                    DailyChallengeService.recordChallenge()
+                    streakCount = DailyChallengeService.currentStreak
+                    galleryViewModel.startProject(from: template)
+                }
+                .padding(.horizontal, AppTheme.screenPadding)
+            }
+        }
     }
 
     // MARK: - Recent Work
@@ -249,6 +283,76 @@ private struct SuggestedTemplateCell: View {
             DispatchQueue.global(qos: .userInitiated).async {
                 if case .success(let geo) = SVGParser.parse(url: url) {
                     let img = TemplateRenderer.renderThumbnail(geometry: geo, size: CGSize(width: 280, height: 280))
+                    cont.resume(returning: img)
+                } else {
+                    cont.resume(returning: nil)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Daily Challenge Card
+
+private struct DailyChallengeCard: View {
+    let template: Template
+    let onStart: () -> Void
+    @State private var thumbnail: UIImage?
+
+    var body: some View {
+        HStack(spacing: 16) {
+            // Thumbnail
+            ZStack {
+                RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
+                    .fill(AppTheme.surface)
+                    .frame(width: 90, height: 90)
+                if let img = thumbnail {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(8)
+                        .frame(width: 90, height: 90)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius))
+                } else {
+                    Image(systemName: template.category.systemImageName)
+                        .font(.title2)
+                        .foregroundStyle(AppTheme.accent.opacity(0.6))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(template.name)
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text(template.difficulty.rawValue)
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+                Button(action: onStart) {
+                    Text("Start Challenge")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(AppTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Starts today's daily challenge template")
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius))
+        .cardShadow()
+        .task { thumbnail = await loadThumbnail() }
+    }
+
+    private func loadThumbnail() async -> UIImage? {
+        guard let url = template.svgURL else { return nil }
+        return await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                if case .success(let geo) = SVGParser.parse(url: url) {
+                    let img = TemplateRenderer.renderThumbnail(geometry: geo, size: CGSize(width: 180, height: 180))
                     cont.resume(returning: img)
                 } else {
                     cont.resume(returning: nil)

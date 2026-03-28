@@ -205,6 +205,7 @@ class CanvasViewModel: ObservableObject {
         isFilling = false
 
         HapticService.shared.impact(.light)
+        SoundService.shared.playFillPop()
         addRecentColor(brushSettings.color)
         scheduleAutoSave()
     }
@@ -322,6 +323,7 @@ class CanvasViewModel: ObservableObject {
             try storageService.save(project: &project, drawing: drawing, fillLayer: fillLayerImage)
             lastSaveTime = Date()
             HapticService.shared.notify(.success)
+            SoundService.shared.playSaveChime()
         } catch {
             NSLog("[CanvasVM] save FAILED: %@", error.localizedDescription)
             saveError = true
@@ -377,6 +379,11 @@ class CanvasViewModel: ObservableObject {
 
     func fitToScreen() {
         fitToScreenTrigger.toggle()
+    }
+
+    var soundEnabled: Bool {
+        get { SoundService.shared.isEnabled }
+        set { SoundService.shared.isEnabled = newValue; objectWillChange.send() }
     }
 
     private func updateCompletionPercentage() {

@@ -108,6 +108,16 @@ struct ToolbarView: View {
             .toolbarButtonStyle()
             .accessibilityLabel("Export artwork")
             .accessibilityHint("Share or save your artwork")
+
+            // Sound toggle
+            Button {
+                viewModel.soundEnabled.toggle()
+            } label: {
+                Image(systemName: viewModel.soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+            }
+            .toolbarButtonStyle()
+            .foregroundStyle(viewModel.soundEnabled ? Color.accentColor : Color.primary)
+            .accessibilityLabel(viewModel.soundEnabled ? "Disable sounds" : "Enable sounds")
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 6)

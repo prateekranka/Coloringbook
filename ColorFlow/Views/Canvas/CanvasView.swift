@@ -16,6 +16,9 @@ struct CanvasView: View {
     @State private var showToolbar = true
     @State private var showColorPicker = false
     @State private var showLayerPanel = false
+    @State private var showSaveIndicator = false
+    @State private var showExportSheet = false
+    @State private var exportImage: UIImage?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -67,6 +70,27 @@ struct CanvasView: View {
                 .animation(.easeInOut(duration: 0.3), value: viewModel.saveError)
             }
 
+            // "Saved ✓" indicator
+            if showSaveIndicator {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Label("Saved", systemImage: "checkmark.circle.fill")
+                            .font(.caption.bold())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.green.opacity(0.85), in: Capsule())
+                            .padding(.top, 16)
+                            .padding(.trailing, 16)
+                    }
+                    Spacer()
+                }
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.3), value: showSaveIndicator)
+                .allowsHitTesting(false)
+            }
+
             // ── Chrome layer (toolbar) ────────────────────────────────────
             // NOTE: do NOT put .ignoresSafeArea on the ZStack itself — that
             // clears safe-area insets for ALL children, hiding chrome under
@@ -82,6 +106,25 @@ struct CanvasView: View {
                         onToggleToolbar: {
                             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
                                 showToolbar.toggle()
+                            }
+                        },
+                        onFitToScreen: {
+                            viewModel.fitToScreen()
+                        },
+                        onExport: {
+                            Task {
+                                let vm = viewModel
+                                let image = await Task.detached(priority: .userInitiated) {
+                                    ExportService().compositeImage(
+                                        geometry: vm.templateGeometry,
+                                        fills: vm.regionFills,
+                                        drawing: vm.drawing,
+                                        background: vm.backgroundColor,
+                                        canvasSize: vm.canvasSize
+                                    )
+                                }.value
+                                exportImage = image
+                                showExportSheet = true
                             }
                         }
                     )
@@ -131,7 +174,14 @@ struct CanvasView: View {
                 recentColors: $viewModel.recentColors,
                 palettes: viewModel.palettes
             )
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.height(280), .large])
+            .presentationBackgroundInteraction(.enabled(upThrough: .height(280)))
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showExportSheet) {
+            if let img = exportImage {
+                ShareSheet(image: img)
+            }
         }
         .sheet(isPresented: $showLayerPanel) {
             LayerPanelView(viewModel: viewModel)
@@ -140,6 +190,14 @@ struct CanvasView: View {
         // ── Lifecycle ─────────────────────────────────────────────────────
         .task {
             await viewModel.loadTemplate()
+        }
+        .onChange(of: viewModel.lastSaveTime) { _, newValue in
+            guard newValue != nil else { return }
+            showSaveIndicator = true
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                showSaveIndicator = false
+            }
         }
         .alert("Template Error", isPresented: Binding(
             get: { viewModel.loadError != nil },

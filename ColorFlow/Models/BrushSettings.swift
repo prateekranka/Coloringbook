@@ -4,7 +4,7 @@ import PencilKit
 enum DrawingTool: String, CaseIterable, Identifiable {
     case pencil = "Pencil"
     case marker = "Marker"
-    case watercolor = "Watercolor"
+    case watercolor = "Soft Brush"
     case eraser = "Eraser"
     case floodFill = "Fill"
     case eyedropper = "Eyedropper"
@@ -26,7 +26,7 @@ enum DrawingTool: String, CaseIterable, Identifiable {
         switch self {
         case .pencil:     return "Pencil"
         case .marker:     return "Marker"
-        case .watercolor: return "Watercolor"
+        case .watercolor: return "Soft Brush"
         case .eraser:     return "Eraser"
         case .floodFill:  return "Flood fill"
         case .eyedropper: return "Eyedropper"
@@ -47,7 +47,7 @@ enum DrawingTool: String, CaseIterable, Identifiable {
         case .marker:
             return PKInkingTool(.marker, color: color, width: width)
         case .watercolor:
-            // Watercolor approximated via monoline ink with reduced opacity
+            // Soft Brush: monoline ink with reduced opacity
             return PKInkingTool(.monoline, color: color.withAlphaComponent(0.4), width: width)
         case .eraser:
             return PKEraserTool(.bitmap, width: width)

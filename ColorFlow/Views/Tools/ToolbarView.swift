@@ -7,6 +7,8 @@ struct ToolbarView: View {
     @Binding var showLayerPanel: Bool
     var onDismiss: (() -> Void)? = nil
     var onToggleToolbar: (() -> Void)? = nil
+    var onFitToScreen: (() -> Void)? = nil
+    var onExport: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 4) {
@@ -62,6 +64,11 @@ struct ToolbarView: View {
 
             Divider().padding(.horizontal, 6)
 
+            // Opacity slider (vertical)
+            OpacitySlider(opacity: $viewModel.brushSettings.opacity)
+
+            Divider().padding(.horizontal, 6)
+
             // Undo / Redo
             Button { viewModel.undo() } label: {
                 Image(systemName: "arrow.uturn.backward")
@@ -84,6 +91,23 @@ struct ToolbarView: View {
             .toolbarButtonStyle()
             .accessibilityLabel("Layers")
             .accessibilityHint("Opens layer panel")
+
+            Divider().padding(.horizontal, 6)
+
+            // Fit to screen
+            Button { onFitToScreen?() } label: {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+            }
+            .toolbarButtonStyle()
+            .accessibilityLabel("Fit to screen")
+
+            // Export
+            Button { onExport?() } label: {
+                Image(systemName: "square.and.arrow.up")
+            }
+            .toolbarButtonStyle()
+            .accessibilityLabel("Export artwork")
+            .accessibilityHint("Share or save your artwork")
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 6)
@@ -148,6 +172,27 @@ private struct BrushSizeSlider: View {
             Slider(value: $size, in: BrushSettings.sizeRange)
                 .accessibilityLabel("Brush size")
                 .accessibilityValue("\(Int(size)) points")
+                .rotationEffect(.degrees(-90))
+                .frame(width: 100)
+                .frame(width: 44, height: 100)
+        }
+    }
+}
+
+private struct OpacitySlider: View {
+    @Binding var opacity: Double
+
+    var body: some View {
+        VStack(spacing: 4) {
+            // Opacity preview
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color.primary.opacity(opacity))
+                .frame(width: 20, height: 20)
+                .frame(height: 28)
+
+            Slider(value: $opacity, in: 0.05...1.0)
+                .accessibilityLabel("Brush opacity")
+                .accessibilityValue("\(Int(opacity * 100)) percent")
                 .rotationEffect(.degrees(-90))
                 .frame(width: 100)
                 .frame(width: 44, height: 100)

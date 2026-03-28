@@ -128,6 +128,12 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             coordinator.updateContentSize(size, in: scrollView)
         }
 
+        // ── Fit to screen trigger ────────────────────────────────────────────
+        if viewModel.fitToScreenTrigger != coordinator.lastFitTrigger {
+            coordinator.lastFitTrigger = viewModel.fitToScreenTrigger
+            coordinator.fitToScreen()
+        }
+
         // ── Tool-aware tap / gesture config ─────────────────────────────────
         let isNonDrawingTool = viewModel.brushSettings.tool == .floodFill
                             || viewModel.brushSettings.tool == .eyedropper
@@ -167,8 +173,25 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         /// Guards against infinite delegate loop when reverting ghost strokes.
         private var isRevertingDrawing = false
 
+        /// Tracks last seen fitToScreenTrigger value to detect changes.
+        var lastFitTrigger: Bool = false
+
         init(_ parent: PencilCanvasRepresentable) {
             self.parent = parent
+        }
+
+        // MARK: Fit to Screen
+
+        func fitToScreen() {
+            guard let sv = scrollView else { return }
+            let size = parent.viewModel.canvasSize
+            guard size.width > 0, size.height > 0 else { return }
+            guard sv.bounds.width > 0, sv.bounds.height > 0 else { return }
+            let fitScale = min(sv.bounds.width / size.width, sv.bounds.height / size.height)
+            sv.setZoomScale(fitScale, animated: true)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                self?.scrollViewDidZoom(sv)
+            }
         }
 
         // MARK: UIScrollViewDelegate — zoom view

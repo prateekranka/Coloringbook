@@ -4,6 +4,7 @@ import SwiftUI
 /// Fully implemented in Phase 2; this stub satisfies the Phase 1 TabView.
 struct HomeView: View {
     @EnvironmentObject var galleryViewModel: GalleryViewModel
+    @State private var showHelp = false
     @State private var showTemplateLibrary = false
 
     var body: some View {
@@ -24,6 +25,9 @@ struct HomeView: View {
             .toolbar { headerToolbar }
             .sheet(isPresented: $showTemplateLibrary) {
                 TemplateLibraryView()
+            }
+            .sheet(isPresented: $showHelp) {
+                OnboardingView(isPresented: $showHelp)
             }
         }
     }
@@ -120,6 +124,15 @@ struct HomeView: View {
                     .font(.title3)
             }
             .accessibilityLabel("Browse templates")
+        }
+        ToolbarItem(placement: .secondaryAction) {
+            Button { showHelp = true } label: {
+                Image(systemName: "questionmark.circle")
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .font(.title3)
+            }
+            .accessibilityLabel("Help")
+            .accessibilityHint("Shows app tutorial")
         }
     }
 }

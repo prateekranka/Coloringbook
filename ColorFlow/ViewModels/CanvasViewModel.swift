@@ -35,10 +35,15 @@ class CanvasViewModel: ObservableObject {
     @Published var canvasSize: CGSize = .zero
     @Published var loadError: String?
     @Published var saveError: Bool = false
+    @Published var lastSaveTime: Date?
+    @Published var fitToScreenTrigger: Bool = false
 
     // MARK: - Layer Visibility Helpers
 
     var effectiveTemplateImage: UIImage? { showLineArt ? templateImage : nil }
+
+    /// Read-only access to the current region fill map (for export).
+    var regionFills: [String: String] { paintState.regionFills }
 
     // MARK: - Internal State
 
@@ -304,6 +309,7 @@ class CanvasViewModel: ObservableObject {
         // Save PKDrawing + fill layer PNG via StorageService (also updates project index).
         do {
             try storageService.save(project: &project, drawing: drawing, fillLayer: fillLayerImage)
+            lastSaveTime = Date()
         } catch {
             NSLog("[CanvasVM] save FAILED: %@", error.localizedDescription)
             saveError = true
@@ -330,6 +336,12 @@ class CanvasViewModel: ObservableObject {
            let str = String(data: data, encoding: .utf8) {
             recentColorsRaw = str
         }
+    }
+
+    // MARK: - Canvas Actions
+
+    func fitToScreen() {
+        fitToScreenTrigger.toggle()
     }
 
     // MARK: - Private Helpers

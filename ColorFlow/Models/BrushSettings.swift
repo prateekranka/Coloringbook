@@ -6,6 +6,10 @@ enum DrawingTool: String, CaseIterable, Identifiable {
     case marker = "Marker"
     case watercolor = "Soft Brush"
     case eraser = "Eraser"
+    case fountainPen = "Fountain Pen"
+    case crayon = "Crayon"
+    case highlighter = "Highlighter"
+    case stamp = "Stamp"
     case floodFill = "Fill"
     case eyedropper = "Eyedropper"
 
@@ -17,6 +21,10 @@ enum DrawingTool: String, CaseIterable, Identifiable {
         case .marker: return "paintbrush.pointed"
         case .watercolor: return "paintbrush"
         case .eraser: return "eraser"
+        case .fountainPen: return "scribble.variable"
+        case .crayon: return "pencil.tip"
+        case .highlighter: return "highlighter"
+        case .stamp: return "star.circle"
         case .floodFill: return "drop"
         case .eyedropper: return "eyedropper"
         }
@@ -27,16 +35,20 @@ enum DrawingTool: String, CaseIterable, Identifiable {
         case .pencil:     return "Pencil"
         case .marker:     return "Marker"
         case .watercolor: return "Soft Brush"
-        case .eraser:     return "Eraser"
-        case .floodFill:  return "Flood fill"
+        case .eraser:       return "Eraser"
+        case .fountainPen:  return "Fountain pen"
+        case .crayon:       return "Crayon"
+        case .highlighter:  return "Highlighter"
+        case .stamp:        return "Stamp"
+        case .floodFill:    return "Flood fill"
         case .eyedropper: return "Eyedropper"
         }
     }
 
     var isPencilKitTool: Bool {
         switch self {
-        case .pencil, .marker, .watercolor, .eraser: return true
-        case .floodFill, .eyedropper: return false
+        case .pencil, .marker, .watercolor, .eraser, .fountainPen, .crayon, .highlighter: return true
+        case .stamp, .floodFill, .eyedropper: return false
         }
     }
 
@@ -51,7 +63,13 @@ enum DrawingTool: String, CaseIterable, Identifiable {
             return PKInkingTool(.monoline, color: color.withAlphaComponent(0.4), width: width)
         case .eraser:
             return PKEraserTool(.bitmap, width: width)
-        case .floodFill, .eyedropper:
+        case .fountainPen:
+            return PKInkingTool(.fountainPen, color: color, width: width)
+        case .crayon:
+            return PKInkingTool(.crayon, color: color, width: width)
+        case .highlighter:
+            return PKInkingTool(.marker, color: color.withAlphaComponent(0.5), width: width * 2.5)
+        case .stamp, .floodFill, .eyedropper:
             // These don't use PKTool — return a no-op pencil tool
             return PKInkingTool(.pencil, color: .clear, width: 1)
         }

@@ -137,7 +137,11 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         // ── Tool-aware tap / gesture config ─────────────────────────────────
         let isNonDrawingTool = viewModel.brushSettings.tool == .floodFill
                             || viewModel.brushSettings.tool == .eyedropper
+                            || viewModel.brushSettings.tool == .stamp
         print("[Canvas] updateUIView tool=\(viewModel.brushSettings.tool.rawValue) isNonDrawing=\(isNonDrawingTool) zoomScale=\(scrollView.zoomScale)")
+
+        // ── Symmetry guide visibility ────────────────────────────────────────
+        coordinator.symmetryGuideLayer.isHidden = !viewModel.symmetryEnabled
 
         // Enable tap recogniser only for non-drawing tools.
         coordinator.tapGesture?.isEnabled = isNonDrawingTool
@@ -172,6 +176,12 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
 
         /// Guards against infinite delegate loop when reverting ghost strokes.
         private var isRevertingDrawing = false
+
+        /// Guards against infinite delegate loop when appending mirrored strokes.
+        private var isAddingMirroredStroke = false
+
+        // ── Symmetry guide overlay ────────────────────────────────────────
+        let symmetryGuideLayer = CAShapeLayer()
 
         /// Tracks last seen fitToScreenTrigger value to detect changes.
         var lastFitTrigger: Bool = false
@@ -246,6 +256,14 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             }
 
             container.layer.addSublayer(selectionLayer)
+
+            // 5. Symmetry guide — vertical dashed line at the canvas centre
+            symmetryGuideLayer.strokeColor = UIColor.systemBlue.withAlphaComponent(0.4).cgColor
+            symmetryGuideLayer.lineWidth = 1.0
+            symmetryGuideLayer.lineDashPattern = [8, 4]
+            symmetryGuideLayer.fillColor = nil
+            symmetryGuideLayer.isHidden = true
+            container.layer.addSublayer(symmetryGuideLayer)
         }
 
         // MARK: Content size / layout
@@ -278,6 +296,13 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
 
             scrollView.minimumZoomScale = fitScale * 0.5
             scrollView.maximumZoomScale = fitScale * 10.0
+
+            // Update symmetry guide line to bisect the canvas vertically.
+            let midX = size.width / 2
+            let guidePath = CGMutablePath()
+            guidePath.move(to: CGPoint(x: midX, y: 0))
+            guidePath.addLine(to: CGPoint(x: midX, y: size.height))
+            symmetryGuideLayer.path = guidePath
 
             if scrollView.zoomScale >= 0.99 {
                 scrollView.setZoomScale(fitScale, animated: false)

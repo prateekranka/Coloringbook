@@ -86,6 +86,17 @@ class StorageService {
         saveProjectIndex(projects)
     }
 
+    // MARK: - Rename
+
+    func renameProject(id: UUID, to name: String) {
+        var projects = loadAllProjects()
+        if let idx = projects.firstIndex(where: { $0.id == id }) {
+            projects[idx].templateName = name
+            projects[idx].modifiedAt = Date()
+        }
+        saveProjectIndex(projects)
+    }
+
     // MARK: - Helpers
 
     private func createSubdirectories() {

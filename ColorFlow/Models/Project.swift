@@ -9,6 +9,8 @@ struct Project: Identifiable, Codable {
     var drawingDataPath: String  // relative path in app Documents dir
     var fillLayerPath: String    // relative path in app Documents dir
     var thumbnailPath: String    // relative path in app Caches dir
+    /// Fraction of regions filled (0.0–1.0). Optional for backward-compat with older saved data.
+    var completionFraction: Double? = nil
 
     init(template: Template) {
         self.id = UUID()

@@ -100,6 +100,8 @@ struct MyWorkView: View {
                     } onShare: { img in
                         shareImage = img
                         showShareSheet = true
+                    } onRename: { name in
+                        viewModel.rename(project, to: name)
                     }
                 }
             }
@@ -132,11 +134,14 @@ private struct ArtworkCard: View {
     let onTap: () -> Void
     let onDelete: () -> Void
     let onShare: (UIImage) -> Void
+    let onRename: (String) -> Void
     @State private var thumbnail: UIImage?
+    @State private var isRenaming = false
+    @State private var renameText = ""
 
     var body: some View {
         Button(action: onTap) {
-            ZStack {
+            ZStack(alignment: .bottomTrailing) {
                 RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
                     .fill(Color.white)
                     .aspectRatio(1, contentMode: .fit)
@@ -152,12 +157,32 @@ private struct ArtworkCard: View {
                         .font(.largeTitle)
                         .foregroundStyle(Color.gray.opacity(0.3))
                 }
+
+                if let fraction = project.completionFraction, fraction > 0 {
+                    ZStack {
+                        Circle()
+                            .stroke(Color.white.opacity(0.6), lineWidth: 3)
+                        Circle()
+                            .trim(from: 0, to: fraction)
+                            .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                    }
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(Color.black.opacity(0.25)))
+                    .padding(8)
+                }
             }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(project.templateName)
         .accessibilityHint("Double-tap to continue coloring")
         .contextMenu {
+            Button {
+                renameText = project.templateName
+                isRenaming = true
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
             Button(role: .destructive) { onDelete() } label: {
                 Label("Delete", systemImage: "trash")
             }
@@ -166,6 +191,11 @@ private struct ArtworkCard: View {
                     Label("Share", systemImage: "square.and.arrow.up")
                 }
             }
+        }
+        .alert("Rename Project", isPresented: $isRenaming) {
+            TextField("Name", text: $renameText)
+            Button("Rename") { onRename(renameText) }
+            Button("Cancel", role: .cancel) { }
         }
         .task { thumbnail = await loadThumbnail() }
     }

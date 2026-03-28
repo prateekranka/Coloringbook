@@ -91,6 +91,25 @@ struct CanvasView: View {
                 .allowsHitTesting(false)
             }
 
+            // Completion % badge (top-right, below save indicator)
+            if viewModel.completionPercentage > 0 {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Text("\(Int(viewModel.completionPercentage * 100))%")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.black.opacity(0.45), in: Capsule())
+                            .padding(.top, 52)
+                            .padding(.trailing, 16)
+                    }
+                    Spacer()
+                }
+                .allowsHitTesting(false)
+            }
+
             // ── Chrome layer (toolbar) ────────────────────────────────────
             // NOTE: do NOT put .ignoresSafeArea on the ZStack itself — that
             // clears safe-area insets for ALL children, hiding chrome under
@@ -172,7 +191,9 @@ struct CanvasView: View {
             ColorPickerView(
                 selectedColor: $viewModel.brushSettings.color,
                 recentColors: $viewModel.recentColors,
-                palettes: viewModel.palettes
+                favoriteColors: $viewModel.favoriteColors,
+                palettes: viewModel.palettes,
+                onToggleFavorite: { viewModel.toggleFavoriteColor($0) }
             )
             .presentationDetents([.height(280), .large])
             .presentationBackgroundInteraction(.enabled(upThrough: .height(280)))

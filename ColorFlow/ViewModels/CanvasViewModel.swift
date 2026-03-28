@@ -37,6 +37,8 @@ class CanvasViewModel: ObservableObject {
     @Published var saveError: Bool = false
     @Published var lastSaveTime: Date?
     @Published var fitToScreenTrigger: Bool = false
+    @Published var completionPercentage: Double = 0
+    @Published var favoriteColors: [Color] = []
 
     // MARK: - Layer Visibility Helpers
 
@@ -74,6 +76,7 @@ class CanvasViewModel: ObservableObject {
         self.template = template
         self.palettes = ColorPalette.loadAll()
         loadRecentColors()
+        loadFavoriteColors()
     }
 
     // MARK: - Current PK Tool
@@ -127,6 +130,7 @@ class CanvasViewModel: ObservableObject {
                let saved = try? JSONDecoder().decode(ProjectPaintState.self, from: data) {
                 paintState = saved
             }
+            updateCompletionPercentage()
 
             // Load saved PKDrawing if available.
             if let savedDrawing = storageService.loadDrawing(for: project) {
@@ -183,7 +187,9 @@ class CanvasViewModel: ObservableObject {
         // Record undo action and clear redo stack.
         let action = FillAction(regionID: region.id, previousHex: previousHex, newHex: hexColor)
         fillUndoStack.append(action)
+        if fillUndoStack.count > 50 { fillUndoStack.removeFirst() }
         fillRedoStack.removeAll()
+        updateCompletionPercentage()
 
         // Apply the fill.
         paintState.regionFills[region.id] = hexColor
@@ -258,6 +264,7 @@ class CanvasViewModel: ObservableObject {
                 paintState.regionFills.removeValue(forKey: action.regionID)
             }
             fillRedoStack.append(action)
+            updateCompletionPercentage()
             rerenderFillLayer()
             scheduleAutoSave()
         } else {
@@ -271,6 +278,7 @@ class CanvasViewModel: ObservableObject {
             // Re-apply the fill action.
             paintState.regionFills[action.regionID] = action.newHex
             fillUndoStack.append(action)
+            updateCompletionPercentage()
             rerenderFillLayer()
             scheduleAutoSave()
         } else {
@@ -308,6 +316,7 @@ class CanvasViewModel: ObservableObject {
 
         // Save PKDrawing + fill layer PNG via StorageService (also updates project index).
         do {
+            project.completionFraction = completionPercentage
             try storageService.save(project: &project, drawing: drawing, fillLayer: fillLayerImage)
             lastSaveTime = Date()
         } catch {
@@ -338,10 +347,38 @@ class CanvasViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Favorite Colors
+
+    @AppStorage("favoriteColors") private var favoriteColorsRaw: String = "[]"
+
+    private func loadFavoriteColors() {
+        guard let data = favoriteColorsRaw.data(using: .utf8),
+              let hexArray = try? JSONDecoder().decode([String].self, from: data) else { return }
+        favoriteColors = hexArray.map { Color(hex: $0) }
+    }
+
+    func toggleFavoriteColor(_ color: Color) {
+        if favoriteColors.contains(color) {
+            favoriteColors.removeAll { $0 == color }
+        } else {
+            favoriteColors.insert(color, at: 0)
+        }
+        let hexArray = favoriteColors.map { UIColor($0).hexString }
+        if let data = try? JSONEncoder().encode(hexArray),
+           let str = String(data: data, encoding: .utf8) {
+            favoriteColorsRaw = str
+        }
+    }
+
     // MARK: - Canvas Actions
 
     func fitToScreen() {
         fitToScreenTrigger.toggle()
+    }
+
+    private func updateCompletionPercentage() {
+        guard let geometry = templateGeometry, !geometry.regions.isEmpty else { return }
+        completionPercentage = Double(paintState.regionFills.count) / Double(geometry.regions.count)
     }
 
     // MARK: - Private Helpers

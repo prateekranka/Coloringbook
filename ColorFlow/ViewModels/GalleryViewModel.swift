@@ -34,6 +34,15 @@ class GalleryViewModel: ObservableObject {
         projects.removeAll { $0.id == project.id }
     }
 
+    func rename(_ project: Project, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        storageService.renameProject(id: project.id, to: trimmed)
+        if let idx = projects.firstIndex(where: { $0.id == project.id }) {
+            projects[idx].templateName = trimmed
+        }
+    }
+
     /// Creates a new project from the given template and opens it immediately.
     func startProject(from template: Template) {
         let project = Project(template: template)

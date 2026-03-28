@@ -19,6 +19,8 @@ struct GalleryView: View {
                                     viewModel.open(project)
                                 } onDelete: {
                                     viewModel.delete(project)
+                                } onRename: { name in
+                                    viewModel.rename(project, to: name)
                                 }
                             }
                         }
@@ -71,7 +73,10 @@ private struct ProjectCell: View {
     let project: Project
     let onOpen: () -> Void
     let onDelete: () -> Void
+    let onRename: (String) -> Void
     @State private var thumbnail: UIImage?
+    @State private var isRenaming = false
+    @State private var renameText = ""
 
     var body: some View {
         Button(action: onOpen) {
@@ -97,18 +102,37 @@ private struct ProjectCell: View {
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
 
-                Text(project.modifiedAt, style: .relative)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(project.modifiedAt, style: .relative)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let fraction = project.completionFraction, fraction > 0 {
+                        Spacer(minLength: 0)
+                        Text("\(Int(fraction * 100))%")
+                            .font(.caption.bold())
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
             }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(project.templateName)
         .accessibilityValue("Modified \(project.modifiedAt.formatted(.relative(presentation: .named)))")
         .contextMenu {
+            Button {
+                renameText = project.templateName
+                isRenaming = true
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
             Button(role: .destructive) { onDelete() } label: {
                 Label("Delete", systemImage: "trash")
             }
+        }
+        .alert("Rename Project", isPresented: $isRenaming) {
+            TextField("Name", text: $renameText)
+            Button("Rename") { onRename(renameText) }
+            Button("Cancel", role: .cancel) { }
         }
         .task { await loadThumbnail() }
     }

@@ -4,7 +4,9 @@ import SwiftUI
 struct ColorPickerView: View {
     @Binding var selectedColor: Color
     @Binding var recentColors: [Color]
+    @Binding var favoriteColors: [Color]
     let palettes: [ColorPalette]
+    var onToggleFavorite: ((Color) -> Void)? = nil
 
     @State private var selectedPalette: ColorPalette?
     @State private var hexInput = ""
@@ -26,6 +28,11 @@ struct ColorPickerView: View {
                     // Selected palette swatches
                     if let palette = selectedPalette {
                         swatchGrid(palette: palette)
+                    }
+
+                    // Favorite colors
+                    if !favoriteColors.isEmpty {
+                        favoriteColorsRow
                     }
 
                     // Recent colors
@@ -56,12 +63,26 @@ struct ColorPickerView: View {
     // MARK: - Sub-views
 
     private var colorPreview: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(selectedColor)
-            .frame(height: 60)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.2), lineWidth: 1))
-            .accessibilityLabel("Selected color: \(hexInput)")
-            .accessibilityAddTraits(.isImage)
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(selectedColor)
+                .frame(height: 60)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.2), lineWidth: 1))
+                .accessibilityLabel("Selected color: \(hexInput)")
+                .accessibilityAddTraits(.isImage)
+
+            Button {
+                onToggleFavorite?(selectedColor)
+            } label: {
+                let isFav = favoriteColors.contains(selectedColor)
+                Image(systemName: isFav ? "heart.fill" : "heart")
+                    .font(.title2)
+                    .foregroundStyle(isFav ? Color.red : Color.secondary)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(favoriteColors.contains(selectedColor) ? "Remove from favorites" : "Add to favorites")
+        }
     }
 
     private var palettePicker: some View {
@@ -97,6 +118,24 @@ struct ColorPickerView: View {
                 SwatchCell(color: swatch.color, isSelected: selectedColor == swatch.color, name: swatch.name) {
                     selectedColor = swatch.color
                     syncFromSelectedColor()
+                }
+            }
+        }
+    }
+
+    private var favoriteColorsRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Favorites")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(favoriteColors.indices, id: \.self) { i in
+                        SwatchCell(color: favoriteColors[i], isSelected: selectedColor == favoriteColors[i], name: nil) {
+                            selectedColor = favoriteColors[i]
+                            syncFromSelectedColor()
+                        }
+                    }
                 }
             }
         }

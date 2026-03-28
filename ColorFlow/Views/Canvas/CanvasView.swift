@@ -19,6 +19,7 @@ struct CanvasView: View {
     @State private var showSaveIndicator = false
     @State private var showExportSheet = false
     @State private var exportImage: UIImage?
+    @State private var skeletonThumbnail: UIImage?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -30,6 +31,19 @@ struct CanvasView: View {
                 .accessibilityLabel("Coloring canvas")
                 .accessibilityHint("Draw with Apple Pencil, or tap to fill regions")
                 .accessibilityAddTraits(.allowsDirectInteraction)
+
+            // Skeleton thumbnail — shown while loadTemplate() is running, then crossfades out
+            if viewModel.templateImage == nil, let skeleton = skeletonThumbnail {
+                Image(uiImage: skeleton)
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
+                    .blur(radius: 24)
+                    .overlay(Color.black.opacity(0.15).ignoresSafeArea())
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.4), value: viewModel.templateImage != nil)
+            }
 
             // Flood-fill progress overlay
             if viewModel.isFilling {
@@ -144,6 +158,7 @@ struct CanvasView: View {
                                 }.value
                                 exportImage = image
                                 showExportSheet = true
+                                HapticService.shared.notify(.success)
                             }
                         }
                     )
@@ -185,6 +200,14 @@ struct CanvasView: View {
         }
         .onAppear {
             NSLog("[CanvasView] onAppear — template: %@", viewModel.template.svgFilename)
+            // Pre-load the saved thumbnail as a skeleton while the template loads
+            let thumbnailPath = viewModel.project.thumbnailPath
+            Task.detached(priority: .background) {
+                let url = StorageService.documentsURL.appendingPathComponent(thumbnailPath)
+                if let data = try? Data(contentsOf: url), let img = UIImage(data: data) {
+                    await MainActor.run { skeletonThumbnail = img }
+                }
+            }
         }
         // ── Sheets ────────────────────────────────────────────────────────
         .sheet(isPresented: $showColorPicker) {

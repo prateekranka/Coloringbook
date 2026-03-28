@@ -17,37 +17,33 @@ struct ColorFlowApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(galleryViewModel)
-                .preferredColorScheme(.dark)
         }
     }
 
     // MARK: - UIKit Appearance
 
     private func configureAppearance() {
+        let accentColor = UIColor(AppTheme.accent)
+
         // ── Tab bar ──────────────────────────────────────────────────────────
         let tabAppearance = UITabBarAppearance()
-        tabAppearance.configureWithOpaqueBackground()
-        tabAppearance.backgroundColor = UIColor(AppTheme.background)
+        tabAppearance.configureWithDefaultBackground()
 
         // Selected item: accent purple
-        let accentColor = UIColor(AppTheme.accent)
-        tabAppearance.stackedLayoutAppearance.selected.iconColor   = accentColor
+        tabAppearance.stackedLayoutAppearance.selected.iconColor = accentColor
         tabAppearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: accentColor]
 
-        // Unselected item: dim white
-        let dimColor = UIColor(white: 0.55, alpha: 1)
-        tabAppearance.stackedLayoutAppearance.normal.iconColor    = dimColor
-        tabAppearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: dimColor]
+        // Unselected item: system secondary label (adapts to light/dark)
+        tabAppearance.stackedLayoutAppearance.normal.iconColor = UIColor.secondaryLabel
+        tabAppearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.secondaryLabel]
 
         UITabBar.appearance().standardAppearance = tabAppearance
         UITabBar.appearance().scrollEdgeAppearance = tabAppearance
 
         // ── Navigation bar ───────────────────────────────────────────────────
         let navAppearance = UINavigationBarAppearance()
-        navAppearance.configureWithOpaqueBackground()
-        navAppearance.backgroundColor = UIColor(AppTheme.background)
-        navAppearance.titleTextAttributes      = [.foregroundColor: UIColor.white]
-        navAppearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+        navAppearance.configureWithDefaultBackground()
+        // Title colors inherit from UILabel.appearance() — let the system handle them
 
         UINavigationBar.appearance().standardAppearance   = navAppearance
         UINavigationBar.appearance().scrollEdgeAppearance = navAppearance

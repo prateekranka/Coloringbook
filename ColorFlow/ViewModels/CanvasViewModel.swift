@@ -256,6 +256,7 @@ class CanvasViewModel: ObservableObject {
     // MARK: - Undo / Redo
 
     func undo() {
+        HapticService.shared.impact(.light)
         if let action = fillUndoStack.popLast() {
             // Reverse the fill action.
             if let prev = action.previousHex {
@@ -274,6 +275,7 @@ class CanvasViewModel: ObservableObject {
     }
 
     func redo() {
+        HapticService.shared.impact(.light)
         if let action = fillRedoStack.popLast() {
             // Re-apply the fill action.
             paintState.regionFills[action.regionID] = action.newHex
@@ -319,6 +321,7 @@ class CanvasViewModel: ObservableObject {
             project.completionFraction = completionPercentage
             try storageService.save(project: &project, drawing: drawing, fillLayer: fillLayerImage)
             lastSaveTime = Date()
+            HapticService.shared.notify(.success)
         } catch {
             NSLog("[CanvasVM] save FAILED: %@", error.localizedDescription)
             saveError = true

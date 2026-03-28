@@ -116,6 +116,7 @@ struct ColorPickerView: View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 8) {
             ForEach(palette.swatches) { swatch in
                 SwatchCell(color: swatch.color, isSelected: selectedColor == swatch.color, name: swatch.name) {
+                    HapticService.shared.impact(.light)
                     selectedColor = swatch.color
                     syncFromSelectedColor()
                 }
@@ -132,6 +133,7 @@ struct ColorPickerView: View {
                 HStack(spacing: 8) {
                     ForEach(favoriteColors.indices, id: \.self) { i in
                         SwatchCell(color: favoriteColors[i], isSelected: selectedColor == favoriteColors[i], name: nil) {
+                            HapticService.shared.impact(.light)
                             selectedColor = favoriteColors[i]
                             syncFromSelectedColor()
                         }
@@ -150,6 +152,7 @@ struct ColorPickerView: View {
                 HStack(spacing: 8) {
                     ForEach(recentColors.indices, id: \.self) { i in
                         SwatchCell(color: recentColors[i], isSelected: selectedColor == recentColors[i], name: nil) {
+                            HapticService.shared.impact(.light)
                             selectedColor = recentColors[i]
                             syncFromSelectedColor()
                         }

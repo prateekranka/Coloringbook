@@ -30,6 +30,7 @@ class GalleryViewModel: ObservableObject {
     }
 
     func delete(_ project: Project) {
+        HapticService.shared.impact(.medium)
         storageService.delete(project: project)
         projects.removeAll { $0.id == project.id }
     }

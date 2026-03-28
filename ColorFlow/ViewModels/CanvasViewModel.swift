@@ -2,6 +2,10 @@ import SwiftUI
 import PencilKit
 import Combine
 
+// MARK: - Fill Mode
+
+enum FillMode { case flat, gradient, pattern }
+
 // MARK: - Fill Undo/Redo Action
 
 struct FillAction {
@@ -39,6 +43,17 @@ class CanvasViewModel: ObservableObject {
     @Published var fitToScreenTrigger: Bool = false
     @Published var completionPercentage: Double = 0
     @Published var favoriteColors: [Color] = []
+
+    // MARK: - Fill Mode & Gradient / Pattern / Stamp State
+
+    @Published var fillMode: FillMode = .flat
+    @Published var gradientStartColor: Color = .red
+    @Published var gradientEndColor: Color = .blue
+    @Published var gradientAngle: Double = 0
+    @Published var selectedFillPattern: FillPattern = .none
+    @Published var selectedStampShape: StampShape = .star
+    @Published var stampSize: Double = 30
+    @Published var symmetryEnabled: Bool = false
 
     // MARK: - Layer Visibility Helpers
 
@@ -140,13 +155,14 @@ class CanvasViewModel: ObservableObject {
             // Render line art and fill layer on a background thread.
             let size = canvasSize
             let fills = paintState.regionFills
+            let stamps = paintState.stamps
 
             async let lineArtTask = Task.detached(priority: .userInitiated) {
                 TemplateRenderer.renderLineArt(geometry: geometry, size: size)
             }.value
 
             async let fillLayerTask = Task.detached(priority: .userInitiated) {
-                TemplateRenderer.renderFillLayer(geometry: geometry, fills: fills, size: size)
+                TemplateRenderer.renderFillLayer(geometry: geometry, fills: fills, stamps: stamps, size: size)
             }.value
 
             let (lineArt, fillLayer) = await (lineArtTask, fillLayerTask)
@@ -182,23 +198,42 @@ class CanvasViewModel: ObservableObject {
         isFilling = true
 
         let hexColor = UIColor(brushSettings.color).hexString
+
+        // Build fill value based on current fill mode.
+        let fillValue: String
+        switch fillMode {
+        case .flat:
+            fillValue = hexColor
+        case .gradient:
+            let startHex = UIColor(gradientStartColor).hexString
+            let endHex   = UIColor(gradientEndColor).hexString
+            fillValue    = "gradient:\(startHex):\(endHex):\(Int(gradientAngle))"
+        case .pattern:
+            if selectedFillPattern == .none {
+                fillValue = hexColor
+            } else {
+                fillValue = "pattern:\(selectedFillPattern.rawValue.lowercased()):\(hexColor)"
+            }
+        }
+
         let previousHex = paintState.regionFills[region.id]
 
         // Record undo action and clear redo stack.
-        let action = FillAction(regionID: region.id, previousHex: previousHex, newHex: hexColor)
+        let action = FillAction(regionID: region.id, previousHex: previousHex, newHex: fillValue)
         fillUndoStack.append(action)
         if fillUndoStack.count > 50 { fillUndoStack.removeFirst() }
         fillRedoStack.removeAll()
         updateCompletionPercentage()
 
         // Apply the fill.
-        paintState.regionFills[region.id] = hexColor
+        paintState.regionFills[region.id] = fillValue
 
         // Re-render fill layer in the background.
         let fills = paintState.regionFills
         let size = canvasSize
+        let currentStamps = paintState.stamps
         let updatedFillLayer = await Task.detached(priority: .userInitiated) {
-            TemplateRenderer.renderFillLayer(geometry: geometry, fills: fills, size: size)
+            TemplateRenderer.renderFillLayer(geometry: geometry, fills: fills, stamps: currentStamps, size: size)
         }.value
 
         fillLayerImage = updatedFillLayer
@@ -396,16 +431,37 @@ class CanvasViewModel: ObservableObject {
     /// Re-render the fill layer image from the current paint state.
     /// Called synchronously from undo/redo — fires a detached task and updates
     /// `fillLayerImage` back on the main actor when done.
-    private func rerenderFillLayer() {
+    func rerenderFillLayer() {
         guard let geometry = templateGeometry else { return }
         let fills = paintState.regionFills
+        let stamps = paintState.stamps
         let size = canvasSize
 
         Task {
             let image = await Task.detached(priority: .userInitiated) {
-                TemplateRenderer.renderFillLayer(geometry: geometry, fills: fills, size: size)
+                TemplateRenderer.renderFillLayer(geometry: geometry, fills: fills, stamps: stamps, size: size)
             }.value
             self.fillLayerImage = image
         }
+    }
+
+    // MARK: - Stamp Placement
+
+    /// Place a stamp at the given document-space point.
+    func placeStamp(at docPoint: CGPoint) {
+        let hex = UIColor(brushSettings.color).hexString
+        let entry = StampEntry(
+            id: UUID(),
+            shape: selectedStampShape,
+            centerX: Double(docPoint.x),
+            centerY: Double(docPoint.y),
+            size: stampSize,
+            hexColor: hex
+        )
+        paintState.stamps.append(entry)
+        HapticService.shared.impact(.light)
+        rerenderFillLayer()
+        addRecentColor(brushSettings.color)
+        scheduleAutoSave()
     }
 }

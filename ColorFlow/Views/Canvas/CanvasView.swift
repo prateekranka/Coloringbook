@@ -20,6 +20,9 @@ struct CanvasView: View {
     @State private var showExportSheet = false
     @State private var exportImage: UIImage?
     @State private var skeletonThumbnail: UIImage?
+    @State private var showGradientPicker = false
+    @State private var showPatternPicker = false
+    @State private var showStampPicker = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -122,6 +125,42 @@ struct CanvasView: View {
                     Spacer()
                 }
                 .allowsHitTesting(false)
+            }
+
+            // ── Fill mode sub-toolbar ─────────────────────────────────────
+            if viewModel.brushSettings.tool == .floodFill || viewModel.brushSettings.tool == .stamp {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 8) {
+                        if viewModel.brushSettings.tool == .floodFill {
+                            FillModeButton(title: "Flat", systemImage: "square.fill",
+                                           isSelected: viewModel.fillMode == .flat) {
+                                viewModel.fillMode = .flat
+                            }
+                            FillModeButton(title: "Gradient", systemImage: "rectangle.split.2x1",
+                                           isSelected: viewModel.fillMode == .gradient) {
+                                viewModel.fillMode = .gradient
+                                showGradientPicker = true
+                            }
+                            FillModeButton(title: "Pattern", systemImage: "circle.grid.3x3",
+                                           isSelected: viewModel.fillMode == .pattern) {
+                                viewModel.fillMode = .pattern
+                                showPatternPicker = true
+                            }
+                        } else { // stamp tool
+                            Button { showStampPicker = true } label: {
+                                Label("Choose Stamp", systemImage: viewModel.selectedStampShape.systemImageName)
+                                    .font(.subheadline.bold())
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(.regularMaterial, in: Capsule())
+                            }
+                            .tint(.primary)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
+                }
             }
 
             // ── Chrome layer (toolbar) ────────────────────────────────────
@@ -231,6 +270,22 @@ struct CanvasView: View {
             LayerPanelView(viewModel: viewModel)
                 .presentationDetents([.medium])
         }
+        .sheet(isPresented: $showGradientPicker) {
+            GradientPickerView(
+                startColor: $viewModel.gradientStartColor,
+                endColor: $viewModel.gradientEndColor,
+                angle: $viewModel.gradientAngle
+            )
+            .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showPatternPicker) {
+            PatternPickerView(selectedPattern: $viewModel.selectedFillPattern)
+                .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showStampPicker) {
+            StampPickerView(selectedStamp: $viewModel.selectedStampShape, stampSize: $viewModel.stampSize)
+                .presentationDetents([.medium])
+        }
         // ── Lifecycle ─────────────────────────────────────────────────────
         .task {
             await viewModel.loadTemplate()
@@ -255,5 +310,34 @@ struct CanvasView: View {
             Text("This template couldn't be loaded. Please try a different one.")
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+// MARK: - FillModeButton
+
+private struct FillModeButton: View {
+    let title: String
+    let systemImage: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 16))
+                Text(title)
+                    .font(.caption2)
+            }
+            .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }

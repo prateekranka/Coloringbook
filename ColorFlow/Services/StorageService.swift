@@ -31,7 +31,7 @@ class StorageService {
 
     // MARK: - Save
 
-    func save(project: inout Project, drawing: PKDrawing, fillLayer: UIImage?) {
+    func save(project: inout Project, drawing: PKDrawing, fillLayer: UIImage?) throws {
         project.modifiedAt = Date()
 
         // Ensure subdirectories exist
@@ -40,15 +40,15 @@ class StorageService {
         // Save PKDrawing
         let drawingURL = Self.documentsURL.appendingPathComponent(project.drawingDataPath)
         let drawingData = drawing.dataRepresentation()
-        try? drawingData.write(to: drawingURL, options: .atomic)
+        try drawingData.write(to: drawingURL, options: .atomic)
 
         // Save fill layer PNG
         if let fill = fillLayer, let data = fill.pngData() {
             let fillURL = Self.documentsURL.appendingPathComponent(project.fillLayerPath)
-            try? data.write(to: fillURL, options: .atomic)
+            try data.write(to: fillURL, options: .atomic)
         }
 
-        // Update index
+        // Update index (non-critical — keep silent)
         var projects = loadAllProjects()
         if let idx = projects.firstIndex(where: { $0.id == project.id }) {
             projects[idx] = project

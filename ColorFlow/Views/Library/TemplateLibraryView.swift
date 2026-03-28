@@ -2,7 +2,8 @@ import SwiftUI
 
 struct TemplateLibraryView: View {
     @StateObject private var viewModel = TemplateLibraryViewModel()
-    @State private var selectedTemplate: Template?
+    @EnvironmentObject var galleryViewModel: GalleryViewModel
+    @Environment(\.dismiss) private var dismiss
 
     let columns = [
         GridItem(.adaptive(minimum: 220), spacing: 16)
@@ -25,7 +26,8 @@ struct TemplateLibraryView: View {
                         LazyVGrid(columns: columns, spacing: 16) {
                             ForEach(viewModel.filteredTemplates) { template in
                                 TemplateThumbnailCell(template: template) {
-                                    selectedTemplate = template
+                                    galleryViewModel.startProject(from: template)
+                                    dismiss()
                                 }
                             }
                         }
@@ -34,11 +36,6 @@ struct TemplateLibraryView: View {
                 }
             }
             .navigationTitle("Templates")
-            .fullScreenCover(item: $selectedTemplate) { template in
-                let project = Project(template: template)
-                let canvasVM = CanvasViewModel(project: project, template: template)
-                CanvasView(viewModel: canvasVM)
-            }
         }
     }
 }

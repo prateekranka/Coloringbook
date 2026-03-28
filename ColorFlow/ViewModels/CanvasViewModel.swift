@@ -33,6 +33,8 @@ class CanvasViewModel: ObservableObject {
 
     /// Canvas size derived from the SVG viewBox after loading.
     @Published var canvasSize: CGSize = .zero
+    @Published var loadError: String?
+    @Published var saveError: Bool = false
 
     // MARK: - Layer Visibility Helpers
 
@@ -87,6 +89,7 @@ class CanvasViewModel: ObservableObject {
 
         guard let svgURL = template.svgURL else {
             NSLog("[CanvasVM] loadTemplate: FAILED — svgURL is nil for '%@'", template.svgFilename)
+            loadError = "This template couldn't be loaded."
             return
         }
 
@@ -100,6 +103,7 @@ class CanvasViewModel: ObservableObject {
         switch parseResult {
         case .failure(let error):
             NSLog("[CanvasVM] loadTemplate: SVG parse FAILED — %@", error.localizedDescription)
+            loadError = "This template couldn't be loaded."
             return
 
         case .success(let geometry):
@@ -298,7 +302,12 @@ class CanvasViewModel: ObservableObject {
         }
 
         // Save PKDrawing + fill layer PNG via StorageService (also updates project index).
-        storageService.save(project: &project, drawing: drawing, fillLayer: fillLayerImage)
+        do {
+            try storageService.save(project: &project, drawing: drawing, fillLayer: fillLayerImage)
+        } catch {
+            NSLog("[CanvasVM] save FAILED: %@", error.localizedDescription)
+            saveError = true
+        }
     }
 
     // MARK: - Recent Colors

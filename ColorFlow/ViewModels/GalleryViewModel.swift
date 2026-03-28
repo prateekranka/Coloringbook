@@ -57,16 +57,4 @@ class GalleryViewModel: ObservableObject {
         return Array(unstarted.shuffled().prefix(8))
     }
 
-    // MARK: - My Work Stats
-
-    var completedCount: Int {
-        // Treat any project that has a fill layer as "started" — we have no explicit
-        // "completed" flag yet, so count all projects as completed for now.
-        projects.count
-    }
-
-    var inProgressCount: Int {
-        // Placeholder: will differentiate once we add a project status field.
-        0
-    }
 }

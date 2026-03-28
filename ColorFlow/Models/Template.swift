@@ -6,7 +6,6 @@ private let templateLogger = Logger(subsystem: "com.colorflow.app", category: "T
 enum TemplateCategory: String, CaseIterable, Codable {
     case mandalas = "Mandalas"
     case animals = "Animals"
-    case architecture = "Architecture"
     case abstract = "Abstract"
     case botanicals = "Botanicals"
     case lifestyle = "Lifestyle"
@@ -15,7 +14,6 @@ enum TemplateCategory: String, CaseIterable, Codable {
         switch self {
         case .mandalas: return "circle.hexagongrid"
         case .animals: return "hare"
-        case .architecture: return "building.2"
         case .abstract: return "square.on.square"
         case .botanicals: return "leaf"
         case .lifestyle: return "cup.and.saucer"

@@ -1,14 +1,7 @@
 import SwiftUI
 
-enum WorkFilter: String, CaseIterable {
-    case all        = "All"
-    case inProgress = "In Progress"
-    case completed  = "Completed"
-}
-
 struct MyWorkView: View {
     @EnvironmentObject var viewModel: GalleryViewModel
-    @State private var filter: WorkFilter = .all
     @State private var shareImage: UIImage?
     @State private var showShareSheet = false
 
@@ -22,7 +15,6 @@ struct MyWorkView: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         profileSection
-                        filterBar
                         artworkGrid
                     }
                     .padding(.bottom, 32)
@@ -75,44 +67,16 @@ struct MyWorkView: View {
             }
             .accessibilityHint("Shares your most recent artwork")
 
-            // Stats row
-            HStack(spacing: 0) {
-                StatCell(value: viewModel.projects.count, label: "Total")
-                Divider()
-                    .frame(height: 36)
-                    .background(Color.white.opacity(0.15))
-                    .padding(.horizontal, 20)
-                StatCell(value: viewModel.completedCount, label: "Completed")
-                Divider()
-                    .frame(height: 36)
-                    .background(Color.white.opacity(0.15))
-                    .padding(.horizontal, 20)
-                StatCell(value: viewModel.inProgressCount, label: "In Progress")
-            }
-            .padding(.top, 4)
         }
         .padding(.top, 24)
         .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Filter Bar
-
-    private var filterBar: some View {
-        Picker("Filter", selection: $filter) {
-            ForEach(WorkFilter.allCases, id: \.self) { f in
-                Text(f.rawValue).tag(f)
-            }
-        }
-        .pickerStyle(.segmented)
-        .padding(.horizontal, AppTheme.screenPadding)
-        .onAppear { styleSegmentedControl() }
     }
 
     // MARK: - Artwork Grid
 
     @ViewBuilder
     private var artworkGrid: some View {
-        let displayed = filteredProjects
+        let displayed = viewModel.projects
         if displayed.isEmpty {
             VStack(spacing: 16) {
                 Image(systemName: "paintpalette")
@@ -143,18 +107,13 @@ struct MyWorkView: View {
         }
     }
 
-    private var filteredProjects: [Project] {
-        // Phase 5 will use a real status field; for now "All" shows everything.
-        viewModel.projects
-    }
-
     // MARK: - Helpers
 
     private func shareLatestArtwork() {
         guard let latest = viewModel.projects.first else { return }
         DispatchQueue.global(qos: .userInitiated).async {
             let url = StorageService.documentsURL
-                .appendingPathComponent(latest.fillLayerPath)
+                .appendingPathComponent(latest.thumbnailPath)
             guard let data = try? Data(contentsOf: url),
                   let img = UIImage(data: data) else { return }
             DispatchQueue.main.async {
@@ -164,33 +123,6 @@ struct MyWorkView: View {
         }
     }
 
-    private func styleSegmentedControl() {
-        UISegmentedControl.appearance().selectedSegmentTintColor = UIColor(AppTheme.accent)
-        UISegmentedControl.appearance().setTitleTextAttributes(
-            [.foregroundColor: UIColor.white], for: .selected)
-        UISegmentedControl.appearance().setTitleTextAttributes(
-            [.foregroundColor: UIColor(AppTheme.textSecondary)], for: .normal)
-    }
-}
-
-// MARK: - Stat Cell
-
-private struct StatCell: View {
-    let value: Int
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 2) {
-            Text("\(value)")
-                .font(.title3.bold())
-                .foregroundStyle(AppTheme.textPrimary)
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(AppTheme.textSecondary)
-        }
-        .accessibilityElement(children: .combine)
-        .frame(minWidth: 70)
-    }
 }
 
 // MARK: - Artwork Card
@@ -242,7 +174,7 @@ private struct ArtworkCard: View {
         await withCheckedContinuation { cont in
             DispatchQueue.global(qos: .userInitiated).async {
                 let url = StorageService.documentsURL
-                    .appendingPathComponent(project.fillLayerPath)
+                    .appendingPathComponent(project.thumbnailPath)
                 guard let data = try? Data(contentsOf: url) else {
                     cont.resume(returning: nil)
                     return

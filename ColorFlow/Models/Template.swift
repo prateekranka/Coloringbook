@@ -1,7 +1,4 @@
 import Foundation
-import OSLog
-
-private let templateLogger = Logger(subsystem: "com.colorflow.app", category: "Template")
 
 enum TemplateCategory: String, CaseIterable, Codable {
     case mandalas = "Mandalas"
@@ -74,14 +71,11 @@ extension Template {
            let data = try? Data(contentsOf: url),
            let templates = try? JSONDecoder().decode([Template].self, from: data),
            !templates.isEmpty {
-            templateLogger.fault("[Template] Loaded \(templates.count) templates from bundle JSON")
-            NSLog("[Template] Loaded %d templates from bundle JSON", templates.count)
+            AppLog.trace(AppLog.template, "Loaded \(templates.count) templates from bundle JSON")
             return templates
         }
-        templateLogger.fault("[Template] Bundle JSON not found — using hardcoded catalogue (\(Self.bundledTemplates.count) templates)")
-        templateLogger.fault("[Template] Bundle resource URL: \(Bundle.main.resourceURL?.path ?? "nil")")
-        NSLog("[Template] Bundle JSON not found — using hardcoded catalogue (%d templates)", Self.bundledTemplates.count)
-        NSLog("[Template] Bundle resource URL: %@", Bundle.main.resourceURL?.path ?? "nil")
+        // Falling back to bundled catalogue is recoverable but unexpected in Release.
+        AppLog.error(AppLog.template, "Bundle JSON not found — using hardcoded catalogue (\(Self.bundledTemplates.count) templates)")
         return Self.bundledTemplates
     }
 

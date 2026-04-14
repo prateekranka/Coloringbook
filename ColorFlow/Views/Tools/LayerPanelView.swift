@@ -94,9 +94,13 @@ private struct LayerRow: View {
             Button { onToggle() } label: {
                 Image(systemName: isVisible ? "eye" : "eye.slash")
                     .foregroundStyle(isVisible ? Color.primary : Color.secondary)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(isLocked && name == "Line Art")
+            .accessibilityLabel(isVisible ? "Hide \(name) layer" : "Show \(name) layer")
+            .accessibilityIdentifier("layers.toggle.\(name.lowercased().replacingOccurrences(of: " ", with: "_"))")
         }
         .padding(.vertical, 2)
     }

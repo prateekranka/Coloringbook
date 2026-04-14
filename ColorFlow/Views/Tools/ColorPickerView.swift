@@ -188,8 +188,11 @@ private struct SwatchCell: View {
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(isSelected ? Color.primary : Color.clear, lineWidth: 2.5)
                 )
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(UIColor(color).hexString)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 

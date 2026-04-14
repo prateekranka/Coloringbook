@@ -122,6 +122,9 @@ private struct CategoryTab: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityIdentifier("library.category.\(label)")
         .animation(.easeInOut(duration: 0.18), value: isSelected)
     }
 }
@@ -136,7 +139,7 @@ struct LibraryTemplateCard: View {
     var body: some View {
         Button(action: onSelect) {
             VStack(alignment: .leading, spacing: 8) {
-                // White card face
+                // White card face (accessibility lives on the outer Button)
                 ZStack {
                     RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
                         .fill(Color.white)
@@ -165,6 +168,10 @@ struct LibraryTemplateCard: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(template.name), \(template.category.rawValue), difficulty \(template.difficulty.rawValue)")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("library.template.\(template.id.uuidString)")
         .task { thumbnail = await loadThumbnail() }
     }
 

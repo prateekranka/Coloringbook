@@ -81,16 +81,12 @@ class CanvasViewModel: ObservableObject {
     // MARK: - Template Loading
 
     func loadTemplate() async {
-        NSLog("[CanvasVM] loadTemplate: svgFilename=%@", template.svgFilename)
-        NSLog("[CanvasVM] loadTemplate: svgURL=%@", template.svgURL?.path ?? "nil")
-        NSLog("[CanvasVM] loadTemplate: bundleResourceURL=%@", Bundle.main.resourceURL?.path ?? "nil")
+        AppLog.trace(AppLog.canvas, "loadTemplate: \(template.svgFilename)")
 
         guard let svgURL = template.svgURL else {
-            NSLog("[CanvasVM] loadTemplate: FAILED — svgURL is nil for '%@'", template.svgFilename)
+            AppLog.error(AppLog.canvas, "loadTemplate: svgURL is nil for '\(template.svgFilename)'")
             return
         }
-
-        NSLog("[CanvasVM] loadTemplate: parsing SVG...")
 
         // Parse the SVG on a background thread.
         let parseResult = await Task.detached(priority: .userInitiated) {
@@ -99,13 +95,11 @@ class CanvasViewModel: ObservableObject {
 
         switch parseResult {
         case .failure(let error):
-            NSLog("[CanvasVM] loadTemplate: SVG parse FAILED — %@", error.localizedDescription)
+            AppLog.error(AppLog.canvas, "loadTemplate: SVG parse failed for '\(template.svgFilename)' — \(error.localizedDescription)")
             return
 
         case .success(let geometry):
-            NSLog("[CanvasVM] loadTemplate: parse OK — %d regions, viewBox=%@",
-                  geometry.regions.count,
-                  NSCoder.string(for: geometry.viewBox))
+            AppLog.trace(AppLog.canvas, "loadTemplate: parse OK — \(geometry.regions.count) regions")
             templateGeometry = geometry
 
             // Derive canvas size from viewBox.

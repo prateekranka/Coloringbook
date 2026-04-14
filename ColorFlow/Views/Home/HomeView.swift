@@ -49,6 +49,7 @@ struct HomeView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(AppTheme.accent)
                     .padding(.top, 4)
+                    .accessibilityIdentifier("home.browseTemplates")
             }
             .padding(20)
         }
@@ -118,6 +119,8 @@ struct HomeView: View {
                     .foregroundStyle(AppTheme.accent)
                     .font(.title3)
             }
+            .accessibilityLabel("Browse templates")
+            .accessibilityIdentifier("home.plus")
         }
     }
 }
@@ -173,6 +176,9 @@ private struct RecentWorkCell: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Resume recent project")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("home.recent.\(project.id.uuidString)")
         .task { thumbnail = await loadThumbnail() }
     }
 
@@ -220,6 +226,9 @@ private struct SuggestedTemplateCell: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Start coloring: \(template.name)")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("home.suggested.\(template.id.uuidString)")
         .task { thumbnail = await loadThumbnail() }
     }
 

@@ -67,6 +67,9 @@ struct CanvasView: View {
                                 .background(.regularMaterial, in: Circle())
                         }
                         .tint(.primary)
+                        .frame(minWidth: AppTheme.minTapTarget, minHeight: AppTheme.minTapTarget)
+                        .accessibilityLabel("Back to gallery")
+                        .accessibilityIdentifier("canvas.back.floating")
 
                         Button {
                             withAnimation(.easeInOut(duration: 0.22)) {
@@ -79,6 +82,9 @@ struct CanvasView: View {
                                 .background(.regularMaterial, in: Circle())
                         }
                         .tint(.primary)
+                        .frame(minWidth: AppTheme.minTapTarget, minHeight: AppTheme.minTapTarget)
+                        .accessibilityLabel("Show toolbar")
+                        .accessibilityIdentifier("canvas.toolbar.restore")
                     }
                     .padding(.leading, 12)
                     .padding(.top, 12)
@@ -87,7 +93,7 @@ struct CanvasView: View {
             }
         }
         .onAppear {
-            NSLog("[CanvasView] onAppear — template: %@", viewModel.template.svgFilename)
+            AppLog.trace(AppLog.canvas, "CanvasView onAppear — \(viewModel.template.svgFilename)")
         }
         // ── Sheets ────────────────────────────────────────────────────────
         .sheet(isPresented: $showColorPicker) {

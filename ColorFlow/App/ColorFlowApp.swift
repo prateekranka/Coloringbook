@@ -1,15 +1,11 @@
 import SwiftUI
-import OSLog
-
-private let appLogger = Logger(subsystem: "com.colorflow.app", category: "App")
 
 @main
 struct ColorFlowApp: App {
     @StateObject private var galleryViewModel = GalleryViewModel()
 
     init() {
-        appLogger.fault("[ColorFlowApp] init — app is starting")
-        NSLog("[ColorFlowApp] init — app is starting")
+        AppLog.trace(AppLog.app, "init — app is starting")
         configureAppearance()
     }
 
@@ -84,16 +80,19 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Home", systemImage: "house.fill")
                 }
+                .accessibilityIdentifier("tab.home")
 
             LibraryTabView()
                 .tabItem {
                     Label("Library", systemImage: "book.fill")
                 }
+                .accessibilityIdentifier("tab.library")
 
             MyWorkView()
                 .tabItem {
                     Label("My Work", systemImage: "person.fill")
                 }
+                .accessibilityIdentifier("tab.myWork")
         }
         // Force classic bottom tab bar — iOS 18 iPad defaults to a sidebar/top style.
         .tint(AppTheme.accent)

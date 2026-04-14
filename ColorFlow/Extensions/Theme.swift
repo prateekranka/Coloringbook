@@ -29,4 +29,8 @@ enum AppTheme {
 
     static let cardCornerRadius: CGFloat = 14
     static let screenPadding:    CGFloat = 16
+
+    /// Minimum hit-target edge per Apple HIG.
+    /// Icon-only controls must frame to at least this size.
+    static let minTapTarget:     CGFloat = 44
 }

@@ -2,12 +2,37 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!--
+	  ColorFlow privacy manifest.
+
+	  Source of truth for this file: docs/solutions/2026-04-privacy-manifest-audit.md
+	  Required Reason API audit is version-controlled there; update both together
+	  when the Required Reason API usage changes.
+
+	  Current state (Phase B pre-submission):
+	    - No data is collected, transmitted, or linked to users.
+	    - No tracking.
+	    - Only Required Reason API category is UserDefaults, used via SwiftUI
+	      @AppStorage for onboarding state and recent-colour persistence.
+	      Reason CA92.1 — accessing info stored in UserDefaults from the same
+	      app, as the documentation permits.
+
+	  Phase C additions (photo → coloring page):
+	    - If Vision/CoreML disk-space probes are added, append
+	      NSPrivacyAccessedAPICategoryDiskSpace with reason 85F4.1.
+	    - No file-timestamp access today; leave that category out unless code
+	      begins reading modificationDate / creationDate.
+	-->
+
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array/>
+
 	<key>NSPrivacyTracking</key>
 	<false/>
+
 	<key>NSPrivacyTrackingDomains</key>
 	<array/>
+
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>
 		<dict>

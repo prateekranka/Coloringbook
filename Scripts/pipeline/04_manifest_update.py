@@ -1,0 +1,219 @@
+#!/usr/bin/env python3
+"""
+04_manifest_update.py — Regenerate templates.json from a directory of SVGs.
+
+Scans a directory of validator-passing SVGs and a prompt metadata YAML,
+then regenerates ColorFlow/Resources/templates.json and prints the Swift
+snippet to append to Template.bundledTemplates.
+
+Usage:
+    python3 Scripts/pipeline/04_manifest_update.py \
+        --svgs    pipeline_work/03_postprocessed/ \
+        --prompts Scripts/pipeline/01_prompt_set.yaml \
+        --existing ColorFlow/Resources/templates.json \
+        --output  ColorFlow/Resources/templates.json
+
+    Dry-run (print only, don't write):
+        python3 Scripts/pipeline/04_manifest_update.py ... --dry-run
+
+Rules:
+    - Existing template UUIDs are NEVER changed. If a filename matches an
+      existing entry, the original UUID and name are preserved.
+    - New templates get stable UUIDs derived deterministically from the
+      SVG filename using uuid5(NAMESPACE_URL, filename). This means re-
+      running the script produces the same UUID for the same filename, so
+      the output is idempotent.
+    - If a prompt YAML entry matches the SVG filename stem, its display_name
+      and difficulty are used. Otherwise defaults: name=stem.replace("_"," ").title(),
+      difficulty=Medium.
+    - Category is inferred from the prompt YAML. Defaults to "Lifestyle"
+      if the stem doesn't match any prompt.
+
+Output:
+    - Updated templates.json (or stdout in dry-run mode).
+    - Swift code snippet printed to stdout (for pasting into Template.swift).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import uuid
+from pathlib import Path
+
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
+
+# Namespace for deterministic UUID generation from SVG filenames.
+UUID_NAMESPACE = uuid.UUID("33333333-0000-0000-0000-ffffffffffff")
+
+DIFFICULTY_MAP = {
+    "easy":   "Easy",
+    "medium": "Medium",
+    "hard":   "Hard",
+}
+CATEGORY_MAP = {
+    "Mandalas":    "Mandalas",
+    "Botanicals":  "Botanicals",
+    "Animals":     "Animals",
+    "Architecture":"Architecture",
+    "Abstract":    "Abstract",
+    "Lifestyle":   "Lifestyle",
+    "Fantasy":     "Lifestyle",   # map to Lifestyle if app category absent
+    "Seasonal":    "Botanicals",  # closest existing category
+}
+
+
+def load_prompt_index(yaml_path: Path | None) -> dict[str, dict]:
+    """
+    Returns a dict mapping svgFilename stem → {display_name, difficulty, category}.
+    """
+    if not yaml_path or not yaml_path.exists():
+        return {}
+
+    if not YAML_AVAILABLE:
+        print("WARNING: PyYAML not installed. Prompt metadata won't be used. "
+              "Install with: pip install PyYAML", file=sys.stderr)
+        return {}
+
+    with open(yaml_path, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    index: dict[str, dict] = {}
+    for cat_entry in data.get("categories", []):
+        category = cat_entry.get("name", "Lifestyle")
+        for prompt in cat_entry.get("prompts", []):
+            stem = prompt.get("name", "")
+            if stem:
+                index[stem] = {
+                    "display_name": prompt.get("display_name", stem.replace("_", " ").title()),
+                    "difficulty":   DIFFICULTY_MAP.get(prompt.get("difficulty", "medium"), "Medium"),
+                    "category":     CATEGORY_MAP.get(category, "Lifestyle"),
+                }
+    return index
+
+
+def load_existing_manifest(path: Path | None) -> dict[str, dict]:
+    """
+    Returns a dict mapping svgFilename → existing template entry.
+    Preserves UUIDs for existing templates.
+    """
+    if not path or not path.exists():
+        return {}
+    with open(path, encoding="utf-8") as f:
+        entries = json.load(f)
+    return {e["svgFilename"]: e for e in entries}
+
+
+def generate_entry(
+    svg_path: Path,
+    existing: dict[str, dict],
+    prompt_index: dict[str, dict],
+) -> dict:
+    filename = svg_path.name
+    stem     = svg_path.stem
+
+    # Preserve existing entry if present.
+    if filename in existing:
+        return existing[filename]
+
+    # Look up prompt metadata.
+    meta = prompt_index.get(stem, {})
+    display_name = meta.get("display_name", stem.replace("_", " ").title())
+    difficulty   = meta.get("difficulty", "Medium")
+    category     = meta.get("category", "Lifestyle")
+
+    # Deterministic UUID from filename.
+    template_uuid = str(uuid.uuid5(UUID_NAMESPACE, filename))
+
+    return {
+        "id":              template_uuid,
+        "name":            display_name,
+        "category":        category,
+        "difficulty":      difficulty,
+        "svgFilename":     filename,
+        "thumbnailFilename": f"thumb_{stem}.png",
+    }
+
+
+def swift_snippet(entries: list[dict]) -> str:
+    """Produce the Swift code to paste into Template.bundledTemplates."""
+    lines = ["// Auto-generated by 04_manifest_update.py — paste into Template.swift"]
+    lines.append("private static let bundledTemplates: [Template] = [")
+    for e in entries:
+        cat_swift = {
+            "Mandalas":     ".mandalas",
+            "Animals":      ".animals",
+            "Architecture": ".architecture",
+            "Abstract":     ".abstract",
+            "Botanicals":   ".botanicals",
+            "Lifestyle":    ".lifestyle",
+        }.get(e["category"], ".lifestyle")
+
+        diff_swift = {
+            "Easy":   ".easy",
+            "Medium": ".medium",
+            "Hard":   ".hard",
+        }.get(e["difficulty"], ".medium")
+
+        lines.append(
+            f'    Template(id: UUID(uuidString: "{e["id"]}")!,\n'
+            f'             name: "{e["name"]}",\n'
+            f'             category: {cat_swift},\n'
+            f'             difficulty: {diff_swift},\n'
+            f'             svgFilename: "{e["svgFilename"]}",\n'
+            f'             thumbnailFilename: "{e["thumbnailFilename"]}"),'
+        )
+    lines.append("]")
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--svgs",     required=True,    help="Directory of validator-passing SVGs")
+    parser.add_argument("--prompts",  default=None,     help="Path to 01_prompt_set.yaml")
+    parser.add_argument("--existing", default=None,     help="Existing templates.json to preserve UUIDs")
+    parser.add_argument("--output",   required=True,    help="Output path for templates.json")
+    parser.add_argument("--dry-run",  action="store_true", help="Print result instead of writing")
+    args = parser.parse_args(argv)
+
+    svgs_dir = Path(args.svgs)
+    if not svgs_dir.is_dir():
+        print(f"ERROR: '{svgs_dir}' is not a directory.", file=sys.stderr)
+        return 1
+
+    svg_files = sorted(svgs_dir.glob("*.svg"))
+    if not svg_files:
+        print(f"No SVG files found in '{svgs_dir}'.", file=sys.stderr)
+        return 1
+
+    prompt_index = load_prompt_index(Path(args.prompts) if args.prompts else None)
+    existing     = load_existing_manifest(Path(args.existing) if args.existing else None)
+
+    entries = [generate_entry(f, existing, prompt_index) for f in svg_files]
+
+    manifest_json = json.dumps(entries, indent=2, ensure_ascii=False) + "\n"
+    swift_code    = swift_snippet(entries)
+
+    if args.dry_run:
+        print("=== templates.json ===")
+        print(manifest_json)
+        print("\n=== Swift snippet (paste into Template.swift) ===")
+        print(swift_code)
+    else:
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(manifest_json, encoding="utf-8")
+        print(f"Wrote {len(entries)} entries to '{output_path}'.")
+        print("\n=== Swift snippet (paste into Template.swift) ===")
+        print(swift_code)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

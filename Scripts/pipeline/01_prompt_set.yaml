@@ -1,0 +1,341 @@
+# ColorFlow v1 Catalog Prompt Set
+#
+# Category distribution follows the research document's demand analysis:
+#   Mandalas 16%, Florals/Botanicals 12%, Animals 16%, Architecture 12%,
+#   Abstract 12%, Lifestyle/Scenes 16%, Fantasy/Whimsy 8%, Seasonal 8%
+#
+# Each prompt is designed to produce:
+#   - Clean line-art style with strong, closed outlines
+#   - High-contrast black-on-white composition
+#   - No shading or gradients (solid fills only)
+#   - Coloring-book aesthetic with clear region separation
+#
+# Model targets: SDXL + ColoringBook LoRA, or Flux.1-dev + coloring-book
+# style prompt. Negative prompts reduce photorealism and blurriness.
+#
+# Usage by 02_vectorize.py: each entry generates one raster PNG input.
+# Target: 60 images → 50+ validator-passing SVGs (some attrition expected).
+#
+# Total prompts: 60 (weighted by category share)
+
+metadata:
+  version: "1.0"
+  target_count: 60
+  image_size: "1024x1024"
+  model: "sdxl"
+  lora: "coloringbook-v1"
+  style_prefix: "coloring book page, black and white line art, clear outlines, no shading, no fill, white background, bold lines,"
+  negative_prompt: "photograph, realistic, shading, gradient, blur, gray, color, shadow, 3d render, painting"
+
+# ── Mandalas (16% → 10 images) ─────────────────────────────────────────────
+categories:
+  - name: Mandalas
+    count: 10
+    difficulty_distribution:
+      easy: 2
+      medium: 5
+      hard: 3
+    prompts:
+      - name: "sunflower_mandala"
+        display_name: "Sunflower Mandala"
+        difficulty: easy
+        prompt: "sunflower mandala, circular symmetry, large petals radiating from center, concentric rings of simple geometric shapes"
+      - name: "celtic_knot_mandala"
+        display_name: "Celtic Knot Mandala"
+        difficulty: hard
+        prompt: "celtic knot mandala, interlocking continuous loops, triquetra motifs, dense interwoven pattern with clean enclosed regions"
+      - name: "geometric_star_mandala"
+        display_name: "Geometric Star Mandala"
+        difficulty: medium
+        prompt: "geometric star mandala, eight-pointed star, nested polygons, angular symmetry, clean bold outlines"
+      - name: "peacock_feather_mandala"
+        display_name: "Peacock Feather Mandala"
+        difficulty: medium
+        prompt: "peacock feather mandala, teardrop eye shapes, fanning feather barbs, circular arrangement, ornate detail"
+      - name: "lotus_flower_mandala"
+        display_name: "Lotus Flower Mandala"
+        difficulty: medium
+        prompt: "lotus mandala, twelve petals per ring, three concentric rings, lotus buds at cardinal points, serene symmetry"
+      - name: "art_deco_mandala"
+        display_name: "Art Deco Mandala"
+        difficulty: medium
+        prompt: "art deco mandala, chevrons, fans, stepped geometric forms, 1920s decorative motifs, strong angular symmetry"
+      - name: "snowflake_mandala"
+        display_name: "Snowflake Mandala"
+        difficulty: easy
+        prompt: "snowflake mandala, six-fold symmetry, crystalline branches, simple rectangular arms with forked tips"
+      - name: "spider_web_mandala"
+        display_name: "Spider Web Mandala"
+        difficulty: medium
+        prompt: "spider web mandala, concentric hexagonal rings, radial spokes, spiral web path, dew drops at intersections"
+      - name: "hamsa_hand_mandala"
+        display_name: "Hamsa Mandala"
+        difficulty: hard
+        prompt: "hamsa hand mandala, evil eye motif at center, hamsa hand silhouette, intricate floral fill inside hand shape"
+      - name: "tribal_sun_mandala"
+        display_name: "Tribal Sun Mandala"
+        difficulty: hard
+        prompt: "tribal sun mandala, bold tribal marks, irregular spiky rays, totemic animal motifs in each segment"
+
+  # ── Botanicals / Florals (12% → 7 images) ─────────────────────────────────
+  - name: Botanicals
+    count: 7
+    difficulty_distribution:
+      easy: 2
+      medium: 3
+      hard: 2
+    prompts:
+      - name: "wildflower_meadow"
+        display_name: "Wildflower Meadow"
+        difficulty: easy
+        prompt: "wildflower meadow scene, poppies, daisies, and cornflowers, simple stems and leaves, scattered composition"
+      - name: "tropical_leaves"
+        display_name: "Tropical Leaves"
+        difficulty: medium
+        prompt: "tropical leaf arrangement, monstera, bird of paradise, banana leaf, bold venation lines, overlapping composition"
+      - name: "cactus_garden"
+        display_name: "Cactus Garden"
+        difficulty: easy
+        prompt: "cactus and succulent garden, barrel cactus, saguaro, aloe vera, pots, birds, desert blooms"
+      - name: "cherry_blossom_branch"
+        display_name: "Cherry Blossom Branch"
+        difficulty: medium
+        prompt: "cherry blossom branch, curved branches, five-petaled blossoms, buds, falling petals, birds resting"
+      - name: "botanical_mushrooms"
+        display_name: "Mushroom Forest Floor"
+        difficulty: medium
+        prompt: "forest floor with mushrooms, fly agaric, oyster mushrooms, ferns, moss, acorns, pine cones, snail"
+      - name: "sunflower_field"
+        display_name: "Sunflower Field"
+        difficulty: hard
+        prompt: "sunflower field, multiple sunflowers at different heights, intricate seed spirals, large leaves, bees and butterflies"
+      - name: "herb_garden"
+        display_name: "Herb Garden"
+        difficulty: hard
+        prompt: "labeled herb garden illustration, basil, rosemary, thyme, lavender, each plant distinct, decorative pot labels"
+
+  # ── Animals (16% → 10 images) ──────────────────────────────────────────────
+  - name: Animals
+    count: 10
+    difficulty_distribution:
+      easy: 3
+      medium: 5
+      hard: 2
+    prompts:
+      - name: "fox_portrait"
+        display_name: "Fox Portrait"
+        difficulty: easy
+        prompt: "fox portrait facing forward, large ears, fluffy tail, simple geometric body shapes, woodland background elements"
+      - name: "hummingbird"
+        display_name: "Hummingbird"
+        difficulty: medium
+        prompt: "hummingbird hovering at a flower, wing spread visible, long beak, iridescent feather detail implied with line art"
+      - name: "koi_fish_pond"
+        display_name: "Koi Fish Pond"
+        difficulty: medium
+        prompt: "three koi fish in a pond with lily pads and lotus flowers, fish overlapping, scale detail, ripple circles"
+      - name: "elephant_portrait"
+        display_name: "Elephant Portrait"
+        difficulty: easy
+        prompt: "baby elephant portrait, large rounded ears, tusks, simple wrinkle lines, flowers in background"
+      - name: "peacock_full"
+        display_name: "Peacock Display"
+        difficulty: hard
+        prompt: "peacock with tail fully fanned, each feather with detailed eye pattern, intricate overlapping feathers"
+      - name: "hedgehog_autumn"
+        display_name: "Hedgehog in Autumn"
+        difficulty: easy
+        prompt: "hedgehog curled among autumn leaves, acorns, and mushrooms, simple round body, spines as line details"
+      - name: "sea_turtle"
+        display_name: "Sea Turtle"
+        difficulty: medium
+        prompt: "sea turtle swimming, detailed shell pattern with hexagonal scutes, fins spread, seaweed and fish around it"
+      - name: "lion_portrait"
+        display_name: "Majestic Lion"
+        difficulty: medium
+        prompt: "lion portrait with full mane, direct gaze, mane composed of flowing curved lines, savanna grass hints"
+      - name: "butterfly_collection"
+        display_name: "Butterfly Collection"
+        difficulty: medium
+        prompt: "four butterfly species pinned in collector style, each with distinct wing pattern, specimen labels"
+      - name: "wolf_howling"
+        display_name: "Wolf Howling at Moon"
+        difficulty: hard
+        prompt: "wolf silhouette howling at full moon, detailed fur texture on edges, pine trees, stars around moon"
+
+  # ── Architecture (12% → 7 images) ─────────────────────────────────────────
+  - name: Architecture
+    count: 7
+    difficulty_distribution:
+      easy: 1
+      medium: 4
+      hard: 2
+    prompts:
+      - name: "victorian_house"
+        display_name: "Victorian House"
+        difficulty: medium
+        prompt: "Victorian house facade, ornate gingerbread trim, turret, bay windows, garden gate, detailed stonework"
+      - name: "japanese_pagoda"
+        display_name: "Japanese Pagoda"
+        difficulty: hard
+        prompt: "five-story Japanese pagoda, curved eave details, hanging lanterns, pine tree alongside, koi pond in foreground"
+      - name: "paris_cafe"
+        display_name: "Paris Street Café"
+        difficulty: medium
+        prompt: "Paris sidewalk café, bistro chairs and tables, striped awning, potted plants, baguettes, Eiffel Tower glimpse"
+      - name: "lighthouse"
+        display_name: "Coastal Lighthouse"
+        difficulty: easy
+        prompt: "lighthouse on rocky coast, spiral stripe pattern, keeper's cottage, rocky shore, seagulls, waves"
+      - name: "amsterdam_canal_house"
+        display_name: "Amsterdam Canal House"
+        difficulty: medium
+        prompt: "Amsterdam gabled canal house, ornate step-gable, canal and bridge in foreground, bicycle, tulips"
+      - name: "treehouse"
+        display_name: "Magical Treehouse"
+        difficulty: medium
+        prompt: "elaborate treehouse in giant oak, rope bridge, rope ladder, windows with flower boxes, birds, stars"
+      - name: "cathedral_rose_window"
+        display_name: "Cathedral Rose Window"
+        difficulty: hard
+        prompt: "gothic cathedral rose window, radiating tracery, pointed arches, repeating trefoil patterns, circular format"
+
+  # ── Abstract (12% → 7 images) ──────────────────────────────────────────────
+  - name: Abstract
+    count: 7
+    difficulty_distribution:
+      easy: 2
+      medium: 4
+      hard: 1
+    prompts:
+      - name: "zentangle_circles"
+        display_name: "Zentangle Circles"
+        difficulty: medium
+        prompt: "zentangle pattern with interlocking circles, each circle filled with different repeating small patterns"
+      - name: "flowing_ribbons"
+        display_name: "Flowing Ribbons"
+        difficulty: easy
+        prompt: "abstract flowing ribbon shapes overlapping, smooth curves, enclosed regions between ribbons, simple clean composition"
+      - name: "fish_scales"
+        display_name: "Fish Scale Pattern"
+        difficulty: easy
+        prompt: "repeating fish scale pattern, overlapping semicircles in a grid arrangement, subtle line detail in each scale"
+      - name: "stained_glass_abstract"
+        display_name: "Stained Glass Abstract"
+        difficulty: medium
+        prompt: "abstract stained glass design, irregular geometric panels, curved leading lines, large distinct color regions"
+      - name: "nautilus_spiral"
+        display_name: "Nautilus Spiral"
+        difficulty: medium
+        prompt: "nautilus shell cross-section, logarithmic spiral chambers, detailed chamber walls, fibonacci geometry"
+      - name: "tessellation_birds"
+        display_name: "Tessellating Birds"
+        difficulty: medium
+        prompt: "Escher-style tessellation of birds in flight, interlocking bird silhouettes tiling the page, positive negative space"
+      - name: "geometric_mountain"
+        display_name: "Geometric Mountain"
+        difficulty: hard
+        prompt: "low-poly geometric mountain landscape, triangular facets, lake reflection, sunrise rays, each facet a distinct region"
+
+  # ── Lifestyle / Scenes (16% → 10 images) ──────────────────────────────────
+  - name: Lifestyle
+    count: 10
+    difficulty_distribution:
+      easy: 3
+      medium: 5
+      hard: 2
+    prompts:
+      - name: "afternoon_tea"
+        display_name: "Afternoon Tea"
+        difficulty: easy
+        prompt: "afternoon tea scene, tiered cake stand with pastries, teapot, cups, flowers in vase, tablecloth"
+      - name: "cozy_reading_nook"
+        display_name: "Cozy Reading Nook"
+        difficulty: medium
+        prompt: "window seat reading nook, stack of books, throw blanket, houseplants, rainy window, mug of tea, cat"
+      - name: "farmers_market"
+        display_name: "Farmers Market"
+        difficulty: medium
+        prompt: "farmers market stall, baskets of vegetables and fruits, hanging herbs, price chalkboard, vendor and customer"
+      - name: "yoga_by_the_sea"
+        display_name: "Yoga by the Sea"
+        difficulty: easy
+        prompt: "person in warrior pose on beach, ocean horizon, sunrise, rocks, seabirds, simple calming composition"
+      - name: "bicycle_adventure"
+        display_name: "Bicycle Adventure"
+        difficulty: medium
+        prompt: "bicycle leaning against stone wall, wicker basket with flowers and baguette, cobblestone street, café in background"
+      - name: "record_player"
+        display_name: "Vintage Record Player"
+        difficulty: easy
+        prompt: "vintage record player with vinyl record spinning, album covers, cassette tapes, headphones, plant on shelf"
+      - name: "camping_night"
+        display_name: "Camping Under Stars"
+        difficulty: medium
+        prompt: "camping scene, tent with glowing window, campfire, pine trees, full moon, star constellations, mountains"
+      - name: "sushi_bar"
+        display_name: "Sushi Bar Counter"
+        difficulty: hard
+        prompt: "sushi bar counter, chef behind bar, various nigiri and rolls on board, chopsticks, sake cups, lanterns"
+      - name: "greenhouse_interior"
+        display_name: "Greenhouse Interior"
+        difficulty: hard
+        prompt: "greenhouse interior, glass roof, rows of potted plants and seedlings, watering cans, tools, climbing vines"
+      - name: "hot_air_balloon"
+        display_name: "Hot Air Balloon Festival"
+        difficulty: medium
+        prompt: "three hot air balloons aloft, each with distinct geometric pattern, clouds, rolling hills below, birds"
+
+  # ── Fantasy / Whimsy (8% → 5 images) ──────────────────────────────────────
+  - name: Fantasy
+    count: 5
+    difficulty_distribution:
+      easy: 1
+      medium: 3
+      hard: 1
+    prompts:
+      - name: "fairy_door"
+        display_name: "Fairy Door"
+        difficulty: easy
+        prompt: "tiny fairy door in the base of a tree, toadstools, small lantern, ivy, glowing keyhole, dew drops on cobwebs"
+      - name: "dragon_hatchling"
+        display_name: "Dragon Hatchling"
+        difficulty: medium
+        prompt: "baby dragon hatching from egg, egg shell pieces, wide eyes, small wings, fire breath attempt, crystals around"
+      - name: "mermaid_underwater"
+        display_name: "Mermaid Underwater"
+        difficulty: medium
+        prompt: "mermaid sitting on underwater rock, detailed tail scales, long flowing hair, coral, fish, treasure chest"
+      - name: "wizard_tower"
+        display_name: "Wizard's Tower"
+        difficulty: hard
+        prompt: "wizard's tower on cliff, glowing windows, observatory dome, potion smoke, owl, books flying, crescent moon"
+      - name: "enchanted_forest"
+        display_name: "Enchanted Forest Path"
+        difficulty: medium
+        prompt: "enchanted forest path, glowing mushrooms, fireflies, twisted ancient trees, small woodland creatures peeking"
+
+  # ── Seasonal (8% → 4 images) ───────────────────────────────────────────────
+  - name: Seasonal
+    count: 4
+    difficulty_distribution:
+      easy: 1
+      medium: 2
+      hard: 1
+    prompts:
+      - name: "autumn_harvest"
+        display_name: "Autumn Harvest"
+        difficulty: medium
+        prompt: "autumn harvest scene, pumpkins, corn stalks, hay bales, scarecrow, falling maple leaves, apple basket"
+      - name: "winter_village"
+        display_name: "Winter Village"
+        difficulty: hard
+        prompt: "winter village, snow-covered rooftops, ice skating pond, Christmas tree, horse-drawn sleigh, warm window glow"
+      - name: "spring_garden"
+        display_name: "Spring Garden"
+        difficulty: medium
+        prompt: "spring garden, tulip and daffodil beds, garden gate, robin on branch, butterfly, garden tools, birdbath"
+      - name: "summer_beach"
+        display_name: "Summer Beach Day"
+        difficulty: easy
+        prompt: "summer beach scene, beach umbrella, sandcastle, surfboard, seashells, ice cream cart, lighthouse in distance"

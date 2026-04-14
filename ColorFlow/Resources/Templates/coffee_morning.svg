@@ -1,11 +1,10 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800">
 
   <!-- ═══ BACKGROUND ═══ -->
 
   <!-- Tile wall (upper portion) -->
-  <rect id="wall" x="0" y="0" width="600" height="460" rx="0"
-        fill="none" stroke="black" stroke-width="3"/>
+  <rect id="wall" x="0" y="0" width="600" height="460" rx="0" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Tile grid lines (decorative, no id) -->
   <path d="M 0,92 L 600,92" fill="none" stroke="black" stroke-width="1.5"/>
@@ -18,35 +17,20 @@
   <path d="M 480,0 L 480,460" fill="none" stroke="black" stroke-width="1.5"/>
 
   <!-- Floor / counter (lower portion) -->
-  <rect id="floor" x="0" y="460" width="600" height="340"
-        fill="none" stroke="black" stroke-width="3"/>
+  <rect id="floor" x="0" y="460" width="600" height="340" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- ═══ GREEN SLEEVE (upper-right corner) ═══ -->
-  <path id="sleeve"
-        d="M 490,0 C 540,15 590,55 600,110 L 600,0 Z"
-        fill="none" stroke="black" stroke-width="3"/>
+  <path id="sleeve" d="M 490,0 C 540,15 590,55 600,110 L 600,0 Z" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- ═══ HAND / PALM ═══ -->
   <!-- Main palm blob -->
-  <path id="hand_palm"
-        d="M 350,155 C 375,120 430,108 490,130
-           C 545,150 575,205 565,258
-           C 555,305 520,330 485,328
-           C 455,326 432,308 415,282
-           C 400,260 405,232 425,215
-           C 400,205 375,195 350,155 Z"
-        fill="none" stroke="black" stroke-width="3"/>
+  <path id="hand_palm" d="M 350,155 C 375,120 430,108 490,130            C 545,150 575,205 565,258            C 555,305 520,330 485,328            C 455,326 432,308 415,282            C 400,260 405,232 425,215            C 400,205 375,195 350,155 Z" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Thumb curling down toward pot -->
-  <path id="thumb"
-        d="M 350,155 C 338,178 330,210 338,238
-           C 346,262 368,268 382,255
-           C 395,242 392,218 415,215"
-        fill="none" stroke="black" stroke-width="3"/>
+  <path id="thumb" d="M 350,155 C 338,178 330,210 338,238            C 346,262 368,268 382,255            C 395,242 392,218 415,215 Z" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Fingernail (blue accent) -->
-  <ellipse id="fingernail" cx="345" cy="244" rx="11" ry="7"
-           fill="none" stroke="black" stroke-width="2"/>
+  <ellipse id="fingernail" cx="345" cy="244" rx="11" ry="7" fill="none" stroke="black" stroke-width="2"/>
 
   <!-- Knuckle details (decorative) -->
   <path d="M 458,200 C 462,212 456,222 448,218" fill="none" stroke="black" stroke-width="2"/>
@@ -63,14 +47,10 @@
   -->
 
   <!-- Lower body / water chamber (base side) -->
-  <path id="moka_lower"
-        d="M 314,319 L 406,242 L 458,304 L 366,381 Z"
-        fill="none" stroke="black" stroke-width="3"/>
+  <path id="moka_lower" d="M 314,319 L 406,242 L 458,304 L 366,381 Z" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Upper body / coffee chamber (spout side) -->
-  <path id="moka_upper"
-        d="M 222,396 L 314,319 L 366,381 L 274,458 Z"
-        fill="none" stroke="black" stroke-width="3"/>
+  <path id="moka_upper" d="M 222,396 L 314,319 L 366,381 L 274,458 Z" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Panel grid lines on lower body (decorative) -->
   <path d="M 360,246 L 412,308" fill="none" stroke="black" stroke-width="2"/>
@@ -83,96 +63,61 @@
   <path d="M 268,424 L 328,370" fill="none" stroke="black" stroke-width="2"/>
 
   <!-- Spout cap (small circle at spout end) -->
-  <circle id="moka_spout_cap" cx="240" cy="430" r="20"
-          fill="none" stroke="black" stroke-width="3"/>
+  <circle id="moka_spout_cap" cx="240" cy="430" r="20" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Top valve knob (at base end, small nub) -->
-  <circle id="moka_valve" cx="440" cy="264" r="14"
-          fill="none" stroke="black" stroke-width="3"/>
+  <circle id="moka_valve" cx="440" cy="264" r="14" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Coffee stream (from spout down into left cup) -->
-  <path id="coffee_stream"
-        d="M 234,448 C 220,475 200,510 185,548"
-        fill="none" stroke="black" stroke-width="5"/>
+  <path id="coffee_stream" d="M 234,448 C 220,475 200,510 185,548 Z" fill="none" stroke="black" stroke-width="5"/>
 
   <!-- ═══ LEFT CUP ═══ -->
 
   <!-- Left coaster (octagon) -->
-  <polygon id="left_coaster"
-           points="68,658 98,642 168,642 198,658 198,688 168,704 98,704 68,688"
-           fill="none" stroke="black" stroke-width="3"/>
+  <polygon id="left_coaster" points="68,658 98,642 168,642 198,658 198,688 168,704 98,704 68,688" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Left saucer -->
-  <ellipse id="left_saucer" cx="133" cy="654" rx="74" ry="20"
-           fill="none" stroke="black" stroke-width="3"/>
+  <ellipse id="left_saucer" cx="133" cy="654" rx="74" ry="20" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Left cup body -->
-  <path id="left_cup"
-        d="M 72,550 L 194,550 L 190,638 C 190,648 168,658 133,658
-           C 98,658 76,648 76,638 Z"
-        fill="none" stroke="black" stroke-width="3"/>
+  <path id="left_cup" d="M 72,550 L 194,550 L 190,638 C 190,648 168,658 133,658            C 98,658 76,648 76,638 Z" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Left coffee surface (ellipse inside cup) -->
-  <ellipse id="left_coffee" cx="133" cy="552" rx="61" ry="16"
-           fill="none" stroke="black" stroke-width="3"/>
+  <ellipse id="left_coffee" cx="133" cy="552" rx="61" ry="16" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Left cup handle -->
-  <path id="left_cup_handle"
-        d="M 192,572 C 228,570 242,588 242,604
-           C 242,620 228,636 192,634"
-        fill="none" stroke="black" stroke-width="3"/>
+  <path id="left_cup_handle" d="M 192,572 C 228,570 242,588 242,604            C 242,620 228,636 192,634 Z" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Left shadow on floor -->
-  <path id="shadow_left"
-        d="M 40,650 C 40,635 85,628 133,628 C 181,628 226,635 226,650
-           C 226,665 181,672 133,672 C 85,672 40,665 40,650 Z"
-        fill="none" stroke="black" stroke-width="2"/>
+  <path id="shadow_left" d="M 40,650 C 40,635 85,628 133,628 C 181,628 226,635 226,650            C 226,665 181,672 133,672 C 85,672 40,665 40,650 Z" fill="none" stroke="black" stroke-width="2"/>
 
   <!-- ═══ RIGHT CUP ═══ -->
 
   <!-- Right coaster (octagon, slightly smaller) -->
-  <polygon id="right_coaster"
-           points="386,700 408,688 472,688 494,700 494,722 472,734 408,734 386,722"
-           fill="none" stroke="black" stroke-width="3"/>
+  <polygon id="right_coaster" points="386,700 408,688 472,688 494,700 494,722 472,734 408,734 386,722" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Right saucer -->
-  <ellipse id="right_saucer" cx="440" cy="698" rx="62" ry="16"
-           fill="none" stroke="black" stroke-width="3"/>
+  <ellipse id="right_saucer" cx="440" cy="698" rx="62" ry="16" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Right cup body -->
-  <path id="right_cup"
-        d="M 392,600 L 490,600 L 487,680 C 487,690 466,700 440,700
-           C 414,700 393,690 393,680 Z"
-        fill="none" stroke="black" stroke-width="3"/>
+  <path id="right_cup" d="M 392,600 L 490,600 L 487,680 C 487,690 466,700 440,700            C 414,700 393,690 393,680 Z" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Right coffee surface -->
-  <ellipse id="right_coffee" cx="440" cy="602" rx="49" ry="13"
-           fill="none" stroke="black" stroke-width="3"/>
+  <ellipse id="right_coffee" cx="440" cy="602" rx="49" ry="13" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Right coffee swirl (decorative) -->
-  <path d="M 432,600 C 438,593 450,596 448,604 C 445,612 432,610 432,604"
-        fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 432,600 C 438,593 450,596 448,604 C 445,612 432,610 432,604" fill="none" stroke="black" stroke-width="2"/>
 
   <!-- Right cup handle -->
-  <path id="right_cup_handle"
-        d="M 490,618 C 520,618 532,632 532,644
-           C 532,656 520,668 490,666"
-        fill="none" stroke="black" stroke-width="3"/>
+  <path id="right_cup_handle" d="M 490,618 C 520,618 532,632 532,644            C 532,656 520,668 490,666 Z" fill="none" stroke="black" stroke-width="3"/>
 
   <!-- Right shadow on floor -->
-  <path id="shadow_right"
-        d="M 372,686 C 372,675 404,668 440,668 C 476,668 508,675 508,686
-           C 508,697 476,704 440,704 C 404,704 372,697 372,686 Z"
-        fill="none" stroke="black" stroke-width="2"/>
+  <path id="shadow_right" d="M 372,686 C 372,675 404,668 440,668 C 476,668 508,675 508,686            C 508,697 476,704 440,704 C 404,704 372,697 372,686 Z" fill="none" stroke="black" stroke-width="2"/>
 
   <!-- ═══ STEAM WISPS (decorative, no id) ═══ -->
-  <path d="M 108,540 C 92,514 112,488 98,462 C 84,436 104,412 96,388"
-        fill="none" stroke="black" stroke-width="2.5"/>
-  <path d="M 158,538 C 146,512 164,486 152,460 C 140,434 156,408 148,384"
-        fill="none" stroke="black" stroke-width="2.5"/>
-  <path d="M 408,592 C 396,566 414,542 403,516 C 392,490 408,466 402,444"
-        fill="none" stroke="black" stroke-width="2.5"/>
-  <path d="M 452,590 C 442,564 458,540 448,514 C 438,488 452,464 448,442"
-        fill="none" stroke="black" stroke-width="2.5"/>
+  <path d="M 108,540 C 92,514 112,488 98,462 C 84,436 104,412 96,388" fill="none" stroke="black" stroke-width="2.5"/>
+  <path d="M 158,538 C 146,512 164,486 152,460 C 140,434 156,408 148,384" fill="none" stroke="black" stroke-width="2.5"/>
+  <path d="M 408,592 C 396,566 414,542 403,516 C 392,490 408,466 402,444" fill="none" stroke="black" stroke-width="2.5"/>
+  <path d="M 452,590 C 442,564 458,540 448,514 C 438,488 452,464 448,442" fill="none" stroke="black" stroke-width="2.5"/>
 
 </svg>

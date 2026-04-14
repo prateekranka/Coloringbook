@@ -1,0 +1,21 @@
+# Host-side Python tooling for the ColorFlow template pipeline.
+#
+# Install:
+#   python3 -m pip install -r Scripts/requirements.txt
+#
+# Python 3.11+ recommended. Tested on macOS 14/15.
+
+# SVG path parsing and manipulation (MIT)
+svgpathtools>=1.6.1
+
+# XML processing with XPath support (BSD)
+lxml>=5.2.1
+
+# YAML parsing for prompt sets (MIT)
+PyYAML>=6.0.1
+
+# Image loading and basic processing for pre-flight checks (HPND)
+Pillow>=10.3.0
+
+# Progress bars for batch pipeline (MIT)
+tqdm>=4.66.2

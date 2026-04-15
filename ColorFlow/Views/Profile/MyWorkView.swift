@@ -7,7 +7,7 @@ enum WorkFilter: String, CaseIterable {
 }
 
 struct MyWorkView: View {
-    @EnvironmentObject var viewModel: GalleryViewModel
+    @Environment(GalleryViewModel.self) var viewModel
     @State private var filter: WorkFilter = .all
     @State private var shareImage: UIImage?
     @State private var showShareSheet = false
@@ -151,15 +151,13 @@ struct MyWorkView: View {
 
     private func shareLatestArtwork() {
         guard let latest = viewModel.projects.first else { return }
-        DispatchQueue.global(qos: .userInitiated).async {
+        Task {
             let url = StorageService.documentsURL
                 .appendingPathComponent(latest.fillLayerPath)
             guard let data = try? Data(contentsOf: url),
                   let img = UIImage(data: data) else { return }
-            DispatchQueue.main.async {
-                shareImage = img
-                showShareSheet = true
-            }
+            shareImage = img
+            showShareSheet = true
         }
     }
 
@@ -235,17 +233,12 @@ private struct ArtworkCard: View {
     }
 
     private func loadThumbnail() async -> UIImage? {
-        await withCheckedContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let url = StorageService.documentsURL
-                    .appendingPathComponent(project.fillLayerPath)
-                guard let data = try? Data(contentsOf: url) else {
-                    cont.resume(returning: nil)
-                    return
-                }
-                cont.resume(returning: UIImage(data: data))
-            }
-        }
+        await Task.detached(priority: .userInitiated) {
+            let url = StorageService.documentsURL
+                .appendingPathComponent(project.fillLayerPath)
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            return UIImage(data: data)
+        }.value
     }
 }
 

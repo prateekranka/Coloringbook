@@ -3,8 +3,9 @@ import SwiftUI
 /// Home tab — featured content, recent work, and template suggestions.
 /// Fully implemented in Phase 2; this stub satisfies the Phase 1 TabView.
 struct HomeView: View {
-    @EnvironmentObject var galleryViewModel: GalleryViewModel
+    @Environment(GalleryViewModel.self) var galleryViewModel
     @State private var showTemplateLibrary = false
+    @State private var showPhotoImport = false
 
     var body: some View {
         NavigationStack {
@@ -24,6 +25,11 @@ struct HomeView: View {
             .toolbar { headerToolbar }
             .sheet(isPresented: $showTemplateLibrary) {
                 TemplateLibraryView()
+            }
+            .sheet(isPresented: $showPhotoImport) {
+                PhotoImportView { template in
+                    galleryViewModel.startProject(from: template.asTemplate())
+                }
             }
         }
     }
@@ -45,11 +51,22 @@ struct HomeView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.textSecondary)
 
-                Button("Browse Templates") { showTemplateLibrary = true }
-                    .buttonStyle(.borderedProminent)
+                HStack(spacing: 10) {
+                    Button("Browse Templates") { showTemplateLibrary = true }
+                        .buttonStyle(.borderedProminent)
+                        .tint(AppTheme.accent)
+                        .accessibilityIdentifier("home.browseTemplates")
+
+                    Button {
+                        showPhotoImport = true
+                    } label: {
+                        Label("From Photo", systemImage: "camera.fill")
+                    }
+                    .buttonStyle(.bordered)
                     .tint(AppTheme.accent)
-                    .padding(.top, 4)
-                    .accessibilityIdentifier("home.browseTemplates")
+                    .accessibilityIdentifier("home.createFromPhoto")
+                }
+                .padding(.top, 4)
             }
             .padding(20)
         }
@@ -183,17 +200,12 @@ private struct RecentWorkCell: View {
     }
 
     private func loadThumbnail() async -> UIImage? {
-        await withCheckedContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let url = StorageService.documentsURL
-                    .appendingPathComponent(project.fillLayerPath)
-                guard let data = try? Data(contentsOf: url) else {
-                    cont.resume(returning: nil)
-                    return
-                }
-                cont.resume(returning: UIImage(data: data))
-            }
-        }
+        await Task.detached(priority: .userInitiated) {
+            let url = StorageService.documentsURL
+                .appendingPathComponent(project.fillLayerPath)
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            return UIImage(data: data)
+        }.value
     }
 }
 
@@ -234,15 +246,9 @@ private struct SuggestedTemplateCell: View {
 
     private func loadThumbnail() async -> UIImage? {
         guard let url = template.svgURL else { return nil }
-        return await withCheckedContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                if case .success(let geo) = SVGParser.parse(url: url) {
-                    let img = TemplateRenderer.renderThumbnail(geometry: geo, size: CGSize(width: 280, height: 280))
-                    cont.resume(returning: img)
-                } else {
-                    cont.resume(returning: nil)
-                }
-            }
-        }
+        return await Task.detached(priority: .userInitiated) {
+            guard case .success(let geo) = SVGParser.parse(url: url) else { return nil }
+            return TemplateRenderer.renderThumbnail(geometry: geo, size: CGSize(width: 280, height: 280))
+        }.value
     }
 }

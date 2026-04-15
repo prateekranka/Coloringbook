@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct TemplateLibraryView: View {
-    @StateObject private var viewModel = TemplateLibraryViewModel()
+    @State private var viewModel = TemplateLibraryViewModel()
     @State private var selectedTemplate: Template?
+    @State private var selectedUserTemplate: UserTemplate?
+    @State private var showPhotoImport = false
 
     let columns = [
         GridItem(.adaptive(minimum: 220), spacing: 16)
@@ -17,28 +19,94 @@ struct TemplateLibraryView: View {
                     categories: TemplateCategory.allCases
                 )
 
-                if viewModel.filteredTemplates.isEmpty {
-                    ContentUnavailableView("No Templates", systemImage: "square.dashed",
-                                          description: Text("Templates will appear here."))
-                } else {
-                    ScrollView {
-                        LazyVGrid(columns: columns, spacing: 16) {
-                            ForEach(viewModel.filteredTemplates) { template in
-                                TemplateThumbnailCell(template: template) {
-                                    selectedTemplate = template
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // My Photos section (only when user templates exist)
+                        if !viewModel.userTemplates.isEmpty {
+                            myPhotosSection
+                        }
+
+                        // Curated catalog grid
+                        if viewModel.filteredTemplates.isEmpty {
+                            ContentUnavailableView("No Templates", systemImage: "square.dashed",
+                                                  description: Text("Templates will appear here."))
+                                .padding(.top, 40)
+                        } else {
+                            LazyVGrid(columns: columns, spacing: 16) {
+                                ForEach(viewModel.filteredTemplates) { template in
+                                    TemplateThumbnailCell(template: template) {
+                                        selectedTemplate = template
+                                    }
                                 }
                             }
+                            .padding()
                         }
-                        .padding()
                     }
                 }
             }
             .navigationTitle("Templates")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showPhotoImport = true
+                    } label: {
+                        Label("Create from Photo", systemImage: "camera.fill")
+                    }
+                    .accessibilityIdentifier("library.createFromPhoto")
+                }
+            }
             .fullScreenCover(item: $selectedTemplate) { template in
                 let project = Project(template: template)
                 let canvasVM = CanvasViewModel(project: project, template: template)
                 CanvasView(viewModel: canvasVM)
             }
+            .fullScreenCover(item: $selectedUserTemplate) { userTemplate in
+                let template = userTemplate.asTemplate()
+                let project  = Project(template: template)
+                let canvasVM = CanvasViewModel(project: project, template: template)
+                CanvasView(viewModel: canvasVM)
+            }
+            .sheet(isPresented: $showPhotoImport) {
+                PhotoImportView { template in
+                    viewModel.reloadUserTemplates()
+                }
+            }
+        }
+    }
+
+    // MARK: - My Photos
+
+    private var myPhotosSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("My Photos")
+                    .font(.title3.bold())
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text("\(viewModel.userTemplates.count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+            .padding(.top, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(viewModel.userTemplates) { userTemplate in
+                        UserTemplateThumbnailCell(userTemplate: userTemplate) {
+                            selectedUserTemplate = userTemplate
+                        } onDelete: {
+                            viewModel.deleteUserTemplate(userTemplate)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            }
+
+            Divider()
+                .padding(.horizontal)
+                .padding(.top, 4)
         }
     }
 }
@@ -125,6 +193,74 @@ private struct TemplateThumbnailCell: View {
         thumbnail = img
     }
 }
+
+// MARK: - User Template Thumbnail Cell
+
+private struct UserTemplateThumbnailCell: View {
+    let userTemplate: UserTemplate
+    let onSelect: () -> Void
+    let onDelete: () -> Void
+    @State private var thumbnail: UIImage?
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(alignment: .leading, spacing: 6) {
+                ZStack(alignment: .topTrailing) {
+                    Group {
+                        if let thumb = thumbnail {
+                            Image(uiImage: thumb)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Image(systemName: "wand.and.stars")
+                                .font(.largeTitle)
+                                .foregroundStyle(Color.purple.opacity(0.4))
+                        }
+                    }
+                    .frame(width: 140, height: 140)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .background(Color.white.clipShape(RoundedRectangle(cornerRadius: 12)))
+                    .shadow(color: .black.opacity(0.1), radius: 3, y: 1)
+
+                    // Delete button
+                    Button(role: .destructive) { onDelete() } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(.red)
+                            .background(Circle().fill(.white).padding(2))
+                    }
+                    .padding(4)
+                    .accessibilityLabel("Delete \(userTemplate.name)")
+                }
+
+                Text(userTemplate.name)
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+                    .frame(width: 140, alignment: .leading)
+
+                Text(userTemplate.preset)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 140, alignment: .leading)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open user template: \(userTemplate.name)")
+        .accessibilityIdentifier("library.userTemplate.\(userTemplate.id.uuidString)")
+        .task { await loadThumbnail() }
+    }
+
+    private func loadThumbnail() async {
+        let thumbURL = StorageService.documentsURL
+            .appendingPathComponent(userTemplate.thumbnailPath)
+        guard FileManager.default.fileExists(atPath: thumbURL.path),
+              let data = try? Data(contentsOf: thumbURL),
+              let img  = UIImage(data: data) else { return }
+        thumbnail = img
+    }
+}
+
+// MARK: - Difficulty Badge
 
 private struct DifficultyBadge: View {
     let difficulty: Difficulty

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Collapsible left-side toolbar with tool selection, brush size, and undo/redo.
 struct ToolbarView: View {
-    @ObservedObject var viewModel: CanvasViewModel
+    @Bindable var viewModel: CanvasViewModel
     @Binding var showColorPicker: Bool
     @Binding var showLayerPanel: Bool
     var onDismiss: (() -> Void)? = nil

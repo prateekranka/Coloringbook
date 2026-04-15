@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Observation
 
 struct OpenedProjectItem: Identifiable {
     let id = UUID()
@@ -8,9 +9,10 @@ struct OpenedProjectItem: Identifiable {
 }
 
 @MainActor
-class GalleryViewModel: ObservableObject {
-    @Published var projects: [Project] = []
-    @Published var openedProject: OpenedProjectItem?
+@Observable
+final class GalleryViewModel {
+    var projects: [Project] = []
+    var openedProject: OpenedProjectItem?
 
     private let storageService = StorageService()
     private let allTemplates: [Template]
@@ -40,6 +42,11 @@ class GalleryViewModel: ObservableObject {
         openedProject = OpenedProjectItem(project: project, template: template)
         // Note: StorageService.save is called by CanvasViewModel on first auto-save.
         reload()
+    }
+
+    /// Open a user-generated template as a new project.
+    func startProject(from userTemplate: UserTemplate) {
+        startProject(from: userTemplate.asTemplate())
     }
 
     // MARK: - Home Screen Helpers

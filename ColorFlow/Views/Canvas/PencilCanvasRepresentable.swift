@@ -23,7 +23,7 @@ import CoreGraphics
 ///   4. lineArtImageView  – SVG line art with multiplyBlendMode compositing filter
 ///   5. selectionLayer    – CAShapeLayer marching-ants selection highlight
 struct PencilCanvasRepresentable: UIViewRepresentable {
-    @ObservedObject var viewModel: CanvasViewModel
+    var viewModel: CanvasViewModel
 
     // MARK: - makeUIView
 
@@ -83,9 +83,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         coordinator.tapGesture = tap
 
         // Expose the PKCanvasView to the view model (weak ref).
-        DispatchQueue.main.async {
-            viewModel.pencilCanvas = canvas
-        }
+        viewModel.pencilCanvas = canvas
 
         return container
     }
@@ -153,7 +151,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         // ── Stored UIKit references ───────────────────────────────────────
         weak var scrollView: UIScrollView?
         weak var canvas: PKCanvasView?
-        var contentContainer: UIView?
+        weak var contentContainer: UIView?
 
         // ── Pixel-layer subviews ──────────────────────────────────────────
         let backgroundView   = UIView()
@@ -323,7 +321,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
 
             switch tool {
             case .floodFill:
-                Task { @MainActor in
+                Task {
                     await parent.viewModel.performRegionFill(at: point, in: docSize)
                 }
 

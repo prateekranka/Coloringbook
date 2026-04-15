@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct ColorFlowApp: App {
-    @StateObject private var galleryViewModel = GalleryViewModel()
+    @State private var galleryViewModel = GalleryViewModel()
 
     init() {
         AppLog.trace(AppLog.app, "init — app is starting")
@@ -12,7 +12,7 @@ struct ColorFlowApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(galleryViewModel)
+                .environment(galleryViewModel)
                 .preferredColorScheme(.dark)
         }
     }
@@ -54,7 +54,7 @@ struct ColorFlowApp: App {
 // MARK: - Root Content
 
 struct ContentView: View {
-    @EnvironmentObject var galleryViewModel: GalleryViewModel
+    @Environment(GalleryViewModel.self) var galleryViewModel
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     var body: some View {
@@ -72,7 +72,7 @@ struct ContentView: View {
 // MARK: - Main Tab View
 
 struct MainTabView: View {
-    @EnvironmentObject var galleryViewModel: GalleryViewModel
+    @Environment(GalleryViewModel.self) var galleryViewModel
 
     var body: some View {
         TabView {
@@ -98,7 +98,7 @@ struct MainTabView: View {
         .tint(AppTheme.accent)
         // Single canvas presenter — avoids duplicate fullScreenCover conflicts
         // across tabs that all share the same openedProject binding.
-        .fullScreenCover(item: $galleryViewModel.openedProject) { item in
+        .fullScreenCover(item: Bindable(galleryViewModel).openedProject) { item in
             CanvasView(viewModel: CanvasViewModel(project: item.project, template: item.template))
         }
     }

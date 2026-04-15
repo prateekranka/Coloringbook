@@ -3,7 +3,7 @@ import SwiftUI
 /// Simplified layer panel showing the 3-layer model:
 /// Background → Color/Pencil layer → Line Art (locked)
 struct LayerPanelView: View {
-    @ObservedObject var viewModel: CanvasViewModel
+    @Bindable var viewModel: CanvasViewModel
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {

@@ -1,6 +1,6 @@
 import SwiftUI
 import PencilKit
-import Combine
+import Observation
 
 // MARK: - Fill Undo/Redo Action
 
@@ -13,26 +13,27 @@ struct FillAction {
 // MARK: - CanvasViewModel
 
 @MainActor
-class CanvasViewModel: ObservableObject {
+@Observable
+final class CanvasViewModel {
 
-    // MARK: - Published State
+    // MARK: - State
 
-    @Published var drawing = PKDrawing()
-    @Published var brushSettings = BrushSettings()
-    @Published var backgroundColor: Color = .white
-    @Published var templateImage: UIImage?
-    @Published var fillLayerImage: UIImage?
-    @Published var recentColors: [Color] = []
-    @Published var palettes: [ColorPalette] = []
-    @Published var isFilling = false
-    @Published var showLineArt = true
-    @Published var showColorLayer = true
+    var drawing = PKDrawing()
+    var brushSettings = BrushSettings()
+    var backgroundColor: Color = .white
+    var templateImage: UIImage?
+    var fillLayerImage: UIImage?
+    var recentColors: [Color] = []
+    var palettes: [ColorPalette] = []
+    var isFilling = false
+    var showLineArt = true
+    var showColorLayer = true
 
     /// Currently highlighted/selected region ID.
-    @Published var selectedRegionID: String?
+    var selectedRegionID: String?
 
     /// Canvas size derived from the SVG viewBox after loading.
-    @Published var canvasSize: CGSize = .zero
+    var canvasSize: CGSize = .zero
 
     // MARK: - Layer Visibility Helpers
 
@@ -297,10 +298,11 @@ class CanvasViewModel: ObservableObject {
 
     // MARK: - Recent Colors
 
-    @AppStorage("recentColors") private var recentColorsRaw: String = "[]"
+    private static let recentColorsKey = "recentColors"
 
     private func loadRecentColors() {
-        guard let data = recentColorsRaw.data(using: .utf8),
+        let raw = UserDefaults.standard.string(forKey: Self.recentColorsKey) ?? "[]"
+        guard let data = raw.data(using: .utf8),
               let hexArray = try? JSONDecoder().decode([String].self, from: data) else { return }
         recentColors = hexArray.map { Color(hex: $0) }
     }
@@ -313,7 +315,7 @@ class CanvasViewModel: ObservableObject {
         let hexArray = recentColors.map { UIColor($0).hexString }
         if let data = try? JSONEncoder().encode(hexArray),
            let str = String(data: data, encoding: .utf8) {
-            recentColorsRaw = str
+            UserDefaults.standard.set(str, forKey: Self.recentColorsKey)
         }
     }
 

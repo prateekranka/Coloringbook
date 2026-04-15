@@ -11,7 +11,7 @@ import PencilKit
 /// overlay) live inside `PencilCanvasRepresentable` so that PKCanvasView's
 /// built-in UIScrollView zoom/pan keeps every layer in sync automatically.
 struct CanvasView: View {
-    @ObservedObject var viewModel: CanvasViewModel
+    @Bindable var viewModel: CanvasViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var showToolbar = true
     @State private var showColorPicker = false

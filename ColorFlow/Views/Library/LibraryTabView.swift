@@ -4,9 +4,9 @@ import SwiftUI
 /// Phase 3 will add the underline-pill category redesign; for now it reuses the
 /// existing TemplateLibraryView layout inside the dark-themed navigation stack.
 struct LibraryTabView: View {
-    @StateObject private var viewModel = TemplateLibraryViewModel()
+    @State private var viewModel = TemplateLibraryViewModel()
     @State private var searchText = ""
-    @EnvironmentObject var galleryViewModel: GalleryViewModel
+    @Environment(GalleryViewModel.self) var galleryViewModel
 
     private let columns = [GridItem(.adaptive(minimum: 200), spacing: 14)]
 
@@ -177,16 +177,10 @@ struct LibraryTemplateCard: View {
 
     private func loadThumbnail() async -> UIImage? {
         guard let url = template.svgURL else { return nil }
-        return await withCheckedContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                if case .success(let geo) = SVGParser.parse(url: url) {
-                    cont.resume(returning: TemplateRenderer.renderThumbnail(
-                        geometry: geo, size: CGSize(width: 400, height: 400)))
-                } else {
-                    cont.resume(returning: nil)
-                }
-            }
-        }
+        return await Task.detached(priority: .userInitiated) {
+            guard case .success(let geo) = SVGParser.parse(url: url) else { return nil }
+            return TemplateRenderer.renderThumbnail(geometry: geo, size: CGSize(width: 400, height: 400))
+        }.value
     }
 }
 

@@ -12,6 +12,7 @@
 // target to be wired in project.yml (follow-up F-05 from the A1 audit).
 
 import XCTest
+@testable import ColorFlow
 
 final class SVGCatalogParityTests: XCTestCase {
 

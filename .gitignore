@@ -10,5 +10,15 @@ DerivedData/
 *.dSYM.zip
 *.dSYM
 
+# SwiftPM local cache (never belongs in the app target)
+.build/
+
+# Local agent / editor state
+.claire/
+.claude/
+
+# Template pipeline working directory (rasters, intermediate SVGs, etc.)
+pipeline_work/
+
 # macOS
 .DS_Store

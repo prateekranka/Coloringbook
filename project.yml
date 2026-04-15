@@ -36,6 +36,7 @@ targets:
           - "Scripts/**"
           - "Assets.xcassets/**"   # bundled via resources below
           - "Resources/**"         # bundled via resources below
+          - ".build/**"            # stray SwiftPM cache — never belongs in the app target
 
     # ── Bundle resources ─────────────────────────────────────────────────────
     resources:
@@ -43,6 +44,8 @@ targets:
       - path: ColorFlow/Resources/templates.json
       - path: ColorFlow/Resources/Palettes/palettes.json
       - path: ColorFlow/PrivacyInfo.xcprivacy        # Required for App Store submission
+      # CoreML model directory (populated after running Scripts/coreml/convert_informative_drawings.py)
+      # - path: ColorFlow/Resources/Models            # Uncomment after model is converted
 
     # ── Run Script: copy SVG templates into the app bundle ────────────────
     # xcodegen does not reliably add .svg files to Copy Bundle Resources,
@@ -75,7 +78,8 @@ targets:
         CODE_SIGN_IDENTITY: "Apple Development"
         CODE_SIGN_ENTITLEMENTS: ColorFlow/ColorFlow.entitlements
 
-        # Linker flags (none needed currently — SVGKit is stubbed out)
+        # System frameworks auto-linked on iOS — explicit for clarity
+        # Vision, MetalPerformanceShaders, CoreML are used by the photo pipeline (Phase C).
         OTHER_LDFLAGS: ""
 
       configs:
@@ -89,15 +93,53 @@ targets:
           VALIDATE_PRODUCT: "YES"
           ENABLE_TESTABILITY: "NO"
 
+  ColorFlowTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ColorFlowTests
+    dependencies:
+      - target: ColorFlow
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.prateekranka.colorflow.tests
+        GENERATE_INFOPLIST_FILE: "YES"
+        TARGETED_DEVICE_FAMILY: "2"
+        DEVELOPMENT_TEAM: Y4QMMY38ZN
+        CODE_SIGN_STYLE: Automatic
+
+  ColorFlowUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ColorFlowUITests
+    dependencies:
+      - target: ColorFlow
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.prateekranka.colorflow.uitests
+        GENERATE_INFOPLIST_FILE: "YES"
+        TARGETED_DEVICE_FAMILY: "2"
+        DEVELOPMENT_TEAM: Y4QMMY38ZN
+        CODE_SIGN_STYLE: Automatic
+        TEST_TARGET_NAME: ColorFlow
+
 schemes:
   ColorFlow:
     build:
       targets:
         ColorFlow: all
+        ColorFlowTests: [test]
+        ColorFlowUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
+      targets:
+        - ColorFlowTests
+        - ColorFlowUITests
     profile:
       config: Release
     analyze:

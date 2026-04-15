@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 800" width="700" height="800">
+  <!-- Majestic Lion Portrait -->
+
+  <!-- Mane outer ring -->
+  <path id="region-1" d="M350,80 C430,60 510,80 570,130 C640,190 670,280 660,360 C648,440 600,500 540,530 C490,555 420,560 350,560 C280,560 210,555 160,530 C100,500 52,440 40,360 C30,280 60,190 130,130 C190,80 270,60 350,80 Z" fill="none" stroke="black" stroke-width="4"/>
+
+  <!-- Mane inner segments (flowing curves) -->
+  <path id="region-2" d="M350,80 C360,110 375,130 380,155 C390,140 400,120 415,100 C395,88 372,82 350,80 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-3" d="M430,60 C445,85 450,110 445,135 C460,118 475,98 490,82 C472,70 452,63 430,60 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-4" d="M510,80 C518,105 515,132 505,155 C522,140 540,120 554,100 C540,88 526,82 510,80 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-5" d="M570,130 C568,156 558,178 542,196 C560,185 578,168 590,148 C584,140 577,134 570,130 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-6" d="M630,200 C618,222 600,240 578,252 C598,248 618,238 634,222 C632,215 631,207 630,200 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-7" d="M655,290 C638,308 616,320 592,325 C612,326 634,320 650,308 C652,302 654,296 655,290 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-8" d="M648,380 C630,395 608,402 585,402 C605,408 627,406 646,396 C648,390 649,385 648,380 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-9" d="M610,460 C592,472 570,478 548,476 C566,484 586,484 604,476 C608,470 609,465 610,460 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-10" d="M540,530 C522,538 502,540 482,536 C498,546 518,548 536,542 C538,538 539,534 540,530 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-11" d="M270,60 C255,85 255,110 263,135 C248,118 230,98 218,82 C238,70 254,62 270,60 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-12" d="M195,82 C190,108 193,133 202,155 C186,138 168,118 157,98 C168,88 180,84 195,82 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-13" d="M130,130 C130,155 136,180 148,202 C130,188 114,168 106,148 C116,138 122,132 130,130 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-14" d="M75,195 C80,218 92,240 108,256 C90,245 74,228 66,208 C69,203 72,198 75,195 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-15" d="M46,290 C54,312 70,330 90,342 C72,334 56,318 48,300 C47,296 46,293 46,290 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-16" d="M46,380 C56,400 74,415 96,420 C76,415 58,402 50,386 C48,384 47,382 46,380 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-17" d="M92,458 C106,474 126,484 148,486 C128,484 108,474 98,460 C96,459 94,458 92,458 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-18" d="M160,530 C176,542 196,548 218,548 C198,548 180,540 168,528 C165,529 162,530 160,530 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Face -->
+  <path id="region-19" d="M350,155 C410,155 460,175 490,210 C520,245 525,290 515,330 C505,370 480,400 445,418 C420,430 388,435 350,435 C312,435 280,430 255,418 C220,400 195,370 185,330 C175,290 180,245 210,210 C240,175 290,155 350,155 Z" fill="none" stroke="black" stroke-width="4"/>
+
+  <!-- Eyes -->
+  <path id="region-20" d="M268,248 C272,232 286,224 300,228 C314,232 322,248 318,264 C314,280 300,288 286,284 C272,280 264,264 268,248 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-21" d="M278,250 C280,240 288,235 296,239 C304,242 308,252 305,261 C302,270 294,274 286,271 C278,268 276,260 278,250 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-22" d="M432,248 C428,232 414,224 400,228 C386,232 378,248 382,264 C386,280 400,288 414,284 C428,280 436,264 432,248 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-23" d="M422,250 C420,240 412,235 404,239 C396,242 392,252 395,261 C398,270 406,274 414,271 C422,268 424,260 422,250 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Nose bridge -->
+  <path id="region-24" d="M340,290 C340,268 360,268 360,290 L360,315 L340,315 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Nose -->
+  <path id="region-25" d="M320,315 C320,298 340,288 350,288 C360,288 380,298 380,315 C380,330 365,342 350,342 C335,342 320,330 320,315 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Muzzle left -->
+  <path id="region-26" d="M210,310 C210,285 248,270 285,275 C285,305 285,335 280,355 C255,345 220,335 210,310 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Muzzle right -->
+  <path id="region-27" d="M490,310 C490,285 452,270 415,275 C415,305 415,335 420,355 C445,345 480,335 490,310 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Chin -->
+  <path id="region-28" d="M310,360 C310,380 330,400 350,404 C370,400 390,380 390,360 C380,355 365,352 350,352 C335,352 320,355 310,360 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Neck -->
+  <path id="region-29" d="M255,435 C245,465 248,510 270,540 C290,565 320,575 350,575 C380,575 410,565 430,540 C452,510 455,465 445,435 C420,445 388,450 350,450 C312,450 280,445 255,435 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Body -->
+  <path id="region-30" d="M270,575 C250,600 240,640 250,670 C260,700 285,720 300,730 L350,740 L400,730 C415,720 440,700 450,670 C460,640 450,600 430,575 C410,585 380,590 350,590 C320,590 290,585 270,575 Z" fill="none" stroke="black" stroke-width="3"/>
+</svg>

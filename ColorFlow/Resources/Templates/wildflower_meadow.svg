@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" width="900" height="700">
+  <!-- Wildflower Meadow — poppies, daisies, cornflowers -->
+
+  <!-- Ground / grass -->
+  <path id="region-1" d="M0,620 C150,580 300,560 450,570 C600,580 750,580 900,600 L900,700 L0,700 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-2" d="M0,640 C100,610 200,600 350,610 C500,620 650,615 900,620 L900,700 L0,700 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Grass blades (decorative) -->
+  <path d="M80,620 C75,580 70,550 80,530 C85,555 90,580 95,610 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M200,600 C195,560 190,530 200,510 C205,535 210,560 215,590 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M400,570 C395,530 390,500 400,480 C405,505 410,530 415,560 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M700,600 C695,560 690,530 700,510 C705,535 710,560 715,590 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M820,620 C815,580 810,550 820,530 C825,555 830,580 835,610 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- POPPY 1 (left) -->
+  <!-- Stem -->
+  <path d="M140,620 C135,580 130,540 140,490" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Leaf -->
+  <path id="region-3" d="M140,540 C120,530 105,510 110,490 C125,500 135,520 140,540 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Petals -->
+  <path id="region-4" d="M140,490 C140,460 125,435 140,415 C155,435 140,460 140,490 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-5" d="M140,490 C165,478 188,458 198,440 C178,438 155,454 140,490 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-6" d="M140,490 C160,510 170,535 162,555 C148,540 140,515 140,490 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-7" d="M140,490 C115,478 92,458 82,440 C102,438 125,454 140,490 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-8" d="M140,490 C120,510 110,535 118,555 C132,540 140,515 140,490 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Center -->
+  <path id="region-9" d="M140,480 C150,472 158,475 160,485 C162,495 155,505 145,505 C135,505 128,495 130,485 C132,475 138,474 140,480 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- DAISY 1 (center-left) -->
+  <path d="M300,610 C295,570 292,530 300,480" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-10" d="M300,530 C285,520 268,500 272,480 C288,490 298,512 300,530 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- 8 petals -->
+  <path id="region-11" d="M300,480 C298,458 288,436 300,418 C312,436 302,458 300,480 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-12" d="M300,480 C318,472 338,460 345,442 C326,440 308,458 300,480 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-13" d="M300,480 C320,490 334,508 330,528 C314,520 304,500 300,480 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-14" d="M300,480 C282,472 262,460 255,442 C274,440 292,458 300,480 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-15" d="M300,480 C280,490 266,508 270,528 C286,520 296,500 300,480 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-16" d="M300,480 C308,462 322,446 338,438 C330,456 314,470 300,480 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-17" d="M300,480 C292,462 278,446 262,438 C270,456 286,470 300,480 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-18" d="M300,480 C315,495 318,516 308,534 C298,518 296,498 300,480 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Daisy center -->
+  <path id="region-19" d="M300,472 C308,468 316,472 318,480 C320,488 315,496 307,497 C299,498 292,492 292,484 C292,476 296,470 300,472 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- CORNFLOWER (center) -->
+  <path d="M450,610 C445,572 440,535 450,490" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-20" d="M450,545 C432,534 415,513 420,492 C436,504 448,525 450,545 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-21" d="M450,545 C468,534 485,513 480,492 C464,504 452,525 450,545 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Petals (5 outer) -->
+  <path id="region-22" d="M450,490 C445,465 435,440 445,418 C458,438 460,465 450,490 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-23" d="M450,490 C470,478 492,464 498,444 C478,442 458,460 450,490 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-24" d="M450,490 C468,506 478,528 470,548 C455,534 448,512 450,490 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-25" d="M450,490 C430,478 408,464 402,444 C422,442 442,460 450,490 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-26" d="M450,490 C432,506 422,528 430,548 C445,534 452,512 450,490 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Flower head center -->
+  <path id="region-27" d="M450,474 C462,468 472,472 475,482 C478,492 472,502 462,504 C452,506 443,499 442,489 C441,479 446,472 450,474 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- POPPY 2 (right) -->
+  <path d="M650,600 C645,562 640,525 648,480" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-28" d="M648,540 C628,528 612,508 618,488 C634,500 646,522 648,540 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-29" d="M648,480 C645,450 635,424 648,405 C660,424 655,450 648,480 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-30" d="M648,480 C670,468 690,450 698,430 C678,428 658,446 648,480 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-31" d="M648,480 C668,498 678,520 670,540 C655,526 648,504 648,480 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-32" d="M648,480 C626,468 606,450 598,430 C618,428 638,446 648,480 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-33" d="M648,480 C628,498 618,520 626,540 C641,526 648,504 648,480 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-34" d="M648,470 C658,462 666,465 668,475 C670,485 663,495 653,495 C643,495 636,485 638,475 C640,465 646,464 648,470 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- DAISY 2 (right side) -->
+  <path d="M780,610 C775,572 772,535 780,490" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-35" d="M780,490 C778,468 768,446 780,428 C792,446 782,468 780,490 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-36" d="M780,490 C798,482 818,470 825,452 C806,450 788,468 780,490 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-37" d="M780,490 C800,500 814,518 810,538 C794,530 784,510 780,490 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-38" d="M780,490 C762,482 742,470 735,452 C754,450 772,468 780,490 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-39" d="M780,490 C760,500 746,518 750,538 C766,530 776,510 780,490 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-40" d="M780,482 C788,478 796,482 798,490 C800,498 795,506 787,507 C779,508 772,502 772,494 C772,486 776,480 780,482 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Butterfly (decorative scene element) -->
+  <path id="region-41" d="M500,350 C480,330 455,320 445,335 C435,350 445,375 465,380 C480,383 495,375 500,365 C505,375 520,383 535,380 C555,375 565,350 555,335 C545,320 520,330 500,350 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-42" d="M500,350 C480,365 468,385 474,400 C480,413 492,418 500,415 C508,418 520,413 526,400 C532,385 520,365 500,350 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Sun (top right, decorative) -->
+  <path id="region-43" d="M820,80 C820,50 850,30 880,50 C910,70 908,100 885,115 C862,130 820,115 820,80 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Sun rays (decorative) -->
+  <path d="M880,50 L900,20" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M908,75 L940,70" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M905,105 L932,118" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M855,120 L848,148" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M822,105 L796,118" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Clouds (decorative) -->
+  <path id="region-44" d="M100,120 C100,100 118,88 135,92 C138,80 152,72 168,76 C180,68 200,70 210,80 C222,76 235,82 238,94 C250,96 258,106 255,118 C252,130 240,136 228,134 C220,144 205,148 192,144 C182,154 166,156 154,148 C140,152 126,146 118,136 C106,134 98,128 100,120 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-45" d="M600,80 C600,60 618,48 635,52 C638,40 652,32 668,36 C680,28 700,30 710,40 C722,36 735,42 738,54 C750,56 758,66 755,78 C752,90 740,96 728,94 C720,104 705,108 692,104 C682,114 666,116 654,108 C640,112 626,106 618,96 C606,94 598,88 600,80 Z" fill="none" stroke="black" stroke-width="2"/>
+</svg>

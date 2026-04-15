@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 900" width="800" height="900">
+  <!-- Tropical Leaves — monstera, banana leaf, overlapping composition -->
+
+  <!-- Large banana leaf (background) -->
+  <path id="region-1" d="M400,50 C450,120 480,220 470,340 C460,460 420,560 380,640 C340,720 300,780 300,820 C300,840 320,850 340,845 C360,840 380,820 400,790 C420,760 440,720 460,670 C500,570 540,450 545,330 C550,210 520,110 490,50 Z" fill="none" stroke="black" stroke-width="4"/>
+  <!-- Banana leaf midrib -->
+  <path d="M400,50 C405,200 408,370 400,500 C392,600 375,700 360,800" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Banana leaf veins (decorative) -->
+  <path d="M420,150 C450,170 465,190 460,210" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M440,250 C470,270 485,290 478,312" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M455,360 C485,378 498,398 490,420" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M380,150 C350,170 335,190 340,210" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M360,250 C330,270 315,290 322,312" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M345,360 C315,378 302,398 310,420" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Monstera leaf (left foreground) -->
+  <path id="region-2" d="M80,200 C70,280 90,380 140,440 C190,500 260,520 310,500 C360,480 380,430 370,370 C360,310 320,265 280,240 C240,215 195,198 150,195 C120,193 95,196 80,200 Z" fill="none" stroke="black" stroke-width="4"/>
+  <!-- Monstera holes/cuts -->
+  <path id="region-3" d="M170,270 C165,255 172,242 184,240 C196,238 206,248 205,262 C204,276 194,284 182,283 C170,282 165,276 170,270 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-4" d="M240,320 C235,305 242,292 254,290 C266,288 276,298 275,312 C274,326 264,334 252,333 C240,332 235,326 240,320 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Monstera cuts (slots) — these use path that don't form a true hole but indicate splits -->
+  <path id="region-5" d="M140,380 C135,360 145,340 160,336 C162,360 158,378 140,380 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-6" d="M200,430 C190,410 198,390 215,385 C218,408 213,426 200,430 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Monstera stem -->
+  <path id="region-7" d="M200,510 C180,540 160,570 150,600 C145,615 146,628 155,630 C165,632 175,622 180,610 C185,596 188,580 195,565 C202,550 210,538 215,525 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Bird of paradise (right foreground) -->
+  <!-- Main leaves -->
+  <path id="region-8" d="M620,100 C680,160 720,250 710,350 C700,430 660,490 610,510 C580,522 550,518 530,500 C510,482 505,452 515,420 C525,388 548,362 575,345 C600,328 625,310 632,280 C639,250 630,180 620,100 Z" fill="none" stroke="black" stroke-width="4"/>
+  <path id="region-9" d="M580,120 C540,180 520,270 530,360 C538,430 565,490 600,510 C568,500 540,468 528,420 C516,372 522,310 548,258 C556,238 568,218 580,200 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Bird of paradise flower -->
+  <path id="region-10" d="M650,300 C670,280 695,272 715,282 C735,292 742,318 732,340 C722,360 700,368 680,360 C660,352 648,328 650,300 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-11" d="M715,282 C735,265 755,262 770,275 C785,288 786,312 774,328 C762,342 742,344 728,334 C714,324 710,302 715,282 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Spathe / sheath -->
+  <path id="region-12" d="M620,360 C640,355 660,360 668,378 C676,396 668,418 652,426 C636,434 618,426 610,410 C602,394 606,370 620,360 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Small potted aloe / succulent -->
+  <path id="region-13" d="M380,760 C370,720 348,690 320,680 C310,677 300,680 300,690 C300,700 310,712 322,720 C334,728 348,732 355,748 C362,764 358,785 350,800 L430,800 C422,785 408,764 408,748 C408,732 420,728 432,720 C444,712 454,700 454,690 C454,680 444,677 434,680 C406,690 390,720 380,760 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Pot -->
+  <path id="region-14" d="M310,820 C305,840 308,860 320,865 L440,865 C452,860 455,840 450,820 L380,810 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Pot rim -->
+  <path id="region-15" d="M305,820 L455,820 L455,830 L305,830 Z" fill="none" stroke="black" stroke-width="2"/>
+</svg>

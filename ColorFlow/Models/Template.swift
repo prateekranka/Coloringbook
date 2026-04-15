@@ -42,7 +42,19 @@ struct Template: Identifiable, Codable, Hashable {
     let svgFilename: String      // e.g. "mandala_lotus.svg" inside Resources/Templates/<category>/
     let thumbnailFilename: String // pre-rendered 400×400 PNG cached on first launch
 
+    /// Non-nil only for user-generated templates. When set, `svgURL` resolves
+    /// from `Documents/<userTemplateDirectoryPath>/` instead of the bundle.
+    var userTemplateDirectoryPath: String?
+
     var svgURL: URL? {
+        // User-generated templates live in Documents/, not the bundle.
+        if let dirPath = userTemplateDirectoryPath {
+            let url = StorageService.documentsURL
+                .appendingPathComponent(dirPath)
+                .appendingPathComponent(svgFilename)
+            if FileManager.default.fileExists(atPath: url.path) { return url }
+        }
+
         // Bundle.url(forResource:withExtension:subdirectory:) is the correct API
         // for files inside a folder reference (folder reference → Templates/ in bundle).
         let name = (svgFilename as NSString).deletingPathExtension
@@ -150,5 +162,91 @@ extension Template {
                  difficulty: .hard,
                  svgFilename: "kitchen_morning.svg",
                  thumbnailFilename: "thumb_kitchen_morning.png"),
+
+        // ── Phase B4 catalog expansion ───────────────────────────────────────
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000040")!,
+                 name: "Afternoon Tea",
+                 category: .lifestyle,
+                 difficulty: .medium,
+                 svgFilename: "afternoon_tea.svg",
+                 thumbnailFilename: "thumb_afternoon_tea.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000041")!,
+                 name: "Camping Night",
+                 category: .lifestyle,
+                 difficulty: .medium,
+                 svgFilename: "camping_night.svg",
+                 thumbnailFilename: "thumb_camping_night.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000042")!,
+                 name: "Fish Scales",
+                 category: .abstract,
+                 difficulty: .easy,
+                 svgFilename: "fish_scales.svg",
+                 thumbnailFilename: "thumb_fish_scales.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000043")!,
+                 name: "Fox Portrait",
+                 category: .animals,
+                 difficulty: .medium,
+                 svgFilename: "fox_portrait.svg",
+                 thumbnailFilename: "thumb_fox_portrait.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000044")!,
+                 name: "Geometric Star Mandala",
+                 category: .mandalas,
+                 difficulty: .hard,
+                 svgFilename: "geometric_star_mandala.svg",
+                 thumbnailFilename: "thumb_geometric_star_mandala.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000045")!,
+                 name: "Lighthouse",
+                 category: .architecture,
+                 difficulty: .medium,
+                 svgFilename: "lighthouse.svg",
+                 thumbnailFilename: "thumb_lighthouse.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000046")!,
+                 name: "Lion Portrait",
+                 category: .animals,
+                 difficulty: .hard,
+                 svgFilename: "lion_portrait.svg",
+                 thumbnailFilename: "thumb_lion_portrait.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000047")!,
+                 name: "Sea Turtle",
+                 category: .animals,
+                 difficulty: .medium,
+                 svgFilename: "sea_turtle.svg",
+                 thumbnailFilename: "thumb_sea_turtle.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000048")!,
+                 name: "Snowflake Mandala",
+                 category: .mandalas,
+                 difficulty: .medium,
+                 svgFilename: "snowflake_mandala.svg",
+                 thumbnailFilename: "thumb_snowflake_mandala.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000049")!,
+                 name: "Stained Glass Abstract",
+                 category: .abstract,
+                 difficulty: .medium,
+                 svgFilename: "stained_glass_abstract.svg",
+                 thumbnailFilename: "thumb_stained_glass_abstract.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000050")!,
+                 name: "Sunflower Mandala",
+                 category: .mandalas,
+                 difficulty: .easy,
+                 svgFilename: "sunflower_mandala.svg",
+                 thumbnailFilename: "thumb_sunflower_mandala.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000051")!,
+                 name: "Tropical Leaves",
+                 category: .botanicals,
+                 difficulty: .easy,
+                 svgFilename: "tropical_leaves.svg",
+                 thumbnailFilename: "thumb_tropical_leaves.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000052")!,
+                 name: "Victorian House",
+                 category: .architecture,
+                 difficulty: .hard,
+                 svgFilename: "victorian_house.svg",
+                 thumbnailFilename: "thumb_victorian_house.png"),
+        Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000053")!,
+                 name: "Wildflower Meadow",
+                 category: .botanicals,
+                 difficulty: .medium,
+                 svgFilename: "wildflower_meadow.svg",
+                 thumbnailFilename: "thumb_wildflower_meadow.png"),
     ]
 }

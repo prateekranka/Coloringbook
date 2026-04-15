@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <!-- Snowflake Mandala — 6-fold symmetry -->
+
+  <!-- Six main arms -->
+  <path id="region-1" d="M400,400 L390,100 L400,80 L410,100 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-2" d="M400,400 L670,250 L690,260 L675,275 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-3" d="M400,400 L680,550 L675,570 L655,555 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-4" d="M400,400 L410,700 L400,720 L390,700 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-5" d="M400,400 L130,550 L115,545 L125,525 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-6" d="M400,400 L125,245 L130,225 L150,240 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Arm cross-bars (pairs per arm) -->
+  <path id="region-7"  d="M394,200 L350,170 L355,155 L394,175 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-8"  d="M406,200 L450,170 L445,155 L406,175 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-9"  d="M394,140 L360,120 L363,108 L394,122 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-10" d="M406,140 L440,120 L437,108 L406,122 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <path id="region-11" d="M560,310 L575,260 L588,263 L573,314 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-12" d="M571,320 L620,290 L625,302 L575,332 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-13" d="M607,278 L650,250 L657,260 L614,289 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-14" d="M618,291 L640,255 L652,262 L630,298 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <path id="region-15" d="M571,480 L620,510 L614,522 L565,492 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-16" d="M560,490 L575,540 L562,543 L547,493 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-17" d="M607,522 L648,552 L641,562 L600,532 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-18" d="M616,510 L638,548 L626,555 L604,517 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <path id="region-19" d="M406,600 L450,630 L445,645 L406,625 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-20" d="M394,600 L350,630 L355,645 L394,625 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-21" d="M406,660 L440,680 L437,692 L406,678 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-22" d="M394,660 L360,680 L363,692 L394,678 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <path id="region-23" d="M240,490 L192,520 L186,510 L234,480 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-24" d="M228,480 L188,452 L194,440 L242,468 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-25" d="M196,522 L155,550 L149,540 L190,512 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-26" d="M183,510 L148,538 L142,528 L177,500 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <path id="region-27" d="M228,320 L182,292 L186,280 L232,308 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-28" d="M240,310 L194,280 L200,268 L246,298 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-29" d="M196,278 L155,250 L160,240 L202,268 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-30" d="M183,290 L144,260 L150,250 L189,280 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Center hexagon -->
+  <path id="region-31" d="M400,340 L460,360 L470,410 L430,450 L370,450 L330,410 L340,360 Z" fill="none" stroke="black" stroke-width="3"/>
+</svg>

@@ -36,19 +36,11 @@ struct GalleryView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showTemplateLibrary, onDismiss: {
-                viewModel.reload()
-            }) {
+            .sheet(isPresented: $showTemplateLibrary) {
                 TemplateLibraryView()
             }
-            .fullScreenCover(item: $viewModel.openedProject, onDismiss: {
-                viewModel.reload()
-            }) { item in
+            .fullScreenCover(item: $viewModel.openedProject) { item in
                 CanvasView(viewModel: CanvasViewModel(project: item.project, template: item.template))
-                    .environmentObject(AmbientSoundService.shared)
-            }
-            .onAppear {
-                viewModel.reload()
             }
         }
     }

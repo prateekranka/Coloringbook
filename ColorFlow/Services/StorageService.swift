@@ -73,15 +73,6 @@ class StorageService {
         return UIImage(data: data)
     }
 
-    // MARK: - Thumbnail
-
-    func saveThumbnail(_ image: UIImage, for project: Project) {
-        let thumbURL = Self.documentsURL.appendingPathComponent(project.thumbnailPath)
-        if let data = image.pngData() {
-            try? data.write(to: thumbURL, options: .atomic)
-        }
-    }
-
     // MARK: - Delete
 
     func delete(project: Project) {

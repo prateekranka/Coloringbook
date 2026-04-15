@@ -42,22 +42,6 @@ targets:
       - path: ColorFlow/Assets.xcassets
       - path: ColorFlow/Resources/templates.json
       - path: ColorFlow/Resources/Palettes/palettes.json
-      - path: ColorFlow/Resources/Templates/lotus_mandala.svg
-      - path: ColorFlow/Resources/Templates/owl_portrait.svg
-      - path: ColorFlow/Resources/Templates/butterfly_garden.svg
-      - path: ColorFlow/Resources/Templates/rose_bouquet.svg
-      - path: ColorFlow/Resources/Templates/wave_pattern.svg
-      - path: ColorFlow/Resources/Templates/hexagon_grid.svg
-      - path: ColorFlow/Resources/Templates/city_skyline.svg
-      - path: ColorFlow/Resources/Templates/simple_house.svg
-      - path: ColorFlow/Resources/Templates/arch_bridge.svg
-      - path: ColorFlow/Resources/Templates/celtic_knot.svg
-      - path: ColorFlow/Resources/Templates/sunflower_field.svg
-      - path: ColorFlow/Resources/Templates/koi_pond.svg
-      - path: ColorFlow/Resources/Sounds/ambient_rain.mp3
-      - path: ColorFlow/Resources/Sounds/ambient_lofi.mp3
-      - path: ColorFlow/Resources/Sounds/ambient_nature.mp3
-      - path: ColorFlow/Resources/Sounds/ambient_ocean.mp3
 
     # ── Build settings ───────────────────────────────────────────────────────
     settings:

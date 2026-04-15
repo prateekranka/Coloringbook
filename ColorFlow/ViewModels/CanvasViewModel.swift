@@ -38,9 +38,6 @@ class CanvasViewModel: ObservableObject {
 
     var effectiveTemplateImage: UIImage? { showLineArt ? templateImage : nil }
 
-    /// Current region fill colors — exposed for export and external rendering.
-    var regionFills: [String: String] { paintState.regionFills }
-
     // MARK: - Internal State
 
     private(set) var project: Project
@@ -282,21 +279,6 @@ class CanvasViewModel: ObservableObject {
 
         // Save PKDrawing + fill layer PNG via StorageService (also updates project index).
         storageService.save(project: &project, drawing: drawing, fillLayer: fillLayerImage)
-
-        // Generate and persist a gallery thumbnail asynchronously.
-        if let geometry = templateGeometry {
-            let fills = paintState.regionFills
-            let capturedProject = project
-            let capturedService = storageService
-            Task.detached(priority: .background) {
-                let thumb = TemplateRenderer.renderThumbnail(
-                    geometry: geometry,
-                    fills: fills,
-                    size: CGSize(width: 400, height: 400)
-                )
-                capturedService.saveThumbnail(thumb, for: capturedProject)
-            }
-        }
     }
 
     // MARK: - Recent Colors

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Arch Bridge — Architecture template for ColorFlow -->
+<!-- Uses cubic bezier curves (C command) to form arch shapes — no arc commands -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" width="2048" height="2048">
+
+  <!-- Sky -->
+  <rect id="sky" x="0" y="0" width="2048" height="1100" stroke="black" stroke-width="3" fill="none"/>
+
+  <!-- Sun -->
+  <circle id="sun" cx="240" cy="240" r="160" stroke="black" stroke-width="3" fill="none"/>
+
+  <!-- Clouds -->
+  <path id="cloud_1" stroke="black" stroke-width="3" fill="none"
+    d="M 600,280 C 600,230 640,195 690,195
+       C 710,160 755,145 800,162
+       C 820,135 862,122 898,138
+       C 934,122 972,142 978,183
+       C 1022,188 1048,222 1040,262
+       C 1040,284 1014,300 980,304
+       L 622,304 C 600,304 585,296 585,280 Z"/>
+
+  <path id="cloud_2" stroke="black" stroke-width="3" fill="none"
+    d="M 1380,180 C 1380,138 1412,110 1452,110
+       C 1468,80  1505,68  1542,82
+       C 1558,58  1592,46  1624,60
+       C 1656,46  1690,64  1696,100
+       C 1732,105 1754,133 1746,166
+       C 1746,184 1722,197 1692,201
+       L 1398,201 C 1378,201 1365,194 1365,180 Z"/>
+
+  <!-- River / water -->
+  <rect id="river" x="0" y="1380" width="2048" height="668" stroke="black" stroke-width="3" fill="none"/>
+
+  <!-- River surface ripple bands (decorative regions) -->
+  <path id="ripple_1" stroke="black" stroke-width="2" fill="none"
+    d="M 0,1450 C 200,1430 400,1470 600,1450
+       C 800,1430 1000,1470 1200,1450
+       C 1400,1430 1600,1470 1800,1450
+       C 1900,1440 1970,1445 2048,1440 L 2048,1480 L 0,1480 Z"/>
+
+  <path id="ripple_2" stroke="black" stroke-width="2" fill="none"
+    d="M 0,1550 C 200,1530 400,1570 600,1550
+       C 800,1530 1000,1570 1200,1550
+       C 1400,1530 1600,1570 1800,1550
+       C 1900,1540 1970,1545 2048,1540 L 2048,1580 L 0,1580 Z"/>
+
+  <!-- Left riverbank -->
+  <rect id="bank_left" x="0" y="1100" width="340" height="280" stroke="black" stroke-width="3" fill="none"/>
+
+  <!-- Right riverbank -->
+  <rect id="bank_right" x="1708" y="1100" width="340" height="280" stroke="black" stroke-width="3" fill="none"/>
+
+  <!-- Bridge road deck -->
+  <rect id="bridge_deck" x="340" y="1060" width="1368" height="90" stroke="black" stroke-width="3" fill="none"/>
+
+  <!-- Bridge parapet / railing (top of deck) -->
+  <rect id="parapet_left"  x="340"  y="1000" width="1368" height="60" stroke="black" stroke-width="3" fill="none"/>
+
+  <!-- Left arch stone body:
+       From left bank edge (340,1150) curve up to left pier (670,1150)
+       with apex at (505, 860) — approximated with cubic bezier -->
+  <path id="arch_stone_left" stroke="black" stroke-width="3" fill="none"
+    d="M 340,1150
+       C 340,860 670,860 670,1150
+       L 670,1380 L 340,1380 Z"/>
+
+  <!-- Left arch opening (void — the sky/water seen through the arch) -->
+  <path id="arch_void_left" stroke="black" stroke-width="3" fill="none"
+    d="M 370,1148
+       C 370,900 640,900 640,1148
+       Z"/>
+
+  <!-- Center-left arch stone -->
+  <path id="arch_stone_cl" stroke="black" stroke-width="3" fill="none"
+    d="M 670,1150
+       C 670,800 1024,800 1024,1150
+       L 1024,1380 L 670,1380 Z"/>
+
+  <!-- Center-left arch opening -->
+  <path id="arch_void_cl" stroke="black" stroke-width="3" fill="none"
+    d="M 700,1148
+       C 700,850 994,850 994,1148
+       Z"/>
+
+  <!-- Center-right arch stone -->
+  <path id="arch_stone_cr" stroke="black" stroke-width="3" fill="none"
+    d="M 1024,1150
+       C 1024,800 1378,800 1378,1150
+       L 1378,1380 L 1024,1380 Z"/>
+
+  <!-- Center-right arch opening -->
+  <path id="arch_void_cr" stroke="black" stroke-width="3" fill="none"
+    d="M 1054,1148
+       C 1054,850 1348,850 1348,1148
+       Z"/>
+
+  <!-- Right arch stone -->
+  <path id="arch_stone_right" stroke="black" stroke-width="3" fill="none"
+    d="M 1378,1150
+       C 1378,860 1708,860 1708,1150
+       L 1708,1380 L 1378,1380 Z"/>
+
+  <!-- Right arch opening -->
+  <path id="arch_void_right" stroke="black" stroke-width="3" fill="none"
+    d="M 1408,1148
+       C 1408,900 1678,900 1678,1148
+       Z"/>
+
+  <!-- Left tower / pier -->
+  <rect id="pier_left"   x="630" y="880" width="80" height="220" stroke="black" stroke-width="3" fill="none"/>
+
+  <!-- Center pier left -->
+  <rect id="pier_cl"     x="984" y="840" width="80" height="260" stroke="black" stroke-width="3" fill="none"/>
+
+  <!-- Center pier right -->
+  <rect id="pier_cr"     x="1338" y="840" width="80" height="260" stroke="black" stroke-width="3" fill="none"/>
+
+  <!-- Right pier -->
+  <rect id="pier_right"  x="1668" y="880" width="80" height="220" stroke="black" stroke-width="3" fill="none"/>
+
+  <!-- Street lamp left -->
+  <rect id="lamp_post_left" x="460" y="940" width="20" height="120" stroke="black" stroke-width="2" fill="none"/>
+  <circle id="lamp_left"    cx="470" cy="932" r="22" stroke="black" stroke-width="2" fill="none"/>
+
+  <!-- Street lamp right -->
+  <rect id="lamp_post_right" x="1568" y="940" width="20" height="120" stroke="black" stroke-width="2" fill="none"/>
+  <circle id="lamp_right"    cx="1578" cy="932" r="22" stroke="black" stroke-width="2" fill="none"/>
+
+</svg>

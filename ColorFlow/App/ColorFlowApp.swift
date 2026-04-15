@@ -3,11 +3,13 @@ import SwiftUI
 @main
 struct ColorFlowApp: App {
     @StateObject private var galleryViewModel = GalleryViewModel()
+    private let soundService = AmbientSoundService.shared
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(galleryViewModel)
+                .environmentObject(soundService)
         }
     }
 }

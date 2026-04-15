@@ -15,18 +15,18 @@ struct CanvasView: View {
     @State private var showToolbar = true
     @State private var showColorPicker = false
     @State private var showLayerPanel = false
+    @State private var showExport = false
+    @State private var showAmbientSound = false
+    @EnvironmentObject private var soundService: AmbientSoundService
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
             // Single representable that hosts ALL pixel layers internally.
-            // Zoom/pan is provided by PKCanvasView's UIScrollView; finger
-            // taps are intercepted by the representable's gesture recogniser
-            // and forwarded to the view model.
             PencilCanvasRepresentable(viewModel: viewModel)
                 .ignoresSafeArea()
 
-            // Flood-fill progress overlay — intentionally outside the
-            // representable so it floats above the canvas at screen coords.
+            // Flood-fill progress overlay
             if viewModel.isFilling {
                 Color.black.opacity(0.15)
                     .ignoresSafeArea()
@@ -43,12 +43,13 @@ struct CanvasView: View {
                 ToolbarView(
                     viewModel: viewModel,
                     showColorPicker: $showColorPicker,
-                    showLayerPanel: $showLayerPanel
+                    showLayerPanel: $showLayerPanel,
+                    showAmbientSound: $showAmbientSound
                 )
                 .transition(.move(edge: .leading))
             }
         }
-        // ── Toolbar toggle button (top-leading corner) ────────────────────
+        // ── Toolbar toggle (top-leading) ───────────────────────────────────
         .overlay(alignment: .topLeading) {
             Button {
                 withAnimation(.easeInOut(duration: 0.22)) {
@@ -63,6 +64,30 @@ struct CanvasView: View {
             }
             .tint(.primary)
         }
+        // ── Export + Close (top-trailing) ─────────────────────────────────
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 0) {
+                Button {
+                    viewModel.save()
+                    showExport = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up.circle.fill")
+                        .font(.title2)
+                        .padding(12)
+                }
+                .tint(.primary)
+
+                Button {
+                    viewModel.save()
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .padding(12)
+                }
+                .tint(.primary)
+            }
+        }
         // ── Sheets ────────────────────────────────────────────────────────
         .sheet(isPresented: $showColorPicker) {
             ColorPickerView(
@@ -75,6 +100,13 @@ struct CanvasView: View {
         .sheet(isPresented: $showLayerPanel) {
             LayerPanelView(viewModel: viewModel)
                 .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showAmbientSound) {
+            AmbientSoundView(soundService: soundService)
+                .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showExport) {
+            ExportOptionsView(viewModel: viewModel)
         }
         // ── Lifecycle ─────────────────────────────────────────────────────
         .task {

@@ -8,6 +8,14 @@
     "thumbnailFilename": "thumb_lotus_mandala.png"
   },
   {
+    "id": "33333333-0000-0000-0000-000000000002",
+    "name": "Celtic Knot",
+    "category": "Mandalas",
+    "difficulty": "Hard",
+    "svgFilename": "celtic_knot.svg",
+    "thumbnailFilename": "thumb_celtic_knot.png"
+  },
+  {
     "id": "33333333-0000-0000-0000-000000000006",
     "name": "Owl Portrait",
     "category": "Animals",
@@ -24,12 +32,28 @@
     "thumbnailFilename": "thumb_butterfly_garden.png"
   },
   {
+    "id": "33333333-0000-0000-0000-000000000010",
+    "name": "Koi Pond",
+    "category": "Animals",
+    "difficulty": "Medium",
+    "svgFilename": "koi_pond.svg",
+    "thumbnailFilename": "thumb_koi_pond.png"
+  },
+  {
     "id": "33333333-0000-0000-0000-000000000021",
     "name": "Rose Bouquet",
     "category": "Botanicals",
     "difficulty": "Medium",
     "svgFilename": "rose_bouquet.svg",
     "thumbnailFilename": "thumb_rose_bouquet.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000022",
+    "name": "Sunflower Field",
+    "category": "Botanicals",
+    "difficulty": "Easy",
+    "svgFilename": "sunflower_field.svg",
+    "thumbnailFilename": "thumb_sunflower_field.png"
   },
   {
     "id": "33333333-0000-0000-0000-000000000017",
@@ -46,5 +70,29 @@
     "difficulty": "Easy",
     "svgFilename": "hexagon_grid.svg",
     "thumbnailFilename": "thumb_hexagon_grid.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000030",
+    "name": "Simple House",
+    "category": "Architecture",
+    "difficulty": "Easy",
+    "svgFilename": "simple_house.svg",
+    "thumbnailFilename": "thumb_simple_house.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000031",
+    "name": "City Skyline",
+    "category": "Architecture",
+    "difficulty": "Medium",
+    "svgFilename": "city_skyline.svg",
+    "thumbnailFilename": "thumb_city_skyline.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000032",
+    "name": "Arch Bridge",
+    "category": "Architecture",
+    "difficulty": "Hard",
+    "svgFilename": "arch_bridge.svg",
+    "thumbnailFilename": "thumb_arch_bridge.png"
   }
 ]

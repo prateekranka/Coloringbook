@@ -5,6 +5,7 @@ struct ToolbarView: View {
     @ObservedObject var viewModel: CanvasViewModel
     @Binding var showColorPicker: Bool
     @Binding var showLayerPanel: Bool
+    @Binding var showAmbientSound: Bool
 
     var body: some View {
         VStack(spacing: 4) {
@@ -49,6 +50,12 @@ struct ToolbarView: View {
             // Layers
             Button { showLayerPanel = true } label: {
                 Image(systemName: "square.3.layers.3d")
+            }
+            .toolbarButtonStyle()
+
+            // Ambient sound
+            Button { showAmbientSound = true } label: {
+                Image(systemName: "speaker.wave.2")
             }
             .toolbarButtonStyle()
         }

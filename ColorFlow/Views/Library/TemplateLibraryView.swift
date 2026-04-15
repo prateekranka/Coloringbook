@@ -38,6 +38,7 @@ struct TemplateLibraryView: View {
                 let project = Project(template: template)
                 let canvasVM = CanvasViewModel(project: project, template: template)
                 CanvasView(viewModel: canvasVM)
+                    .environmentObject(AmbientSoundService.shared)
             }
         }
     }

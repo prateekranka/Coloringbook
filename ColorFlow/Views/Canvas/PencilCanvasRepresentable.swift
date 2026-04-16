@@ -39,6 +39,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         scrollView.delegate = coordinator
         scrollView.minimumZoomScale = 0.1
         scrollView.maximumZoomScale = 10.0
+        scrollView.bounces = false
         scrollView.bouncesZoom = true
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.showsVerticalScrollIndicator = false
@@ -165,6 +166,8 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         /// Guards against infinite delegate loop when reverting ghost strokes.
         private var isRevertingDrawing = false
 
+        private let fitEpsilon: CGFloat = 0.001
+
         init(_ parent: PencilCanvasRepresentable) {
             self.parent = parent
         }
@@ -181,6 +184,21 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             let offsetX = max(0, (scrollView.bounds.width  - content.frame.width)  / 2)
             let offsetY = max(0, (scrollView.bounds.height - content.frame.height) / 2)
             content.frame.origin = CGPoint(x: offsetX, y: offsetY)
+        }
+
+        func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+            updatePanGate(in: scrollView)
+        }
+
+        private func updatePanGate(in scrollView: UIScrollView) {
+            guard scrollView.bounds.width > 0, scrollView.bounds.height > 0 else { return }
+            let docSize = parent.viewModel.canvasSize
+            guard docSize.width > 0, docSize.height > 0 else { return }
+            let fitScale = min(
+                scrollView.bounds.width / docSize.width,
+                scrollView.bounds.height / docSize.height
+            )
+            scrollView.isScrollEnabled = scrollView.zoomScale > fitScale + fitEpsilon
         }
 
         // MARK: Layer setup
@@ -259,6 +277,8 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             } else {
                 print("[Canvas] updateContentSize — skipped zoom snap (user already zoomed to \(scrollView.zoomScale))")
             }
+
+            updatePanGate(in: scrollView)
         }
 
         // MARK: Selection highlight

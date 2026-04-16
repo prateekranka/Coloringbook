@@ -167,6 +167,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         private var isRevertingDrawing = false
 
         private let fitEpsilon: CGFloat = 0.001
+        private var lastAppliedContentSize: CGSize?
 
         init(_ parent: PencilCanvasRepresentable) {
             self.parent = parent
@@ -270,9 +271,11 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             scrollView.minimumZoomScale = fitScale * 0.5
             scrollView.maximumZoomScale = fitScale * 10.0
 
-            if scrollView.zoomScale >= 0.99 {
+            let sizeChanged = lastAppliedContentSize != size
+            if sizeChanged && scrollView.zoomScale >= 0.99 {
                 scrollView.setZoomScale(fitScale, animated: false)
                 scrollViewDidZoom(scrollView)
+                lastAppliedContentSize = size
                 print("[Canvas] updateContentSize — applied fitScale=\(fitScale)")
             } else {
                 print("[Canvas] updateContentSize — skipped zoom snap (user already zoomed to \(scrollView.zoomScale))")

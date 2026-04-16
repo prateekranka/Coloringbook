@@ -60,7 +60,15 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         let canvas = PKCanvasView()
         canvas.drawing = viewModel.drawing
         canvas.tool = viewModel.currentPKTool
+        #if DEBUG
+        if CommandLine.arguments.contains("-enableFingerDrawing") {
+            canvas.drawingPolicy = .anyInput
+        } else {
+            canvas.drawingPolicy = .pencilOnly
+        }
+        #else
         canvas.drawingPolicy = .pencilOnly   // fingers → outer scroll view
+        #endif
         canvas.backgroundColor = .clear
         canvas.isOpaque = false
         canvas.isScrollEnabled = false       // outer scroll view owns panning

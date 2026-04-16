@@ -56,6 +56,7 @@ struct ToolbarView: View {
                 ) {
                     HapticService.shared.impact(.light)
                     viewModel.brushSettings.tool = tool
+                    UserDefaults.standard.set(tool.rawValue, forKey: "lastUsedTool")
                 }
             }
 

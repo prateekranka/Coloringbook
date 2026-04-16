@@ -68,6 +68,7 @@ final class CanvasViewModel {
         self.template = template
         self.palettes = ColorPalette.loadAll()
         loadRecentColors()
+        resolveInitialTool()
     }
 
     // MARK: - Current PK Tool
@@ -299,6 +300,16 @@ final class CanvasViewModel {
     // MARK: - Recent Colors
 
     private static let recentColorsKey = "recentColors"
+
+    private func resolveInitialTool() {
+        let defaults = UserDefaults.standard
+        if let raw = defaults.string(forKey: "lastUsedTool"),
+           let tool = DrawingTool(rawValue: raw) {
+            brushSettings.tool = tool
+        } else if defaults.bool(forKey: "hasSeenOnboarding") {
+            brushSettings.tool = .floodFill
+        }
+    }
 
     private func loadRecentColors() {
         let raw = UserDefaults.standard.string(forKey: Self.recentColorsKey) ?? "[]"

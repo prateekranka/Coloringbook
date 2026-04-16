@@ -12,6 +12,7 @@ final class HapticService {
     private let notification = UINotificationFeedbackGenerator()
 
     func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle = .light) {
+        guard !UIAccessibility.isReduceMotionEnabled else { return }
         switch style {
         case .light: impactLight.impactOccurred()
         case .medium: impactMedium.impactOccurred()

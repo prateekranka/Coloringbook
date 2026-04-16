@@ -16,6 +16,8 @@ struct CanvasView: View {
     @State private var showToolbar = true
     @State private var showColorPicker = false
     @State private var showLayerPanel = false
+    @State private var didFireEntryHaptic = false
+    @AppStorage("hasCompletedFirstFill") private var hasCompletedFirstFill = false
 
     var body: some View {
         ZStack {
@@ -32,6 +34,28 @@ struct CanvasView: View {
                 ProgressView("Filling…")
                     .padding()
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            }
+
+            // ── First-use fill hint ──────────────────────────────────────
+            if !hasCompletedFirstFill {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 8) {
+                        Image(systemName: "hand.tap")
+                            .font(.title3)
+                        Text("Tap a region to fill")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.bottom, 40)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("First-use hint: Tap a region to fill. Double-tap to dismiss.")
+                    .accessibilityIdentifier("canvas.firstfill.hint")
+                }
+                .transition(.opacity)
+                .allowsHitTesting(false)
             }
 
             // ── Chrome layer (toolbar) ────────────────────────────────────
@@ -94,6 +118,10 @@ struct CanvasView: View {
         }
         .onAppear {
             AppLog.trace(AppLog.canvas, "CanvasView onAppear — \(viewModel.template.svgFilename)")
+            if !didFireEntryHaptic {
+                HapticService.shared.impact(.light)
+                didFireEntryHaptic = true
+            }
         }
         // ── Sheets ────────────────────────────────────────────────────────
         .sheet(isPresented: $showColorPicker) {

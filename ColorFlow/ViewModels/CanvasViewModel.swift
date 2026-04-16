@@ -188,6 +188,10 @@ final class CanvasViewModel {
         HapticService.shared.impact(.light)
         addRecentColor(brushSettings.color)
         scheduleAutoSave()
+
+        if !UserDefaults.standard.bool(forKey: "hasCompletedFirstFill") {
+            UserDefaults.standard.set(true, forKey: "hasCompletedFirstFill")
+        }
     }
 
     // MARK: - Region Selection

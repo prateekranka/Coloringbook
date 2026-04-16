@@ -28,6 +28,9 @@ final class CanvasViewModel {
     var isFilling = false
     var showLineArt = true
     var showColorLayer = true
+    var stayInTheLines: Bool = false {
+        didSet { UserDefaults.standard.set(stayInTheLines, forKey: "stayInTheLines") }
+    }
 
     /// Currently highlighted/selected region ID.
     var selectedRegionID: String?
@@ -69,6 +72,7 @@ final class CanvasViewModel {
         self.palettes = ColorPalette.loadAll()
         loadRecentColors()
         resolveInitialTool()
+        stayInTheLines = UserDefaults.standard.bool(forKey: "stayInTheLines")
     }
 
     // MARK: - Current PK Tool
@@ -304,6 +308,35 @@ final class CanvasViewModel {
     // MARK: - Recent Colors
 
     private static let recentColorsKey = "recentColors"
+
+    // MARK: - Stay-in-the-Lines Clipping
+
+    func clipStroke(_ stroke: PKStroke, toRegion region: RegionGeometry) -> [PKStroke] {
+        let path = stroke.path
+        guard path.count >= 2 else { return [] }
+
+        var currentRun: [PKStrokePoint] = []
+        var output: [PKStroke] = []
+
+        for i in 0..<path.count {
+            let point = path[i]
+            if region.path.contains(point.location) {
+                currentRun.append(point)
+            } else {
+                if currentRun.count >= 2 {
+                    let clippedPath = PKStrokePath(controlPoints: currentRun, creationDate: Date())
+                    output.append(PKStroke(ink: stroke.ink, path: clippedPath))
+                }
+                currentRun.removeAll()
+            }
+        }
+        if currentRun.count >= 2 {
+            let clippedPath = PKStrokePath(controlPoints: currentRun, creationDate: Date())
+            output.append(PKStroke(ink: stroke.ink, path: clippedPath))
+        }
+
+        return output
+    }
 
     private func resolveInitialTool() {
         let defaults = UserDefaults.standard

@@ -5,6 +5,7 @@ struct ToolbarView: View {
     @Bindable var viewModel: CanvasViewModel
     @Binding var showColorPicker: Bool
     @Binding var showLayerPanel: Bool
+    @Binding var showCanvasSettings: Bool
     var onDismiss: (() -> Void)? = nil
     var onToggleToolbar: (() -> Void)? = nil
 
@@ -91,6 +92,15 @@ struct ToolbarView: View {
             .toolbarButtonStyle()
             .accessibilityLabel("Layers")
             .accessibilityIdentifier("canvas.layers")
+
+            Divider().padding(.horizontal, 6)
+
+            Button { showCanvasSettings = true } label: {
+                Image(systemName: "ellipsis")
+            }
+            .toolbarButtonStyle()
+            .accessibilityLabel("Canvas settings")
+            .accessibilityIdentifier("canvas.settings")
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 6)

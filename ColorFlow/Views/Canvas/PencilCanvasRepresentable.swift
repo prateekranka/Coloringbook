@@ -328,6 +328,31 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             }
 
             print("[Canvas] drawingDidChange — tool=\(tool.rawValue) strokeCount=\(canvasView.drawing.strokes.count)")
+
+            // Stay-in-the-lines: clip the newest stroke to its first-touched region
+            if parent.viewModel.stayInTheLines,
+               tool.isPencilKitTool,
+               tool != .eraser,
+               let geometry = parent.viewModel.templateGeometry,
+               canvasView.drawing.strokes.count > parent.viewModel.drawing.strokes.count {
+
+                let newStroke = canvasView.drawing.strokes.last!
+                let firstPoint = newStroke.path.first!
+                if let region = geometry.region(at: firstPoint.location) {
+                    let clipped = parent.viewModel.clipStroke(newStroke, toRegion: region)
+                    var strokes = Array(canvasView.drawing.strokes.dropLast())
+                    strokes.append(contentsOf: clipped)
+
+                    isRevertingDrawing = true
+                    canvasView.drawing = PKDrawing(strokes: strokes)
+                    isRevertingDrawing = false
+
+                    parent.viewModel.drawing = canvasView.drawing
+                    parent.viewModel.scheduleAutoSave()
+                    return
+                }
+            }
+
             parent.viewModel.drawing = canvasView.drawing
             parent.viewModel.scheduleAutoSave()
         }

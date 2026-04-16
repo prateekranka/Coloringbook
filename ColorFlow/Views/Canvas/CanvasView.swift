@@ -16,6 +16,7 @@ struct CanvasView: View {
     @State private var showToolbar = true
     @State private var showColorPicker = false
     @State private var showLayerPanel = false
+    @State private var showCanvasSettings = false
     @State private var didFireEntryHaptic = false
     @AppStorage("hasCompletedFirstFill") private var hasCompletedFirstFill = false
 
@@ -69,6 +70,7 @@ struct CanvasView: View {
                         viewModel: viewModel,
                         showColorPicker: $showColorPicker,
                         showLayerPanel: $showLayerPanel,
+                        showCanvasSettings: $showCanvasSettings,
                         onDismiss: { dismiss() },
                         onToggleToolbar: {
                             withAnimation(.easeInOut(duration: 0.22)) {
@@ -134,6 +136,10 @@ struct CanvasView: View {
         }
         .sheet(isPresented: $showLayerPanel) {
             LayerPanelView(viewModel: viewModel)
+                .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showCanvasSettings) {
+            CanvasSettingsSheet(viewModel: viewModel)
                 .presentationDetents([.medium])
         }
         // ── Lifecycle ─────────────────────────────────────────────────────

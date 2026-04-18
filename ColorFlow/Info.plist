@@ -104,5 +104,18 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 
+	<!-- ── Remote content catalogue (CDN-hosted templates.json) ─────
+	     Leave empty in source; operators override per-environment via an
+	     xcconfig or the App Store Connect build-time edit. When empty,
+	     ContentService short-circuits and the bundled catalogue is used. -->
+	<key>ContentManifestURL</key>
+	<string></string>
+
+	<!-- ── Background modes for CloudKit push notifications ─────── -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+
 </dict>
 </plist>

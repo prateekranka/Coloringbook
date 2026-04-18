@@ -3,16 +3,20 @@ import SwiftUI
 @main
 struct ColorFlowApp: App {
     @State private var galleryViewModel = GalleryViewModel()
+    @State private var userPaletteStore = UserPaletteStore.shared
 
     init() {
         AppLog.trace(AppLog.app, "init — app is starting")
         configureAppearance()
+        CloudStorage.shared.bootstrap()
+        ContentService.shared.refreshInBackground()
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(galleryViewModel)
+                .environment(userPaletteStore)
                 .preferredColorScheme(.dark)
         }
     }

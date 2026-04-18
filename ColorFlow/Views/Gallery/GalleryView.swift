@@ -46,18 +46,32 @@ struct GalleryView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "paintpalette")
-                .font(.system(size: 64))
-                .foregroundStyle(Color.accentColor.opacity(0.6))
-            Text("Start Coloring")
-                .font(.title2.bold())
-            Text("Pick a template and bring it to life.")
-                .foregroundStyle(.secondary)
-            Button("Browse Templates") {
-                showTemplateLibrary = true
+        VStack(spacing: 18) {
+            ZStack {
+                Circle()
+                    .fill(AppTheme.accent.opacity(0.14))
+                    .frame(width: 140, height: 140)
+                Image(systemName: "paintpalette")
+                    .font(.system(size: 56))
+                    .foregroundStyle(AppTheme.accent)
             }
-            .buttonStyle(.borderedProminent)
+            Text("Start Coloring")
+                .font(AppTheme.displayFont(size: 26, weight: .bold))
+                .foregroundStyle(AppTheme.textPrimary)
+            Text("Pick a template and bring it to life.")
+                .font(.subheadline)
+                .foregroundStyle(AppTheme.textSecondary)
+            Button {
+                showTemplateLibrary = true
+            } label: {
+                Text("Browse Templates")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 12)
+                    .background(Capsule().fill(AppTheme.accentGradient))
+            }
+            .buttonStyle(.plain)
         }
         .padding()
     }

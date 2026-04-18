@@ -39,23 +39,82 @@ struct Template: Identifiable, Codable, Hashable {
     let name: String
     let category: TemplateCategory
     let difficulty: Difficulty
-    let svgFilename: String      // e.g. "mandala_lotus.svg" inside Resources/Templates/<category>/
+    let svgFilename: String       // e.g. "mandala_lotus.svg" inside Resources/Templates/
     let thumbnailFilename: String // pre-rendered 400×400 PNG cached on first launch
 
+    // MARK: - Remote content hooks (workstream B)
+    // All optional so existing bundled manifests decode unchanged.
+
+    /// When this template was added to the catalogue. Used to flag "NEW" badges.
+    var addedAt: Date?
+
+    /// Whether this template is hand-picked to appear in the editorial hero.
+    var featured: Bool?
+
+    /// Curated collection keys — e.g. ["spring_mandalas", "cozy_lifestyles"].
+    var collections: [String]?
+
+    /// Remote URL that hosts the raw SVG when the file isn't bundled. When
+    /// present and the file isn't already cached locally, `ContentService`
+    /// fetches it to `Caches/content/svgs/` before rendering.
+    var remoteSVGURL: URL?
+
+    /// Remote URL for a pre-rendered preview PNG. When present, views should
+    /// prefer it to avoid rasterising the SVG on-device.
+    var remotePreviewURL: URL?
+
+    init(
+        id: UUID,
+        name: String,
+        category: TemplateCategory,
+        difficulty: Difficulty,
+        svgFilename: String,
+        thumbnailFilename: String,
+        addedAt: Date? = nil,
+        featured: Bool? = nil,
+        collections: [String]? = nil,
+        remoteSVGURL: URL? = nil,
+        remotePreviewURL: URL? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.category = category
+        self.difficulty = difficulty
+        self.svgFilename = svgFilename
+        self.thumbnailFilename = thumbnailFilename
+        self.addedAt = addedAt
+        self.featured = featured
+        self.collections = collections
+        self.remoteSVGURL = remoteSVGURL
+        self.remotePreviewURL = remotePreviewURL
+    }
+
+    /// Resolves a usable SVG URL. Priority:
+    /// 1. Bundled resource (Templates subdirectory, then flat bundle root)
+    /// 2. Downloaded file in the content cache (`Caches/content/svgs/<filename>`)
+    /// 3. nil (caller may trigger a remote download via ContentService)
     var svgURL: URL? {
-        // Bundle.url(forResource:withExtension:subdirectory:) is the correct API
-        // for files inside a folder reference (folder reference → Templates/ in bundle).
         let name = (svgFilename as NSString).deletingPathExtension
         let ext  = (svgFilename as NSString).pathExtension
 
-        return Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Templates")
-            // Flat copy fallback (files copied directly to bundle root)
-            ?? Bundle.main.url(forResource: name, withExtension: ext)
-            // Manual path fallback
-            ?? Bundle.main.resourceURL.flatMap {
-                let url = $0.appendingPathComponent("Templates/\(svgFilename)")
-                return FileManager.default.fileExists(atPath: url.path) ? url : nil
-            }
+        if let bundled = Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Templates") {
+            return bundled
+        }
+        if let flat = Bundle.main.url(forResource: name, withExtension: ext) {
+            return flat
+        }
+        if let manualBundle = Bundle.main.resourceURL?
+            .appendingPathComponent("Templates/\(svgFilename)"),
+           FileManager.default.fileExists(atPath: manualBundle.path) {
+            return manualBundle
+        }
+        // Remote-cached fallback.
+        let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("content/svgs/\(svgFilename)")
+        if let cache, FileManager.default.fileExists(atPath: cache.path) {
+            return cache
+        }
+        return nil
     }
 
     static func == (lhs: Template, rhs: Template) -> Bool { lhs.id == rhs.id }
@@ -66,22 +125,25 @@ struct Template: Identifiable, Codable, Hashable {
 
 extension Template {
     static func loadAll() -> [Template] {
-        // Try bundle JSON first; fall back to the embedded catalogue.
+        // Remote-backed manifest takes priority if ContentService has fetched one.
+        if let remote = ContentService.shared.cachedTemplates(), !remote.isEmpty {
+            return remote
+        }
+        // Bundled JSON fallback.
         if let url = Bundle.main.url(forResource: "templates", withExtension: "json"),
            let data = try? Data(contentsOf: url),
-           let templates = try? JSONDecoder().decode([Template].self, from: data),
+           let templates = try? JSONDecoder.contentDecoder.decode([Template].self, from: data),
            !templates.isEmpty {
             AppLog.trace(AppLog.template, "Loaded \(templates.count) templates from bundle JSON")
             return templates
         }
-        // Falling back to bundled catalogue is recoverable but unexpected in Release.
         AppLog.error(AppLog.template, "Bundle JSON not found — using hardcoded catalogue (\(Self.bundledTemplates.count) templates)")
         return Self.bundledTemplates
     }
 
     // Mirrors Resources/templates.json — guarantees templates are always
     // available even when the resource file is absent from the bundle.
-    private static let bundledTemplates: [Template] = [
+    static let bundledTemplates: [Template] = [
         Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000001")!,
                  name: "Lotus Mandala",
                  category: .mandalas,
@@ -151,4 +213,24 @@ extension Template {
                  svgFilename: "kitchen_morning.svg",
                  thumbnailFilename: "thumb_kitchen_morning.png"),
     ]
+}
+
+// MARK: - JSON helpers
+
+extension JSONDecoder {
+    /// JSON decoder used for template manifests. Accepts ISO-8601 dates so a
+    /// hosted `templates.json` can include readable `addedAt` strings.
+    static let contentDecoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }()
+}
+
+extension JSONEncoder {
+    static let contentEncoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.dateEncodingStrategy = .iso8601
+        return e
+    }()
 }

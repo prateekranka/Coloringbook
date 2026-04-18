@@ -11,8 +11,15 @@ class StorageService {
 
     // MARK: - URLs
 
+    /// Resolves to the iCloud ubiquity container's `Documents/` subdirectory
+    /// when available, otherwise the local `~/Documents`. `CloudStorage`
+    /// decides at launch; path logic elsewhere doesn't need to branch.
     static var documentsURL: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        CloudStorage.shared.documentsURL
+    }
+
+    private static var usingICloud: Bool {
+        CloudStorage.shared.isUsingICloud
     }
 
     private var projectsURL: URL {
@@ -30,16 +37,63 @@ class StorageService {
     }
 
     private func _loadAllProjects() -> [Project] {
-        guard let data = try? Data(contentsOf: projectsURL),
-              let projects = try? JSONDecoder().decode([Project].self, from: data) else {
-            return []
+        var indexed: [Project] = []
+        if let data = try? Data(contentsOf: projectsURL),
+           let projects = try? JSONDecoder().decode([Project].self, from: data) {
+            indexed = projects
         }
-        return projects
+
+        // Also scan per-project manifests. Merged in on top of the index so a
+        // freshly-synced-from-iCloud project shows up even if the aggregate
+        // index file hasn't synced yet. Index entries are authoritative when
+        // both exist (their `modifiedAt` is updated on save).
+        let projectsDir = Self.documentsURL.appendingPathComponent("projects", isDirectory: true)
+        guard let contents = try? FileManager.default.contentsOfDirectory(at: projectsDir,
+                                                                          includingPropertiesForKeys: nil) else {
+            return indexed
+        }
+        var merged = indexed
+        for dir in contents where dir.hasDirectoryPath {
+            let manifest = dir.appendingPathComponent("project.json")
+            guard let data = try? Data(contentsOf: manifest),
+                  let project = try? JSONDecoder().decode(Project.self, from: data) else { continue }
+            if !merged.contains(where: { $0.id == project.id }) {
+                merged.append(project)
+            }
+        }
+        return merged
     }
 
     private func saveProjectIndex(_ projects: [Project]) {
         guard let data = try? JSONEncoder().encode(projects) else { return }
-        try? data.write(to: projectsURL, options: .atomic)
+        coordinatedWrite(data, to: projectsURL)
+    }
+
+    /// Emits `Documents/projects/<id>/project.json` alongside the aggregate
+    /// index. Cheap insurance against iCloud delivering artwork files before
+    /// the index file has synced.
+    private func writePerProjectManifest(_ project: Project) {
+        let dir = Self.documentsURL.appendingPathComponent("projects/\(project.id.uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        guard let data = try? JSONEncoder().encode(project) else { return }
+        coordinatedWrite(data, to: dir.appendingPathComponent("project.json"))
+    }
+
+    /// `NSFileCoordinator`-wrapped write. No-op if `documentsURL` is local;
+    /// the coordinator still works correctly there so the call is always safe.
+    private func coordinatedWrite(_ data: Data, to url: URL) {
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordinatorError: NSError?
+        coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &coordinatorError) { writeURL in
+            do {
+                try data.write(to: writeURL, options: .atomic)
+            } catch {
+                AppLog.error(AppLog.storage, "coordinatedWrite failed at \(writeURL.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+        if let coordinatorError {
+            AppLog.error(AppLog.storage, "coordinator error for \(url.lastPathComponent): \(coordinatorError.localizedDescription)")
+        }
     }
 
     // MARK: - Save
@@ -54,11 +108,11 @@ class StorageService {
             createSubdirectories()
 
             let drawingURL = Self.documentsURL.appendingPathComponent(snapshot.drawingDataPath)
-            try? drawingData.write(to: drawingURL, options: .atomic)
+            coordinatedWrite(drawingData, to: drawingURL)
 
             if let data = fillData {
                 let fillURL = Self.documentsURL.appendingPathComponent(snapshot.fillLayerPath)
-                try? data.write(to: fillURL, options: .atomic)
+                coordinatedWrite(data, to: fillURL)
             }
 
             var projects = _loadAllProjects()
@@ -68,6 +122,10 @@ class StorageService {
                 projects.append(snapshot)
             }
             saveProjectIndex(projects)
+            // Per-project manifest — lets iCloud sync expose each project
+            // independently, so a device can hydrate state even before the
+            // aggregate `projects.json` index has finished downloading.
+            writePerProjectManifest(snapshot)
         }
     }
 
@@ -95,13 +153,22 @@ class StorageService {
     func delete(project: Project) {
         queue.sync {
             let docs = Self.documentsURL
-            try? FileManager.default.removeItem(at: docs.appendingPathComponent(project.drawingDataPath))
-            try? FileManager.default.removeItem(at: docs.appendingPathComponent(project.fillLayerPath))
-            try? FileManager.default.removeItem(at: docs.appendingPathComponent(project.thumbnailPath))
+            coordinatedRemove(docs.appendingPathComponent(project.drawingDataPath))
+            coordinatedRemove(docs.appendingPathComponent(project.fillLayerPath))
+            coordinatedRemove(docs.appendingPathComponent(project.thumbnailPath))
+            coordinatedRemove(docs.appendingPathComponent("projects/\(project.id.uuidString)"))
 
             var projects = _loadAllProjects()
             projects.removeAll { $0.id == project.id }
             saveProjectIndex(projects)
+        }
+    }
+
+    private func coordinatedRemove(_ url: URL) {
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordinatorError: NSError?
+        coordinator.coordinate(writingItemAt: url, options: .forDeleting, error: &coordinatorError) { writeURL in
+            try? FileManager.default.removeItem(at: writeURL)
         }
     }
 

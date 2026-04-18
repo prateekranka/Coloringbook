@@ -24,17 +24,15 @@ struct CanvasView: View {
             PencilCanvasRepresentable(viewModel: viewModel)
                 .ignoresSafeArea()
 
-            // Flood-fill progress overlay
+            // Branded flood-fill progress overlay.
             if viewModel.isFilling {
-                Color.black.opacity(0.15)
+                FillProgressOverlay(color: viewModel.brushSettings.color)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
-                ProgressView("Filling…")
-                    .padding()
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .transition(.opacity)
             }
 
-            // ── Chrome layer (toolbar) ────────────────────────────────────
+            // ── Chrome layer (floating glass toolbars) ────────────────────
             // NOTE: do NOT put .ignoresSafeArea on the ZStack itself — that
             // clears safe-area insets for ALL children, hiding chrome under
             // the status bar.  Each full-bleed layer (canvas, white bg) has
@@ -53,43 +51,34 @@ struct CanvasView: View {
                         }
                     )
                     .fixedSize()
-                    .transition(.move(edge: .leading))
+                    .transition(.move(edge: .leading).combined(with: .opacity))
                 } else {
-                    // When toolbar is hidden, show a small floating button
-                    // to restore it (back button is inside the toolbar).
-                    VStack(spacing: 4) {
-                        Button {
+                    VStack(spacing: 8) {
+                        FloatingIconButton(system: "chevron.left",
+                                           label: "Back to gallery",
+                                           identifier: "canvas.back.floating") {
                             dismiss()
-                        } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.title3)
-                                .padding(10)
-                                .background(.regularMaterial, in: Circle())
                         }
-                        .tint(.primary)
-                        .frame(minWidth: AppTheme.minTapTarget, minHeight: AppTheme.minTapTarget)
-                        .accessibilityLabel("Back to gallery")
-                        .accessibilityIdentifier("canvas.back.floating")
-
-                        Button {
+                        FloatingIconButton(system: "sidebar.left",
+                                           label: "Show toolbar",
+                                           identifier: "canvas.toolbar.restore") {
                             withAnimation(.easeInOut(duration: 0.22)) {
                                 showToolbar.toggle()
                             }
-                        } label: {
-                            Image(systemName: "sidebar.right")
-                                .font(.title3)
-                                .padding(10)
-                                .background(.regularMaterial, in: Circle())
                         }
-                        .tint(.primary)
-                        .frame(minWidth: AppTheme.minTapTarget, minHeight: AppTheme.minTapTarget)
-                        .accessibilityLabel("Show toolbar")
-                        .accessibilityIdentifier("canvas.toolbar.restore")
                     }
-                    .padding(.leading, 12)
-                    .padding(.top, 12)
+                    .padding(.leading, 16)
+                    .padding(.top, 16)
                 }
                 Spacer(minLength: 0)
+
+                // Right-side utility capsule (undo / redo / layers).
+                CanvasUtilityBar(
+                    viewModel: viewModel,
+                    showLayerPanel: $showLayerPanel
+                )
+                .fixedSize()
+                .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
         .onAppear {
@@ -113,5 +102,65 @@ struct CanvasView: View {
             await viewModel.loadTemplate()
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+// MARK: - Fill progress overlay
+
+/// Subtle branded overlay shown while a flood-fill render is in flight.
+/// Uses a radial pulse of the current brush color instead of a generic
+/// `ProgressView("Filling…")`.
+private struct FillProgressOverlay: View {
+    let color: Color
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.12)
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [color.opacity(0.45), color.opacity(0)],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: pulse ? 260 : 80
+                    )
+                )
+                .frame(width: 520, height: 520)
+                .scaleEffect(pulse ? 1.1 : 0.8)
+                .opacity(pulse ? 0 : 0.9)
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.9).repeatForever(autoreverses: false)) {
+                pulse = true
+            }
+        }
+    }
+}
+
+/// Compact floating circular button used when the main toolbar is hidden.
+private struct FloatingIconButton: View {
+    let system: String
+    let label: String
+    let identifier: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: system)
+                .font(.system(size: 16, weight: .medium))
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle().fill(.ultraThinMaterial)
+                )
+                .overlay(
+                    Circle().stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+                .floatingShadow()
+        }
+        .buttonStyle(.plain)
+        .tint(.primary)
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(identifier)
     }
 }

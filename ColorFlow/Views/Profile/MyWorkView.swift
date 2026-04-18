@@ -8,6 +8,7 @@ enum WorkFilter: String, CaseIterable {
 
 struct MyWorkView: View {
     @Environment(GalleryViewModel.self) var viewModel
+    @State private var cloudStorage = CloudStorage.shared
     @State private var filter: WorkFilter = .all
     @State private var shareImage: UIImage?
     @State private var showShareSheet = false
@@ -34,6 +35,9 @@ struct MyWorkView: View {
                     Text("My Work")
                         .font(.headline)
                         .foregroundStyle(AppTheme.textPrimary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    SyncStatusPill(status: cloudStorage.status)
                 }
             }
             .sheet(isPresented: $showShareSheet) {
@@ -114,12 +118,22 @@ struct MyWorkView: View {
         let displayed = filteredProjects
         if displayed.isEmpty {
             VStack(spacing: 16) {
-                Image(systemName: "paintpalette")
-                    .font(.system(size: 48))
-                    .foregroundStyle(AppTheme.accent.opacity(0.5))
+                ZStack {
+                    Circle()
+                        .fill(AppTheme.accent.opacity(0.14))
+                        .frame(width: 120, height: 120)
+                    Image(systemName: "paintpalette")
+                        .font(.system(size: 48))
+                        .foregroundStyle(AppTheme.accent)
+                }
                 Text(viewModel.projects.isEmpty
-                     ? "No artwork yet — start coloring!"
-                     : "Nothing here yet.")
+                     ? "No artwork yet"
+                     : "Nothing here yet")
+                    .font(AppTheme.displayFont(size: 20, weight: .semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text(viewModel.projects.isEmpty
+                     ? "Your finished pieces will show up here."
+                     : "Try a different filter.")
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.textSecondary)
             }
@@ -167,6 +181,30 @@ struct MyWorkView: View {
             [.foregroundColor: UIColor.white], for: .selected)
         UISegmentedControl.appearance().setTitleTextAttributes(
             [.foregroundColor: UIColor(AppTheme.textSecondary)], for: .normal)
+    }
+}
+
+// MARK: - Sync Status Pill
+
+private struct SyncStatusPill: View {
+    let status: CloudStorage.SyncStatus
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: status.systemImage)
+                .font(.caption)
+            Text(status.displayLabel)
+                .font(.caption.weight(.medium))
+                .lineLimit(1)
+        }
+        .foregroundStyle(AppTheme.textSecondary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            Capsule().fill(AppTheme.surface.opacity(0.6))
+        )
+        .accessibilityLabel(status.displayLabel)
+        .accessibilityIdentifier("myWork.syncStatus")
     }
 }
 

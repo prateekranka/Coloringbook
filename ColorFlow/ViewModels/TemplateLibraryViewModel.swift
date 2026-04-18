@@ -20,6 +20,13 @@ final class TemplateLibraryViewModel {
         userTemplates = storage.loadUserTemplates()
     }
 
+    /// Triggers a remote manifest refetch; awaits the result and rebinds
+    /// `templates` so pull-to-refresh feels snappy.
+    func refreshRemoteCatalogue() async {
+        await ContentService.shared.fetchManifest()
+        templates = Template.loadAll()
+    }
+
     func reloadUserTemplates() {
         userTemplates = storage.loadUserTemplates()
     }

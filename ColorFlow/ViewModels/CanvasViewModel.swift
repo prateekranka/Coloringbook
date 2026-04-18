@@ -84,7 +84,15 @@ final class CanvasViewModel {
     func loadTemplate() async {
         AppLog.trace(AppLog.canvas, "loadTemplate: \(template.svgFilename)")
 
-        guard let svgURL = template.svgURL else {
+        // Resolve bundled SVG first; fall back to remote-download on demand so
+        // CDN-hosted templates render without an App Store release.
+        let resolvedURL: URL?
+        if let bundled = template.svgURL {
+            resolvedURL = bundled
+        } else {
+            resolvedURL = await ContentService.shared.ensureSVGCached(template)
+        }
+        guard let svgURL = resolvedURL else {
             AppLog.error(AppLog.canvas, "loadTemplate: svgURL is nil for '\(template.svgFilename)'")
             return
         }

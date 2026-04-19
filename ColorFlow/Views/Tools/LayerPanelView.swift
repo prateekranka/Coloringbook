@@ -40,14 +40,17 @@ struct LayerPanelView: View {
                     Spacer()
                     ColorPicker("", selection: $viewModel.backgroundColor)
                         .labelsHidden()
+                        .accessibilityIdentifier("layers.background.picker")
                 }
                 .padding(.vertical, 4)
+                .accessibilityIdentifier("layers.background.row")
             }
             .navigationTitle("Layers")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .accessibilityIdentifier("layers.done")
                 }
             }
         }

@@ -150,6 +150,7 @@ struct FloatingColorPickerWindow: View {
                          active: isPaletteMode)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("picker.mode.palette")
             .popover(isPresented: $showPaletteMenu, arrowEdge: .top) {
                 paletteList
                     .presentationCompactAdaptation(.popover)
@@ -165,6 +166,7 @@ struct FloatingColorPickerWindow: View {
             modePill(system: system, label: label, active: active)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("picker.mode.\(label.lowercased())")
     }
 
     private func modePill(system: String, label: String, active: Bool) -> some View {
@@ -201,6 +203,7 @@ struct FloatingColorPickerWindow: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("picker.palette.\(p.name.lowercased().replacingOccurrences(of: " ", with: "_"))")
             }
         }
         .frame(minWidth: 180)
@@ -250,6 +253,7 @@ struct FloatingColorPickerWindow: View {
                                 .glow(color: c.opacity(0.5), radius: 6)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("picker.recent.\(i)")
                     }
                 }
                 .padding(.horizontal, 18)

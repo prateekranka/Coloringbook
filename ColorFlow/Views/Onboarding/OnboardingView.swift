@@ -80,6 +80,7 @@ struct OnboardingView: View {
             }
             .opacity(currentIndex == steps.count - 1 ? 0 : 1)
             .animation(.easeInOut(duration: 0.2), value: currentIndex)
+            .accessibilityIdentifier("onboarding.skip")
         }
         .padding(.top, 8)
     }

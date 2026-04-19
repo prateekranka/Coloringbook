@@ -73,6 +73,7 @@ struct MyWorkView: View {
                     .padding(.vertical, 10)
                     .background(Capsule().fill(AppTheme.accent))
             }
+            .accessibilityIdentifier("mywork.share")
 
             // Stats row
             HStack(spacing: 0) {
@@ -105,6 +106,7 @@ struct MyWorkView: View {
         .pickerStyle(.segmented)
         .padding(.horizontal, AppTheme.screenPadding)
         .onAppear { styleSegmentedControl() }
+        .accessibilityIdentifier("mywork.filter")
     }
 
     // MARK: - Artwork Grid
@@ -229,6 +231,7 @@ private struct ArtworkCard: View {
                 }
             }
         }
+        .accessibilityIdentifier("mywork.artwork.\(project.id.uuidString)")
         .task { thumbnail = await loadThumbnail() }
     }
 

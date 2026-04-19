@@ -44,11 +44,20 @@ class StorageService {
 
     // MARK: - Save
 
-    func save(project: inout Project, drawing: PKDrawing, fillLayer: UIImage?) {
+    func save(
+        project: inout Project,
+        drawing: PKDrawing,
+        fillLayer: UIImage?,
+        templateImage: UIImage? = nil
+    ) {
         project.modifiedAt = Date()
         let snapshot = project
         let drawingData = drawing.dataRepresentation()
         let fillData = fillLayer?.pngData()
+        let thumbnailData = Self.composeThumbnail(
+            template: templateImage,
+            fill: fillLayer
+        )?.pngData()
 
         queue.sync {
             createSubdirectories()
@@ -61,6 +70,11 @@ class StorageService {
                 try? data.write(to: fillURL, options: .atomic)
             }
 
+            if let data = thumbnailData {
+                let thumbURL = Self.documentsURL.appendingPathComponent(snapshot.thumbnailPath)
+                try? data.write(to: thumbURL, options: .atomic)
+            }
+
             var projects = _loadAllProjects()
             if let idx = projects.firstIndex(where: { $0.id == snapshot.id }) {
                 projects[idx] = snapshot
@@ -68,6 +82,35 @@ class StorageService {
                 projects.append(snapshot)
             }
             saveProjectIndex(projects)
+        }
+    }
+
+    /// Composite the line art + fills into a square 512×512 thumbnail.
+    /// Returns nil if neither layer is available.
+    private static func composeThumbnail(template: UIImage?, fill: UIImage?) -> UIImage? {
+        guard template != nil || fill != nil else { return nil }
+        let size = CGSize(width: 512, height: 512)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+
+            let source = template?.size ?? fill?.size ?? size
+            let scale = min(size.width / source.width, size.height / source.height)
+            let scaled = CGSize(width: source.width * scale, height: source.height * scale)
+            let rect = CGRect(
+                x: (size.width - scaled.width) / 2,
+                y: (size.height - scaled.height) / 2,
+                width: scaled.width,
+                height: scaled.height
+            )
+
+            fill?.draw(in: rect)
+            let cg = ctx.cgContext
+            cg.saveGState()
+            cg.setBlendMode(.multiply)
+            template?.draw(in: rect)
+            cg.restoreGState()
         }
     }
 

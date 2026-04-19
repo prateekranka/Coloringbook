@@ -34,8 +34,9 @@ struct PhotoPreValidator {
     /// Returns the first issue found, or `.valid` if the image passes all checks.
     /// Hard failures come before soft warnings so callers see the blocker first.
     static func validate(_ image: UIImage) -> PhotoValidationResult {
-        let width  = Int(image.size.width  * image.scale)
-        let height = Int(image.size.height * image.scale)
+        guard let cgImage = image.cgImage else { return .valid }
+        let width  = cgImage.width
+        let height = cgImage.height
         let shortEdge = min(width, height)
 
         if shortEdge < minimumShortEdge {

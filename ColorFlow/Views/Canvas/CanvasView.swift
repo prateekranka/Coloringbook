@@ -3,13 +3,11 @@ import PencilKit
 
 /// Main coloring canvas screen.
 ///
-/// The SwiftUI layer is responsible for:
-///   - Screen chrome (toolbar, sheets, fill-progress overlay)
-///   - Loading the template on first appearance
-///
-/// All pixel layers (background, fill image, PencilKit strokes, line-art
-/// overlay) live inside `PencilCanvasRepresentable` so that PKCanvasView's
-/// built-in UIScrollView zoom/pan keeps every layer in sync automatically.
+/// Layout invariants:
+/// - Canvas is always full-bleed. Chrome lives in a ZStack overlay so that
+///   hiding the toolbar does not resize the canvas (prevents "canvas jump").
+/// - Color picker appears as a floating, draggable HUD window over the canvas,
+///   not a sheet — the canvas stays interactive behind it.
 struct CanvasView: View {
     @Bindable var viewModel: CanvasViewModel
     @Environment(\.dismiss) private var dismiss
@@ -17,9 +15,13 @@ struct CanvasView: View {
     @State private var showColorPicker = false
     @State private var showLayerPanel = false
 
+    /// Width of the left chrome lane. Kept constant so canvas width never changes
+    /// when the toolbar hides/shows.
+    private let chromeGutter: CGFloat = 72
+
     var body: some View {
         ZStack {
-            // Canvas (fills entire screen including safe areas)
+            // Canvas (always full-bleed)
             Color.white.ignoresSafeArea()
             PencilCanvasRepresentable(viewModel: viewModel)
                 .ignoresSafeArea()
@@ -34,76 +36,25 @@ struct CanvasView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
 
-            // ── Chrome layer (toolbar) ────────────────────────────────────
-            // NOTE: do NOT put .ignoresSafeArea on the ZStack itself — that
-            // clears safe-area insets for ALL children, hiding chrome under
-            // the status bar.  Each full-bleed layer (canvas, white bg) has
-            // its own .ignoresSafeArea() above.
-            HStack(alignment: .top, spacing: 0) {
-                if showToolbar {
-                    ToolbarView(
-                        viewModel: viewModel,
-                        showColorPicker: $showColorPicker,
-                        showLayerPanel: $showLayerPanel,
-                        onDismiss: { dismiss() },
-                        onToggleToolbar: {
-                            withAnimation(.easeInOut(duration: 0.22)) {
-                                showToolbar.toggle()
-                            }
-                        }
-                    )
-                    .fixedSize()
-                    .transition(.move(edge: .leading))
-                } else {
-                    // When toolbar is hidden, show a small floating button
-                    // to restore it (back button is inside the toolbar).
-                    VStack(spacing: 4) {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.title3)
-                                .padding(10)
-                                .background(.regularMaterial, in: Circle())
-                        }
-                        .tint(.primary)
-                        .frame(minWidth: AppTheme.minTapTarget, minHeight: AppTheme.minTapTarget)
-                        .accessibilityLabel("Back to gallery")
-                        .accessibilityIdentifier("canvas.back.floating")
-
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.22)) {
-                                showToolbar.toggle()
-                            }
-                        } label: {
-                            Image(systemName: "sidebar.right")
-                                .font(.title3)
-                                .padding(10)
-                                .background(.regularMaterial, in: Circle())
-                        }
-                        .tint(.primary)
-                        .frame(minWidth: AppTheme.minTapTarget, minHeight: AppTheme.minTapTarget)
-                        .accessibilityLabel("Show toolbar")
-                        .accessibilityIdentifier("canvas.toolbar.restore")
-                    }
-                    .padding(.leading, 12)
-                    .padding(.top, 12)
-                }
-                Spacer(minLength: 0)
+            // Floating color picker (HUD window)
+            if showColorPicker {
+                FloatingColorPickerWindow(
+                    isPresented: $showColorPicker,
+                    selectedColor: $viewModel.brushSettings.color,
+                    recentColors: $viewModel.recentColors,
+                    palettes: viewModel.palettes
+                )
+                .transition(.scale(scale: 0.95).combined(with: .opacity))
+                .ignoresSafeArea()
             }
+
+            // ── Chrome lane (toolbar or retracted restore button) ─────────
+            chromeLane
         }
         .onAppear {
             AppLog.trace(AppLog.canvas, "CanvasView onAppear — \(viewModel.template.svgFilename)")
         }
-        // ── Sheets ────────────────────────────────────────────────────────
-        .sheet(isPresented: $showColorPicker) {
-            ColorPickerView(
-                selectedColor: $viewModel.brushSettings.color,
-                recentColors: $viewModel.recentColors,
-                palettes: viewModel.palettes
-            )
-            .presentationDetents([.medium, .large])
-        }
+        // ── Sheets (layer panel only; color picker is now an overlay) ──
         .sheet(isPresented: $showLayerPanel) {
             LayerPanelView(viewModel: viewModel)
                 .presentationDetents([.medium])
@@ -113,5 +64,61 @@ struct CanvasView: View {
             await viewModel.loadTemplate()
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    // MARK: - Chrome lane
+
+    @ViewBuilder
+    private var chromeLane: some View {
+        HStack(alignment: .top, spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                // Reserve the gutter width regardless of toolbar state so the
+                // canvas behind this ZStack never shifts horizontally.
+                Color.clear
+                    .frame(width: chromeGutter)
+
+                if showToolbar {
+                    ToolbarView(
+                        viewModel: viewModel,
+                        showColorPicker: $showColorPicker,
+                        showLayerPanel: $showLayerPanel,
+                        onDismiss: { dismiss() },
+                        onToggleToolbar: {
+                            withAnimation(AppTheme.Motion.pageTransition) {
+                                showToolbar.toggle()
+                            }
+                        }
+                    )
+                    .fixedSize()
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+                } else {
+                    restoreButton
+                        .transition(.opacity)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    // When the toolbar is hidden, a single small button (not two) lets the user
+    // restore it. The back-to-gallery affordance lives inside the toolbar, so
+    // we don't repeat the "<" chevron here.
+    private var restoreButton: some View {
+        Button {
+            withAnimation(AppTheme.Motion.pageTransition) {
+                showToolbar.toggle()
+            }
+        } label: {
+            Image(systemName: "sidebar.right")
+                .font(.title3)
+                .padding(10)
+                .background(.regularMaterial, in: Circle())
+        }
+        .tint(.primary)
+        .frame(minWidth: AppTheme.minTapTarget, minHeight: AppTheme.minTapTarget)
+        .accessibilityLabel("Show toolbar")
+        .accessibilityIdentifier("canvas.toolbar.restore")
+        .padding(.leading, 16)
+        .padding(.top, 72)
     }
 }

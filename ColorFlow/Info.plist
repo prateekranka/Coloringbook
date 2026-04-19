@@ -54,9 +54,12 @@
 
 	<!-- ── Launch Screen (fixes "Launch screens will soon be required") ── -->
 	<!-- UILaunchScreen replaces LaunchScreen.storyboard for iOS 14+      -->
-	<!-- Shows app icon on a plain background; no custom layout needed.    -->
+	<!-- Matches app dark background so the SwiftUI splash never flashes white. -->
 	<key>UILaunchScreen</key>
-	<dict/>
+	<dict>
+		<key>UIColorName</key>
+		<string>CFBackground</string>
+	</dict>
 
 	<!-- ── Scene lifecycle (SwiftUI @main) ───────────────────── -->
 	<key>UIApplicationSceneManifest</key>

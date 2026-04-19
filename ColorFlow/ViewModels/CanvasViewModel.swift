@@ -139,27 +139,22 @@ final class CanvasViewModel {
 
     // MARK: - Region Fill (replaces flood fill)
 
-    /// Convert a view-space tap point to document space, hit-test the geometry,
-    /// apply the current brush color, and re-render the fill layer.
-    func performRegionFill(at viewPoint: CGPoint, in viewSize: CGSize) async {
-        guard let geometry = templateGeometry else {
-            print("[ViewModel] performRegionFill — SKIPPED: templateGeometry is nil")
-            return
-        }
-
-        let transform = TemplateRenderer.documentToViewTransform(
-            viewBox: geometry.viewBox,
-            viewSize: viewSize
-        )
-        let docPoint = viewPoint.applying(transform.inverted())
-
-        print("[ViewModel] performRegionFill — viewPoint=(\(Int(viewPoint.x)),\(Int(viewPoint.y))) viewSize=\(viewSize) viewBox=\(geometry.viewBox) docPoint=(\(Int(docPoint.x)),\(Int(docPoint.y))) regions=\(geometry.regions.count)")
+    /// Hit-test the geometry at the given document-space point, apply the
+    /// current brush color to the matched region, and re-render the fill layer.
+    ///
+    /// The caller is expected to pass a point already in document coordinates.
+    /// `PencilCanvasRepresentable` does this by attaching its tap recognizer to
+    /// the zoom content view, which collapses zoomScale/contentOffset for us.
+    func performRegionFill(atDocumentPoint docPoint: CGPoint) async {
+        guard let geometry = templateGeometry else { return }
 
         guard let region = geometry.region(at: docPoint) else {
-            print("[ViewModel] performRegionFill — NO region hit at docPoint=(\(Int(docPoint.x)),\(Int(docPoint.y)))")
+            AppLog.trace(
+                AppLog.canvas,
+                "performRegionFill — no region at (\(Int(docPoint.x)),\(Int(docPoint.y)))"
+            )
             return
         }
-        print("[ViewModel] performRegionFill — hit region '\(region.id)' filling with \(UIColor(brushSettings.color).hexString)")
 
         isFilling = true
 
@@ -191,15 +186,9 @@ final class CanvasViewModel {
 
     // MARK: - Region Selection
 
-    /// Hit-test the geometry and set selectedRegionID.
-    func selectRegion(at viewPoint: CGPoint, in viewSize: CGSize) {
+    /// Hit-test the geometry and set selectedRegionID from a document-space point.
+    func selectRegion(atDocumentPoint docPoint: CGPoint) {
         guard let geometry = templateGeometry else { return }
-
-        let transform = TemplateRenderer.documentToViewTransform(
-            viewBox: geometry.viewBox,
-            viewSize: viewSize
-        )
-        let docPoint = viewPoint.applying(transform.inverted())
         selectedRegionID = geometry.region(at: docPoint)?.id
         paintState.selectedRegionID = selectedRegionID
     }
@@ -212,16 +201,10 @@ final class CanvasViewModel {
 
     // MARK: - Eyedropper
 
-    /// Hit-test the region at the given point and read its stored fill color
-    /// back into the current brush settings.
-    func pickColor(at viewPoint: CGPoint, in viewSize: CGSize) {
+    /// Hit-test the region at the given document-space point and read its
+    /// stored fill color back into the current brush settings.
+    func pickColor(atDocumentPoint docPoint: CGPoint) {
         guard let geometry = templateGeometry else { return }
-
-        let transform = TemplateRenderer.documentToViewTransform(
-            viewBox: geometry.viewBox,
-            viewSize: viewSize
-        )
-        let docPoint = viewPoint.applying(transform.inverted())
 
         guard
             let region = geometry.region(at: docPoint),
@@ -293,7 +276,13 @@ final class CanvasViewModel {
         }
 
         // Save PKDrawing + fill layer PNG via StorageService (also updates project index).
-        storageService.save(project: &project, drawing: drawing, fillLayer: fillLayerImage)
+        storageService.save(
+            project: &project,
+            drawing: drawing,
+            fillLayer: fillLayerImage,
+            templateImage: templateImage
+        )
+        ProjectThumbnailCache.shared.invalidate(id: project.id)
     }
 
     // MARK: - Recent Colors

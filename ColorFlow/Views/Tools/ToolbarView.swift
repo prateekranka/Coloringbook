@@ -1,6 +1,9 @@
 import SwiftUI
 
-/// Collapsible left-side toolbar with tool selection, brush size, and undo/redo.
+/// Collapsible left-side toolbar with tool selection, brush settings, and
+/// undo/redo. Inspired by Lake's active-tool pill + Pigment's tool drawer:
+/// tapping an already-active tool opens a glass drawer to the right of the
+/// rail that hosts the brush-size scrubber (and opacity, for inking tools).
 struct ToolbarView: View {
     @Bindable var viewModel: CanvasViewModel
     @Binding var showColorPicker: Bool
@@ -8,9 +11,21 @@ struct ToolbarView: View {
     var onDismiss: (() -> Void)? = nil
     var onToggleToolbar: (() -> Void)? = nil
 
+    @State private var drawerTool: DrawingTool? = nil
+
     var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            rail
+            drawer
+        }
+    }
+
+    // MARK: - Rail
+
+    private var rail: some View {
         VStack(spacing: 4) {
-            // Back + toggle row at the top of the panel
+            // Back + retract row (retract only visible when toolbar is shown,
+            // which it always is while this view exists).
             HStack(spacing: 0) {
                 if let onDismiss {
                     Button(action: onDismiss) {
@@ -41,13 +56,6 @@ struct ToolbarView: View {
 
             Divider().padding(.horizontal, 6)
 
-            // Color well — opens full color picker sheet
-            ColorWellButton(color: viewModel.brushSettings.color) {
-                showColorPicker = true
-            }
-
-            Divider().padding(.horizontal, 6)
-
             // Drawing tools
             ForEach(DrawingTool.allCases) { tool in
                 ToolButton(
@@ -55,14 +63,15 @@ struct ToolbarView: View {
                     isSelected: viewModel.brushSettings.tool == tool
                 ) {
                     HapticService.shared.impact(.light)
-                    viewModel.brushSettings.tool = tool
+                    if viewModel.brushSettings.tool == tool {
+                        // Re-tap toggles the drawer for this tool.
+                        toggleDrawer(for: tool)
+                    } else {
+                        viewModel.brushSettings.tool = tool
+                        drawerTool = nil
+                    }
                 }
             }
-
-            Divider().padding(.horizontal, 6)
-
-            // Brush size slider (vertical)
-            BrushSizeSlider(size: $viewModel.brushSettings.size)
 
             Divider().padding(.horizontal, 6)
 
@@ -90,12 +99,66 @@ struct ToolbarView: View {
             .toolbarButtonStyle()
             .accessibilityLabel("Layers")
             .accessibilityIdentifier("canvas.layers")
+
+            Spacer(minLength: 10)
+
+            // Color well anchors the bottom of the rail and opens the
+            // floating picker window.
+            ColorWellButton(color: viewModel.brushSettings.color) {
+                showColorPicker = true
+            }
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 6)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .padding(.leading, 12)
         .padding(.top, 12)
+    }
+
+    // MARK: - Drawer
+
+    @ViewBuilder
+    private var drawer: some View {
+        if let tool = drawerTool, toolSupportsDrawer(tool) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(drawerTitle(for: tool))
+                    .font(AppTheme.Typography.capsuleLabel)
+                    .foregroundStyle(AppTheme.textSecondary)
+
+                BrushSizeScrubber(size: $viewModel.brushSettings.size)
+
+                // Opacity scrubber, inking tools only.
+                if tool.isPencilKitTool && tool != .eraser {
+                    OpacityScrubber(opacity: $viewModel.brushSettings.opacity)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
+            .padding(.top, 12)
+            .transition(.move(edge: .leading).combined(with: .opacity))
+        }
+    }
+
+    private func toggleDrawer(for tool: DrawingTool) {
+        withAnimation(AppTheme.Motion.pageTransition) {
+            drawerTool = (drawerTool == tool) ? nil : tool
+        }
+    }
+
+    private func toolSupportsDrawer(_ tool: DrawingTool) -> Bool {
+        tool.isPencilKitTool
+    }
+
+    private func drawerTitle(for tool: DrawingTool) -> String {
+        "\(tool.rawValue) size"
     }
 }
 
@@ -111,6 +174,7 @@ private struct ColorWellButton: View {
                 .fill(color)
                 .frame(width: 32, height: 32)
                 .overlay(Circle().stroke(Color.primary.opacity(0.25), lineWidth: 1.5))
+                .glow(color: color.opacity(0.5), radius: 6)
                 .padding(6)
                 .frame(width: AppTheme.minTapTarget, height: AppTheme.minTapTarget)
                 .contentShape(Rectangle())
@@ -130,11 +194,11 @@ private struct ToolButton: View {
         Button(action: action) {
             Image(systemName: tool.systemImageName)
                 .font(.system(size: 18, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                .foregroundStyle(isSelected ? AppTheme.accent : Color.primary)
                 .frame(width: AppTheme.minTapTarget, height: AppTheme.minTapTarget)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(isSelected ? AppTheme.accent.opacity(0.22) : Color.clear)
                 )
                 .contentShape(Rectangle())
         }
@@ -145,24 +209,22 @@ private struct ToolButton: View {
     }
 }
 
-private struct BrushSizeSlider: View {
-    @Binding var size: CGFloat
+/// Thin horizontal opacity slider styled to match the BrushSizeScrubber.
+private struct OpacityScrubber: View {
+    @Binding var opacity: Double
 
     var body: some View {
-        VStack(spacing: 4) {
-            // Preview dot
-            Circle()
-                .fill(Color.primary)
-                .frame(width: size.clamped(to: 4...24), height: size.clamped(to: 4...24))
-                .frame(height: 28)
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Opacity")
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(AppTheme.textSecondary)
 
-            Slider(value: $size, in: BrushSettings.sizeRange)
-                .rotationEffect(.degrees(-90))
-                .frame(width: 100)
-                .frame(width: 44, height: 100)
-                .accessibilityLabel("Brush size")
-                .accessibilityValue("\(Int(size)) points")
-                .accessibilityIdentifier("canvas.brushSize")
+            Slider(value: $opacity, in: 0.1...1)
+                .tint(AppTheme.accent)
+                .frame(width: 120)
+                .accessibilityLabel("Opacity")
+                .accessibilityValue("\(Int(opacity * 100)) percent")
+                .accessibilityIdentifier("canvas.opacity")
         }
     }
 }
@@ -176,13 +238,5 @@ private extension View {
             .frame(width: 40, height: 40)
             .buttonStyle(.plain)
             .foregroundStyle(Color.primary)
-    }
-}
-
-// MARK: - Helpers
-
-private extension CGFloat {
-    func clamped(to range: ClosedRange<CGFloat>) -> CGFloat {
-        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
     }
 }

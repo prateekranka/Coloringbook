@@ -233,11 +233,15 @@ private struct ArtworkCard: View {
     }
 
     private func loadThumbnail() async -> UIImage? {
-        await Task.detached(priority: .userInitiated) {
-            let url = StorageService.documentsURL
-                .appendingPathComponent(project.fillLayerPath)
-            guard let data = try? Data(contentsOf: url) else { return nil }
-            return UIImage(data: data)
+        let projectID = project.id
+        let thumbPath = project.thumbnailPath
+        let fillPath = project.fillLayerPath
+        return await Task.detached(priority: .userInitiated) {
+            ProjectThumbnailCache.shared.load(
+                id: projectID,
+                thumbnailPath: thumbPath,
+                fillLayerPath: fillPath
+            )
         }.value
     }
 }

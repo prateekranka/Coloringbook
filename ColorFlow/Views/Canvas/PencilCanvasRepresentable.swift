@@ -73,13 +73,23 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         coordinator.setupLayers(in: content, canvas: canvas)
 
         // ── Tap gesture (fill / eyedropper / region selection) ──────────────
-        // Placed on the scroll view so it fires before scroll gestures.
+        // Attached to the zoomable content view so the tap location is already
+        // in document space (UIScrollView accounts for zoom + offset). Allows
+        // both finger and pencil taps; the handler dispatches based on tool.
         let tap = UITapGestureRecognizer(
             target: coordinator,
             action: #selector(Coordinator.handleTap(_:))
         )
-        tap.allowedTouchTypes = [UITouch.TouchType.direct.rawValue as NSNumber]
-        scrollView.addGestureRecognizer(tap)
+        tap.allowedTouchTypes = [
+            UITouch.TouchType.direct.rawValue as NSNumber,
+            UITouch.TouchType.pencil.rawValue as NSNumber,
+        ]
+        tap.delegate = coordinator
+        // Let the scroll-view pan win when the user is actually dragging.
+        if let pan = scrollView.panGestureRecognizer as UIPanGestureRecognizer? {
+            tap.require(toFail: pan)
+        }
+        content.addGestureRecognizer(tap)
         coordinator.tapGesture = tap
 
         // Expose the PKCanvasView to the view model (weak ref).
@@ -126,17 +136,9 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             coordinator.updateContentSize(size, in: scrollView)
         }
 
-        // ── Tool-aware tap / gesture config ─────────────────────────────────
-        let isNonDrawingTool = viewModel.brushSettings.tool == .floodFill
-                            || viewModel.brushSettings.tool == .eyedropper
-        print("[Canvas] updateUIView tool=\(viewModel.brushSettings.tool.rawValue) isNonDrawing=\(isNonDrawingTool) zoomScale=\(scrollView.zoomScale)")
-
-        // Enable tap recogniser only for non-drawing tools.
-        coordinator.tapGesture?.isEnabled = isNonDrawingTool
-        coordinator.tapGesture?.allowedTouchTypes = isNonDrawingTool
-            ? [UITouch.TouchType.direct.rawValue as NSNumber,
-               UITouch.TouchType.pencil.rawValue as NSNumber]
-            : [UITouch.TouchType.direct.rawValue as NSNumber]
+        // Tap recognizer stays on permanently; handleTap dispatches by tool
+        // (fill / eyedropper / selection). This avoids a race where toggling
+        // isEnabled mid-dispatch caused taps to silently drop.
     }
 
     // MARK: - Coordinator factory
@@ -145,7 +147,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
 
     // MARK: - Coordinator
 
-    class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate {
+    class Coordinator: NSObject, PKCanvasViewDelegate, UIScrollViewDelegate, UIGestureRecognizerDelegate {
         var parent: PencilCanvasRepresentable
 
         // ── Stored UIKit references ───────────────────────────────────────
@@ -301,35 +303,41 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             parent.viewModel.scheduleAutoSave()
         }
 
+        // MARK: UIGestureRecognizerDelegate
+
+        /// Let the tap recognizer coexist with the scroll view's pan and pinch.
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool {
+            true
+        }
+
         // MARK: Tap gesture
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
-            // gesture.location(in: contentContainer) gives coordinates directly
-            // in the document / content space — no zoomScale division needed.
+            // Location in the zoom content view is already in document space —
+            // UIScrollView has accounted for zoomScale and contentOffset.
             guard let content = contentContainer else { return }
 
-            let point    = gesture.location(in: content)
-            let docSize  = parent.viewModel.canvasSize
+            let docPoint = gesture.location(in: content)
             let tool     = parent.viewModel.brushSettings.tool
 
-            print("[Canvas] handleTap — tool=\(tool.rawValue) docPoint=(\(Int(point.x)),\(Int(point.y))) docSize=\(docSize) geometryLoaded=\(parent.viewModel.templateGeometry != nil)")
-
-            guard docSize != .zero else {
-                print("[Canvas] handleTap — SKIPPED: canvasSize is zero")
-                return
-            }
+            guard parent.viewModel.canvasSize != .zero else { return }
 
             switch tool {
             case .floodFill:
                 Task {
-                    await parent.viewModel.performRegionFill(at: point, in: docSize)
+                    await parent.viewModel.performRegionFill(atDocumentPoint: docPoint)
                 }
 
             case .eyedropper:
-                parent.viewModel.pickColor(at: point, in: docSize)
+                parent.viewModel.pickColor(atDocumentPoint: docPoint)
 
             default:
-                parent.viewModel.selectRegion(at: point, in: docSize)
+                // For drawing tools a tap is a no-op (selection scaffolding
+                // exists but isn't user-facing today).
+                parent.viewModel.selectRegion(atDocumentPoint: docPoint)
             }
         }
     }

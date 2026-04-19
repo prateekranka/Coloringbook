@@ -17,23 +17,36 @@ final class AccessibilityUITests: XCTestCase {
 
     // MARK: - Tab bar
 
+    /// iPadOS 26.4+ renders TabView as a top segmented control instead of a bottom
+    /// tab bar. This helper finds the tab element across all possible layouts.
+    private func tabElement(_ app: XCUIApplication, _ label: String) -> XCUIElement {
+        let id = "tab.\(label.lowercased())"
+        // Try by accessibility identifier on buttons
+        if app.buttons[id].exists { return app.buttons[id] }
+        // Try by identifier on cells (iPadOS 26.4+ sidebar/outline)
+        if app.cells[id].exists { return app.cells[id] }
+        // Try by identifier on any element
+        if app.otherElements[id].exists { return app.otherElements[id] }
+        // Try by label on buttons (classic tab bar)
+        if app.buttons[label].exists { return app.buttons[label] }
+        // Try by label on cells (sidebar)
+        if app.cells[label].exists { return app.cells[label] }
+        // Try by label on any element (iPadOS 26.4+ segmented control items)
+        if app.staticTexts[label].exists { return app.staticTexts[label] }
+        // Fallback to buttons by label
+        return app.buttons[label]
+    }
+
     func test_tabBar_itemsAreReachable() throws {
         let app = XCUIApplication()
+        app.launchArguments += ["-skipOnboarding"]
         app.launch()
 
-        // Dismiss onboarding if it appears on first launch.
-        let onboardingContinue = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] %@", "Get Started")
-        ).firstMatch
-        if onboardingContinue.waitForExistence(timeout: 2) {
-            onboardingContinue.tap()
-        }
-
-        XCTAssertTrue(app.tabBars.buttons["Home"].exists,
+        XCTAssertTrue(tabElement(app, "Home").waitForExistence(timeout: 3),
                       "Home tab item must be reachable by accessibility label.")
-        XCTAssertTrue(app.tabBars.buttons["Library"].exists,
+        XCTAssertTrue(tabElement(app, "Library").exists,
                       "Library tab item must be reachable by accessibility label.")
-        XCTAssertTrue(app.tabBars.buttons["My Work"].exists,
+        XCTAssertTrue(tabElement(app, "My Work").exists,
                       "My Work tab item must be reachable by accessibility label.")
     }
 
@@ -41,9 +54,10 @@ final class AccessibilityUITests: XCTestCase {
 
     func test_home_primaryActions_haveAccessibilityIdentifiers() throws {
         let app = XCUIApplication()
+        app.launchArguments += ["-skipOnboarding"]
         app.launch()
-        _ = app.tabBars.buttons["Home"].waitForExistence(timeout: 2)
-        app.tabBars.buttons["Home"].tap()
+        _ = tabElement(app, "Home").waitForExistence(timeout: 3)
+        tabElement(app, "Home").tap()
 
         let plus = app.buttons["home.plus"]
         XCTAssertTrue(plus.waitForExistence(timeout: 2),
@@ -60,9 +74,11 @@ final class AccessibilityUITests: XCTestCase {
 
     func test_library_categoryBar_isReachable() throws {
         let app = XCUIApplication()
+        app.launchArguments += ["-skipOnboarding"]
         app.launch()
-        _ = app.tabBars.buttons["Library"].waitForExistence(timeout: 2)
-        app.tabBars.buttons["Library"].tap()
+        let libraryTab = tabElement(app, "Library")
+        _ = libraryTab.waitForExistence(timeout: 3)
+        libraryTab.firstMatch.tap()
 
         XCTAssertTrue(app.buttons["library.category.All"].waitForExistence(timeout: 2),
                       "Library 'All' category tab missing identifier.")

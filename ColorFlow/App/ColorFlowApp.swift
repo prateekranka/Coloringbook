@@ -57,15 +57,39 @@ struct ContentView: View {
     @Environment(GalleryViewModel.self) var galleryViewModel
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
+    /// True only for this process lifetime. Scene-phase reactivations
+    /// from background do NOT replay the splash because the flag sticks.
+    @State private var splashDone: Bool
+
+    init() {
+        let skipSplash = ProcessInfo.processInfo.arguments.contains("-skipSplash")
+            || ProcessInfo.processInfo.arguments.contains("-skipOnboarding")
+        _splashDone = State(initialValue: skipSplash)
+    }
+
+    /// UI tests launch with "-skipOnboarding" to bypass the flow deterministically.
+    private var skipOnboardingForTests: Bool {
+        ProcessInfo.processInfo.arguments.contains("-skipOnboarding")
+    }
+
     var body: some View {
-        if !hasSeenOnboarding {
-            OnboardingView(isPresented: Binding(
-                get: { !hasSeenOnboarding },
-                set: { hasSeenOnboarding = !$0 }
-            ))
-        } else {
-            MainTabView()
+        ZStack {
+            if !hasSeenOnboarding && !skipOnboardingForTests {
+                OnboardingView(isPresented: Binding(
+                    get: { !hasSeenOnboarding },
+                    set: { hasSeenOnboarding = !$0 }
+                ))
+            } else {
+                MainTabView()
+            }
+
+            if !splashDone {
+                SplashView(onFinish: { splashDone = true })
+                    .transition(.opacity)
+                    .zIndex(10)
+            }
         }
+        .animation(AppTheme.Motion.pageTransition, value: splashDone)
     }
 }
 

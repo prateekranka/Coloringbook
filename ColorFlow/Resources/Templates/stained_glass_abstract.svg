@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 900" width="700" height="900">
+  <!-- Stained Glass Abstract — irregular geometric panels -->
+
+  <!-- Border frame -->
+  <path id="region-1" d="M0,0 L700,0 L700,30 L30,30 L30,870 L0,870 Z" fill="none" stroke="black" stroke-width="4"/>
+  <path id="region-2" d="M700,0 L700,900 L0,900 L0,870 L670,870 L670,30 L700,30 Z" fill="none" stroke="black" stroke-width="4"/>
+
+  <!-- Large panels -->
+  <path id="region-3"  d="M30,30 L250,30 L280,120 L200,200 L30,180 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-4"  d="M250,30 L500,30 L520,100 L380,160 L280,120 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-5"  d="M500,30 L670,30 L670,200 L560,240 L520,100 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-6"  d="M30,180 L200,200 L220,320 L120,380 L30,360 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-7"  d="M200,200 L280,120 L380,160 L400,300 L300,340 L220,320 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-8"  d="M380,160 L520,100 L560,240 L480,360 L400,300 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-9"  d="M560,240 L670,200 L670,420 L580,440 L480,360 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-10" d="M30,360 L120,380 L140,500 L60,540 L30,520 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-11" d="M120,380 L220,320 L300,340 L320,480 L200,520 L140,500 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-12" d="M300,340 L400,300 L480,360 L460,500 L350,520 L320,480 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-13" d="M480,360 L580,440 L600,560 L500,580 L460,500 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-14" d="M580,440 L670,420 L670,620 L620,640 L600,560 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-15" d="M30,520 L60,540 L80,660 L30,680 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-16" d="M60,540 L140,500 L200,520 L220,640 L140,680 L80,660 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-17" d="M200,520 L320,480 L350,520 L360,660 L260,700 L220,640 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-18" d="M350,520 L460,500 L500,580 L480,700 L380,720 L360,660 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-19" d="M500,580 L600,560 L620,640 L580,740 L490,740 L480,700 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-20" d="M620,640 L670,620 L670,870 L620,870 L580,740 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-21" d="M30,680 L80,660 L140,680 L160,800 L60,840 L30,820 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-22" d="M140,680 L220,640 L260,700 L280,820 L180,860 L160,800 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-23" d="M260,700 L380,720 L380,840 L280,870 L280,820 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-24" d="M380,720 L480,700 L490,740 L500,840 L380,870 L380,840 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-25" d="M490,740 L580,740 L620,870 L500,870 L500,840 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-26" d="M30,820 L60,840 L160,800 L180,860 L280,820 L280,870 L30,870 Z" fill="none" stroke="black" stroke-width="3"/>
+</svg>

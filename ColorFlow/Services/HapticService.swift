@@ -1,7 +1,8 @@
 import UIKit
 
 /// Centralized haptic feedback service.
-class HapticService {
+@MainActor
+final class HapticService {
     static let shared = HapticService()
     private init() {}
 

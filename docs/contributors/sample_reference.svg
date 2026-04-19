@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  sample_reference.svg — ColorFlow SVG template reference / exemplar.
+
+  This file is deliberately simple so that a new contributor can see the
+  exact structure the app expects and cross-check their own cleanup work
+  against it.  Every region here is named (id="region-N"), every path is
+  closed (ends with Z), and there are no forbidden elements or attributes.
+
+  Run the validator against this file at any time:
+      python3 Scripts/validate_template_svg.py docs/contributors/sample_reference.svg
+
+  Expected output: ✓ PASS  (no errors, no warnings)
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 400 400"
+     width="400"
+     height="400">
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       DECORATIVE PATHS — no id attribute, not hit-testable by the app.
+       Use these for line-art details that shouldn't be tap-to-fill regions.
+       ═══════════════════════════════════════════════════════════════════ -->
+
+  <!-- House roof ridge (decorative) -->
+  <path d="M200,80 L120,180 L280,180 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Chimney (decorative) -->
+  <path d="M230,110 L230,145 L250,145 L250,110 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       NAMED REGIONS — id="region-N" makes them tap-to-fill regions.
+       Rules:
+         • id must start with a letter (not a digit)
+         • path data MUST end with Z (closes the contour)
+         • no arc commands (A/a) — use cubic bezier C/c instead
+         • no forbidden attributes (stroke-dasharray, opacity)
+       ═══════════════════════════════════════════════════════════════════ -->
+
+  <!-- Front wall -->
+  <path id="region-1"
+        d="M120,180 L120,320 L280,320 L280,180 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Left window pane -->
+  <path id="region-2"
+        d="M140,210 L140,270 L185,270 L185,210 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Right window pane -->
+  <path id="region-3"
+        d="M215,210 L215,270 L260,270 L260,210 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Door -->
+  <path id="region-4"
+        d="M175,320 C175,285 225,285 225,320 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Door body (rectangle below arch) -->
+  <path id="region-5"
+        d="M175,295 L175,320 L225,320 L225,295 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Roof tile left -->
+  <path id="region-6"
+        d="M120,180 L200,80 L160,180 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Roof tile right -->
+  <path id="region-7"
+        d="M200,80 L280,180 L240,180 Z"
+        fill="none" stroke="black" stroke-width="3"/>
+
+</svg>

@@ -39,7 +39,7 @@ enum DrawingTool: String, CaseIterable, Identifiable {
             // Watercolor approximated via monoline ink with reduced opacity
             return PKInkingTool(.monoline, color: color.withAlphaComponent(0.4), width: width)
         case .eraser:
-            return PKEraserTool(.bitmap)
+            return PKEraserTool(.bitmap, width: width)
         case .floodFill, .eyedropper:
             // These don't use PKTool — return a no-op pencil tool
             return PKInkingTool(.pencil, color: .clear, width: 1)
@@ -49,9 +49,9 @@ enum DrawingTool: String, CaseIterable, Identifiable {
 
 struct BrushSettings {
     var tool: DrawingTool = .pencil
-    var size: CGFloat = 8.0
+    var size: CGFloat = 6.0
     var opacity: Double = 1.0
-    var color: Color = .black
+    var color: Color = AppTheme.accent
 
     static let sizeRange: ClosedRange<CGFloat> = 1...50
 }

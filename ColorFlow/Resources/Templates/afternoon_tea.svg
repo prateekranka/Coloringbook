@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 800" width="900" height="800">
+  <!-- Afternoon Tea Scene -->
+
+  <!-- Table surface -->
+  <path id="region-1" d="M50,600 L850,600 L870,700 L30,700 Z" fill="none" stroke="black" stroke-width="4"/>
+  <!-- Tablecloth -->
+  <path id="region-2" d="M30,600 L870,600 L870,620 L30,620 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- TABLE LEGS -->
+  <path id="region-3" d="M100,700 L85,780 L115,780 L115,700 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-4" d="M800,700 L785,780 L815,780 L815,700 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- TEAPOT -->
+  <!-- Teapot body -->
+  <path id="region-5" d="M320,420 C300,420 275,435 265,460 C255,485 262,515 280,535 C298,555 325,565 355,565 C385,565 412,555 428,535 C444,515 448,485 438,460 C428,435 405,420 380,420 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Teapot lid -->
+  <path id="region-6" d="M325,420 C325,405 340,395 350,395 C360,395 375,405 375,420 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Lid knob -->
+  <path id="region-7" d="M345,395 C345,383 355,378 358,383 C361,388 358,395 355,397 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Spout -->
+  <path id="region-8" d="M265,470 C245,462 220,452 205,445 C195,440 190,430 198,424 C206,418 218,420 228,428 C238,436 252,450 265,460 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Handle -->
+  <path id="region-9" d="M438,470 C460,465 480,455 488,440 C495,426 488,412 478,410 C468,408 458,418 455,430 C452,442 455,460 438,480 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- TIERED CAKE STAND -->
+  <!-- Top tier base plate -->
+  <path id="region-10" d="M450,340 L590,340 L590,350 L450,350 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Top tier: 2 small cakes/items -->
+  <path id="region-11" d="M460,300 L460,340 L505,340 L505,300 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-12" d="M460,290 C460,278 505,278 505,290 L505,300 L460,300 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-13" d="M518,300 L518,340 L583,340 L583,300 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-14" d="M518,288 C518,275 583,275 583,288 L583,300 L518,300 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Middle tier base plate -->
+  <path id="region-15" d="M425,430 L615,430 L615,445 L425,445 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Connecting stem -->
+  <path id="region-16" d="M513,350 L513,430 L527,430 L527,350 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Middle tier items: scones -->
+  <path id="region-17" d="M438,385 C438,365 470,358 488,368 C506,378 510,400 498,414 C486,428 460,428 447,418 C434,408 438,395 438,385 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-18" d="M510,382 C510,362 542,355 560,365 C578,375 582,397 570,411 C558,425 532,425 519,415 C506,405 510,392 510,382 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-19" d="M560,395 C560,378 588,372 602,380 C615,388 616,408 606,418 C596,428 575,428 565,420 C555,412 560,402 560,395 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Bottom tier plate -->
+  <path id="region-20" d="M400,510 L640,510 L640,525 L400,525 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Lower connecting stem -->
+  <path id="region-21" d="M513,445 L513,510 L527,510 L527,445 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Bottom tier: sandwiches -->
+  <path id="region-22" d="M410,480 L410,510 L478,510 L478,480 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-23" d="M410,470 C410,462 478,462 478,470 L478,480 L410,480 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-24" d="M492,478 L492,510 L560,510 L560,478 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-25" d="M492,468 C492,460 560,460 560,468 L560,478 L492,478 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-26" d="M572,480 L572,510 L632,510 L632,480 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-27" d="M572,470 C572,462 632,462 632,470 L632,480 L572,480 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Stand base -->
+  <path id="region-28" d="M490,525 L490,560 L550,560 L550,525 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-29" d="M460,560 L580,560 L580,575 L460,575 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- TEACUP 1 -->
+  <path id="region-30" d="M120,515 C115,510 108,490 112,470 C116,450 130,440 148,440 C166,440 178,452 180,470 C182,488 174,510 168,515 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Cup handle -->
+  <path id="region-31" d="M168,475 C185,472 196,462 196,450 C196,438 188,432 180,434 C177,444 177,462 168,475 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Saucer -->
+  <path id="region-32" d="M100,520 C100,512 145,508 145,515 L168,515 C168,508 215,512 215,520 C215,528 168,532 145,528 C122,524 100,528 100,520 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- TEACUP 2 -->
+  <path id="region-33" d="M730,510 C725,505 718,485 722,465 C726,445 740,435 758,435 C776,435 788,447 790,465 C792,483 784,505 778,510 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Cup handle -->
+  <path id="region-34" d="M778,470 C795,467 806,457 806,445 C806,433 798,427 790,429 C787,439 787,457 778,470 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Saucer -->
+  <path id="region-35" d="M710,515 C710,507 755,503 755,510 L778,510 C778,503 825,507 825,515 C825,523 778,527 755,523 C732,519 710,523 710,515 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- FLOWER VASE -->
+  <path id="region-36" d="M155,440 C148,420 145,395 148,372 C151,349 160,335 170,332 C180,329 190,340 195,360 C200,380 200,410 195,440 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Vase rim -->
+  <path id="region-37" d="M148,372 C148,362 170,356 170,364 C170,372 148,378 148,372 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Flowers in vase -->
+  <path id="region-38" d="M165,332 C162,310 160,290 165,268 C168,280 170,300 170,320 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-39" d="M160,268 C152,252 158,236 170,232 C172,248 168,262 160,268 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-40" d="M180,268 C188,252 182,236 170,232 C168,248 172,262 180,268 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-41" d="M155,280 C138,270 132,254 142,244 C148,258 152,272 155,280 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-42" d="M185,280 C202,270 208,254 198,244 C192,258 188,272 185,280 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Flower center -->
+  <path id="region-43" d="M163,232 C163,222 177,222 177,232 C177,242 163,242 163,232 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Window background (decorative) -->
+  <path id="region-44" d="M0,0 L900,0 L900,580 L0,580 Z" fill="none" stroke="black" stroke-width="1"/>
+  <!-- Window frame top -->
+  <path id="region-45" d="M0,0 L900,0 L900,30 L0,30 Z" fill="none" stroke="black" stroke-width="2"/>
+</svg>

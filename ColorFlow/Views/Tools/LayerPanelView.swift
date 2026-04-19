@@ -3,7 +3,7 @@ import SwiftUI
 /// Simplified layer panel showing the 3-layer model:
 /// Background → Color/Pencil layer → Line Art (locked)
 struct LayerPanelView: View {
-    @ObservedObject var viewModel: CanvasViewModel
+    @Bindable var viewModel: CanvasViewModel
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -40,14 +40,17 @@ struct LayerPanelView: View {
                     Spacer()
                     ColorPicker("", selection: $viewModel.backgroundColor)
                         .labelsHidden()
+                        .accessibilityIdentifier("layers.background.picker")
                 }
                 .padding(.vertical, 4)
+                .accessibilityIdentifier("layers.background.row")
             }
             .navigationTitle("Layers")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .accessibilityIdentifier("layers.done")
                 }
             }
         }
@@ -94,9 +97,13 @@ private struct LayerRow: View {
             Button { onToggle() } label: {
                 Image(systemName: isVisible ? "eye" : "eye.slash")
                     .foregroundStyle(isVisible ? Color.primary : Color.secondary)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(isLocked && name == "Line Art")
+            .accessibilityLabel(isVisible ? "Hide \(name) layer" : "Show \(name) layer")
+            .accessibilityIdentifier("layers.toggle.\(name.lowercased().replacingOccurrences(of: " ", with: "_"))")
         }
         .padding(.vertical, 2)
     }

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Observation
 
 struct OpenedProjectItem: Identifiable {
     let id = UUID()
@@ -7,9 +8,11 @@ struct OpenedProjectItem: Identifiable {
     let template: Template
 }
 
-class GalleryViewModel: ObservableObject {
-    @Published var projects: [Project] = []
-    @Published var openedProject: OpenedProjectItem?
+@MainActor
+@Observable
+final class GalleryViewModel {
+    var projects: [Project] = []
+    var openedProject: OpenedProjectItem?
 
     private let storageService = StorageService()
     private let allTemplates: [Template]
@@ -31,5 +34,46 @@ class GalleryViewModel: ObservableObject {
     func delete(_ project: Project) {
         storageService.delete(project: project)
         projects.removeAll { $0.id == project.id }
+    }
+
+    /// Creates a new project from the given template and opens it immediately.
+    func startProject(from template: Template) {
+        let project = Project(template: template)
+        openedProject = OpenedProjectItem(project: project, template: template)
+        // Note: StorageService.save is called by CanvasViewModel on first auto-save.
+        reload()
+    }
+
+    /// Open a user-generated template as a new project.
+    func startProject(from userTemplate: UserTemplate) {
+        startProject(from: userTemplate.asTemplate())
+    }
+
+    // MARK: - Home Screen Helpers
+
+    /// The 6 most recently modified projects.
+    var recentProjects: [Project] {
+        Array(projects.prefix(6))
+    }
+
+    /// Up to 8 templates that don't yet have a project started.
+    var suggestedTemplates: [Template] {
+        let startedTemplateIds = Set(projects.map(\.templateId))
+        let unstarted = allTemplates.filter { !startedTemplateIds.contains($0.id) }
+        // Shuffle so suggestions feel fresh across launches.
+        return Array(unstarted.shuffled().prefix(8))
+    }
+
+    // MARK: - My Work Stats
+
+    var completedCount: Int {
+        // Treat any project that has a fill layer as "started" — we have no explicit
+        // "completed" flag yet, so count all projects as completed for now.
+        projects.count
+    }
+
+    var inProgressCount: Int {
+        // Placeholder: will differentiate once we add a project status field.
+        0
     }
 }

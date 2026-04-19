@@ -1,6 +1,6 @@
 import SwiftUI
 import PencilKit
-import Combine
+import Observation
 
 // MARK: - Fill Undo/Redo Action
 
@@ -13,26 +13,27 @@ struct FillAction {
 // MARK: - CanvasViewModel
 
 @MainActor
-class CanvasViewModel: ObservableObject {
+@Observable
+final class CanvasViewModel {
 
-    // MARK: - Published State
+    // MARK: - State
 
-    @Published var drawing = PKDrawing()
-    @Published var brushSettings = BrushSettings()
-    @Published var backgroundColor: Color = .white
-    @Published var templateImage: UIImage?
-    @Published var fillLayerImage: UIImage?
-    @Published var recentColors: [Color] = []
-    @Published var palettes: [ColorPalette] = []
-    @Published var isFilling = false
-    @Published var showLineArt = true
-    @Published var showColorLayer = true
+    var drawing = PKDrawing()
+    var brushSettings = BrushSettings()
+    var backgroundColor: Color = .white
+    var templateImage: UIImage?
+    var fillLayerImage: UIImage?
+    var recentColors: [Color] = []
+    var palettes: [ColorPalette] = []
+    var isFilling = false
+    var showLineArt = true
+    var showColorLayer = true
 
     /// Currently highlighted/selected region ID.
-    @Published var selectedRegionID: String?
+    var selectedRegionID: String?
 
     /// Canvas size derived from the SVG viewBox after loading.
-    @Published var canvasSize: CGSize = CGSize(width: 2732, height: 2048)
+    var canvasSize: CGSize = .zero
 
     // MARK: - Layer Visibility Helpers
 
@@ -81,7 +82,12 @@ class CanvasViewModel: ObservableObject {
     // MARK: - Template Loading
 
     func loadTemplate() async {
-        guard let svgURL = template.svgURL else { return }
+        AppLog.trace(AppLog.canvas, "loadTemplate: \(template.svgFilename)")
+
+        guard let svgURL = template.svgURL else {
+            AppLog.error(AppLog.canvas, "loadTemplate: svgURL is nil for '\(template.svgFilename)'")
+            return
+        }
 
         // Parse the SVG on a background thread.
         let parseResult = await Task.detached(priority: .userInitiated) {
@@ -90,11 +96,11 @@ class CanvasViewModel: ObservableObject {
 
         switch parseResult {
         case .failure(let error):
-            // Surface the error via console; caller can observe templateImage remaining nil.
-            print("[CanvasViewModel] SVG parse error: \(error.localizedDescription)")
+            AppLog.error(AppLog.canvas, "loadTemplate: SVG parse failed for '\(template.svgFilename)' — \(error.localizedDescription)")
             return
 
         case .success(let geometry):
+            AppLog.trace(AppLog.canvas, "loadTemplate: parse OK — \(geometry.regions.count) regions")
             templateGeometry = geometry
 
             // Derive canvas size from viewBox.
@@ -133,18 +139,22 @@ class CanvasViewModel: ObservableObject {
 
     // MARK: - Region Fill (replaces flood fill)
 
-    /// Convert a view-space tap point to document space, hit-test the geometry,
-    /// apply the current brush color, and re-render the fill layer.
-    func performRegionFill(at viewPoint: CGPoint, in viewSize: CGSize) async {
+    /// Hit-test the geometry at the given document-space point, apply the
+    /// current brush color to the matched region, and re-render the fill layer.
+    ///
+    /// The caller is expected to pass a point already in document coordinates.
+    /// `PencilCanvasRepresentable` does this by attaching its tap recognizer to
+    /// the zoom content view, which collapses zoomScale/contentOffset for us.
+    func performRegionFill(atDocumentPoint docPoint: CGPoint) async {
         guard let geometry = templateGeometry else { return }
 
-        let transform = TemplateRenderer.documentToViewTransform(
-            viewBox: geometry.viewBox,
-            viewSize: viewSize
-        )
-        let docPoint = viewPoint.applying(transform.inverted())
-
-        guard let region = geometry.region(at: docPoint) else { return }
+        guard let region = geometry.region(at: docPoint) else {
+            AppLog.trace(
+                AppLog.canvas,
+                "performRegionFill — no region at (\(Int(docPoint.x)),\(Int(docPoint.y)))"
+            )
+            return
+        }
 
         isFilling = true
 
@@ -176,15 +186,9 @@ class CanvasViewModel: ObservableObject {
 
     // MARK: - Region Selection
 
-    /// Hit-test the geometry and set selectedRegionID.
-    func selectRegion(at viewPoint: CGPoint, in viewSize: CGSize) {
+    /// Hit-test the geometry and set selectedRegionID from a document-space point.
+    func selectRegion(atDocumentPoint docPoint: CGPoint) {
         guard let geometry = templateGeometry else { return }
-
-        let transform = TemplateRenderer.documentToViewTransform(
-            viewBox: geometry.viewBox,
-            viewSize: viewSize
-        )
-        let docPoint = viewPoint.applying(transform.inverted())
         selectedRegionID = geometry.region(at: docPoint)?.id
         paintState.selectedRegionID = selectedRegionID
     }
@@ -197,16 +201,10 @@ class CanvasViewModel: ObservableObject {
 
     // MARK: - Eyedropper
 
-    /// Hit-test the region at the given point and read its stored fill color
-    /// back into the current brush settings.
-    func pickColor(at viewPoint: CGPoint, in viewSize: CGSize) {
+    /// Hit-test the region at the given document-space point and read its
+    /// stored fill color back into the current brush settings.
+    func pickColor(atDocumentPoint docPoint: CGPoint) {
         guard let geometry = templateGeometry else { return }
-
-        let transform = TemplateRenderer.documentToViewTransform(
-            viewBox: geometry.viewBox,
-            viewSize: viewSize
-        )
-        let docPoint = viewPoint.applying(transform.inverted())
 
         guard
             let region = geometry.region(at: docPoint),
@@ -278,15 +276,22 @@ class CanvasViewModel: ObservableObject {
         }
 
         // Save PKDrawing + fill layer PNG via StorageService (also updates project index).
-        storageService.save(project: &project, drawing: drawing, fillLayer: fillLayerImage)
+        storageService.save(
+            project: &project,
+            drawing: drawing,
+            fillLayer: fillLayerImage,
+            templateImage: templateImage
+        )
+        ProjectThumbnailCache.shared.invalidate(id: project.id)
     }
 
     // MARK: - Recent Colors
 
-    @AppStorage("recentColors") private var recentColorsRaw: String = "[]"
+    private static let recentColorsKey = "recentColors"
 
     private func loadRecentColors() {
-        guard let data = recentColorsRaw.data(using: .utf8),
+        let raw = UserDefaults.standard.string(forKey: Self.recentColorsKey) ?? "[]"
+        guard let data = raw.data(using: .utf8),
               let hexArray = try? JSONDecoder().decode([String].self, from: data) else { return }
         recentColors = hexArray.map { Color(hex: $0) }
     }
@@ -299,7 +304,7 @@ class CanvasViewModel: ObservableObject {
         let hexArray = recentColors.map { UIColor($0).hexString }
         if let data = try? JSONEncoder().encode(hexArray),
            let str = String(data: data, encoding: .utf8) {
-            recentColorsRaw = str
+            UserDefaults.standard.set(str, forKey: Self.recentColorsKey)
         }
     }
 

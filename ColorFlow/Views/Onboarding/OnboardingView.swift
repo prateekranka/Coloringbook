@@ -1,113 +1,209 @@
 import SwiftUI
 
+/// Premium onboarding: three animated steps, themed for the dark app chrome.
+/// Routing contract preserved: `OnboardingView(isPresented:)` toggled by
+/// `ContentView` via `@AppStorage("hasSeenOnboarding")`.
 struct OnboardingView: View {
     @Binding var isPresented: Bool
-    @State private var currentStep = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let steps: [OnboardingStep] = [
-        OnboardingStep(
-            icon: "drop.fill",
-            iconColor: .blue,
-            title: "Tap to Fill",
-            description: "Tap any enclosed region to instantly fill it with your chosen color."
-        ),
-        OnboardingStep(
-            icon: "applepencil",
-            iconColor: .purple,
-            title: "Draw with Pencil",
-            description: "Use your Apple Pencil to add fine details with pressure-sensitive strokes."
-        ),
-        OnboardingStep(
-            icon: "arrow.clockwise.icloud",
-            iconColor: .green,
-            title: "Auto-saved",
-            description: "Your work saves automatically. Pick up where you left off, any time."
-        ),
-    ]
+    @State private var currentIndex: Int = 0
+    @State private var dragOffset: CGFloat = 0
+
+    private let steps = OnboardingStep.allCases
+
+    private var currentStep: OnboardingStep {
+        steps[currentIndex]
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
+        ZStack {
+            backgroundLayer
 
-            // Icon + content
-            TabView(selection: $currentStep) {
-                ForEach(steps.indices, id: \.self) { i in
-                    StepCard(step: steps[i])
-                        .tag(i)
-                }
+            VStack(spacing: 0) {
+                topBar
+
+                Spacer(minLength: 12)
+
+                heroAndCopy
+                    .frame(maxWidth: 620)
+
+                Spacer(minLength: 12)
+
+                PageIndicator(count: steps.count, current: currentIndex, accent: currentStep.accent)
+                    .padding(.bottom, 28)
+
+                ctaButton
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 48)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 380)
+            .padding(.horizontal, AppTheme.screenPadding)
+        }
+        .preferredColorScheme(.dark)
+        .sensoryFeedback(.selection, trigger: currentIndex)
+        .gesture(pageDrag)
+    }
 
-            // Page dots
-            HStack(spacing: 8) {
-                ForEach(steps.indices, id: \.self) { i in
-                    Circle()
-                        .fill(i == currentStep ? Color.accentColor : Color.secondary.opacity(0.35))
-                        .frame(width: 8, height: 8)
-                        .animation(.easeInOut, value: currentStep)
-                }
-            }
-            .padding(.vertical, 24)
+    // MARK: - Layers
 
+    private var backgroundLayer: some View {
+        ZStack {
+            AppTheme.background
+                .ignoresSafeArea()
+
+            // A subtle gradient tinted by the current step's accent.
+            RadialGradient(
+                colors: [currentStep.accent.opacity(0.28), Color.clear],
+                center: .top,
+                startRadius: 10,
+                endRadius: 520
+            )
+            .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.7), value: currentIndex)
+        }
+    }
+
+    private var topBar: some View {
+        HStack {
             Spacer()
-
-            // CTA
             Button {
-                if currentStep < steps.count - 1 {
-                    withAnimation { currentStep += 1 }
-                } else {
-                    isPresented = false
-                }
+                dismiss()
             } label: {
-                Text(currentStep < steps.count - 1 ? "Next" : "Start Coloring")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                Text("Skip")
+                    .font(AppTheme.Typography.capsuleLabel)
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule().fill(AppTheme.surface.opacity(0.6))
+                    )
             }
-            .buttonStyle(.borderedProminent)
-            .padding(.horizontal, 32)
-            .padding(.bottom, 48)
+            .opacity(currentIndex == steps.count - 1 ? 0 : 1)
+            .animation(.easeInOut(duration: 0.2), value: currentIndex)
+            .accessibilityIdentifier("onboarding.skip")
         }
-        .background(Color(.systemBackground))
+        .padding(.top, 8)
     }
-}
 
-// MARK: - Step Card
+    private var heroAndCopy: some View {
+        VStack(spacing: 36) {
+            hero(for: currentStep)
+                .frame(height: 260)
+                .id(currentStep.id)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.92)),
+                    removal: .opacity
+                ))
 
-private struct StepCard: View {
-    let step: OnboardingStep
-
-    var body: some View {
-        VStack(spacing: 28) {
-            ZStack {
-                Circle()
-                    .fill(step.iconColor.opacity(0.12))
-                    .frame(width: 120, height: 120)
-                Image(systemName: step.icon)
-                    .font(.system(size: 52))
-                    .foregroundStyle(step.iconColor)
-            }
-
-            VStack(spacing: 12) {
-                Text(step.title)
-                    .font(.title.bold())
-                Text(step.description)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
+            VStack(spacing: 14) {
+                Text(currentStep.title)
+                    .font(AppTheme.Typography.heroTitle)
+                    .foregroundStyle(AppTheme.textPrimary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+                    .contentTransition(.opacity)
+                    .id("title-\(currentStep.id)")
+
+                Text(currentStep.body)
+                    .font(AppTheme.Typography.heroBody)
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                    .id("body-\(currentStep.id)")
             }
+            .animation(AppTheme.Motion.pageTransition, value: currentIndex)
         }
-        .padding(.top, 20)
+        .offset(x: dragOffset * 0.12)   // subtle parallax while dragging
+        .animation(AppTheme.Motion.pageTransition, value: currentIndex)
+    }
+
+    @ViewBuilder
+    private func hero(for step: OnboardingStep) -> some View {
+        switch step {
+        case .fill:   FillHeroView(accent: step.accent)
+        case .pencil: PencilStrokeHeroView(accent: step.accent)
+        case .save:   StackedCardsHeroView(accent: step.accent)
+        }
+    }
+
+    private var ctaButton: some View {
+        Button {
+            advance()
+        } label: {
+            Text(currentStep.ctaLabel)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [currentStep.accent, currentStep.accent.opacity(0.75)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                )
+                .overlay(
+                    Capsule().stroke(Color.white.opacity(0.15), lineWidth: 1)
+                )
+                .shadow(color: currentStep.accent.opacity(0.45), radius: 18, x: 0, y: 10)
+                .contentTransition(.opacity)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("onboarding.cta")
+    }
+
+    // MARK: - Interaction
+
+    private var pageDrag: some Gesture {
+        DragGesture(minimumDistance: 10)
+            .onChanged { value in
+                dragOffset = value.translation.width
+            }
+            .onEnded { value in
+                let threshold: CGFloat = 60
+                if value.translation.width < -threshold, currentIndex < steps.count - 1 {
+                    move(to: currentIndex + 1)
+                } else if value.translation.width > threshold, currentIndex > 0 {
+                    move(to: currentIndex - 1)
+                }
+                withAnimation(AppTheme.Motion.pageTransition) {
+                    dragOffset = 0
+                }
+            }
+    }
+
+    private func advance() {
+        HapticService.shared.impact(.light)
+        if currentIndex < steps.count - 1 {
+            move(to: currentIndex + 1)
+        } else {
+            dismiss()
+        }
+    }
+
+    private func move(to index: Int) {
+        withAnimation(AppTheme.Motion.pageTransition) {
+            currentIndex = index
+        }
+    }
+
+    private func dismiss() {
+        HapticService.shared.notify(.success)
+        withAnimation(.easeOut(duration: 0.25)) {
+            isPresented = false
+        }
     }
 }
 
-// MARK: - Model
+#Preview {
+    StatefulPreview()
+}
 
-private struct OnboardingStep {
-    let icon: String
-    let iconColor: Color
-    let title: String
-    let description: String
+private struct StatefulPreview: View {
+    @State var visible = true
+    var body: some View {
+        OnboardingView(isPresented: $visible)
+    }
 }

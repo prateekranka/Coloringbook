@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct GalleryView: View {
-    @EnvironmentObject var viewModel: GalleryViewModel
+    @Environment(GalleryViewModel.self) var viewModel
     @State private var showTemplateLibrary = false
 
     let columns = [GridItem(.adaptive(minimum: 200), spacing: 16)]
@@ -39,7 +39,7 @@ struct GalleryView: View {
             .sheet(isPresented: $showTemplateLibrary) {
                 TemplateLibraryView()
             }
-            .fullScreenCover(item: $viewModel.openedProject) { item in
+            .fullScreenCover(item: Bindable(viewModel).openedProject) { item in
                 CanvasView(viewModel: CanvasViewModel(project: item.project, template: item.template))
             }
         }

@@ -30,8 +30,8 @@ struct TemplateRenderer {
 
             let sortedRegions = geometry.regions.sorted { $0.zIndex < $1.zIndex }
             for region in sortedRegions {
-                guard let hexColor = fills[region.id],
-                      let color = UIColor(hex: hexColor) else { continue }
+                guard let hexColor = fills[region.id] else { continue }
+                let color = UIColor(hex: hexColor)
 
                 cgContext.setFillColor(color.cgColor)
                 cgContext.addPath(region.path)
@@ -135,18 +135,4 @@ struct TemplateRenderer {
     }
 }
 
-// MARK: - UIColor Hex Parsing
-
-private extension UIColor {
-    convenience init?(hex: String) {
-        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        hexSanitized = hexSanitized.hasPrefix("#") ? String(hexSanitized.dropFirst()) : hexSanitized
-        guard hexSanitized.count == 6, let rgbValue = UInt64(hexSanitized, radix: 16) else { return nil }
-        self.init(
-            red: CGFloat((rgbValue & 0xFF0000) >> 16) / 255.0,
-            green: CGFloat((rgbValue & 0x00FF00) >> 8) / 255.0,
-            blue: CGFloat(rgbValue & 0x0000FF) / 255.0,
-            alpha: 1.0
-        )
-    }
-}
+// UIColor(hex:) is provided by Color+Extensions.swift

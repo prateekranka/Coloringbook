@@ -1,0 +1,122 @@
+{
+  "simulator": "iPad Pro 13-inch (M5)",
+  "screen": {
+    "width": 1032,
+    "height": 1376
+  },
+  "screens": {
+    "home": {
+      "description": "Home tab - initial screen after skipping onboarding",
+      "elements": {
+        "tab_home":         { "x": 420, "y": 50,  "label": "Home tab" },
+        "tab_library":      { "x": 516, "y": 50,  "label": "Library tab" },
+        "tab_mywork":       { "x": 600, "y": 50,  "label": "My Work tab" },
+        "plus_button":      { "x": 990, "y": 50,  "label": "Plus button (top-right)" },
+        "browse_templates": { "x": 120, "y": 250, "label": "Browse Templates button" },
+        "from_photo":       { "x": 260, "y": 250, "label": "From Photo button" },
+        "hero_title":       { "x": 100, "y": 210, "label": "Start Coloring title" },
+        "recent_work_header": { "x": 120, "y": 360, "label": "My Recent Work header" },
+        "suggestions_header": { "x": 140, "y": 420, "label": "Suggested For You header" },
+        "first_template":   { "x": 80,  "y": 460, "label": "First suggested template (Star)" },
+        "second_template":  { "x": 220, "y": 460, "label": "Second suggested template" },
+        "third_template":   { "x": 360, "y": 460, "label": "Third suggested template" },
+        "fourth_template":  { "x": 500, "y": 460, "label": "Fourth suggested template" },
+        "fifth_template":   { "x": 640, "y": 460, "label": "Fifth suggested template" },
+        "sixth_template":   { "x": 780, "y": 460, "label": "Sixth suggested template" },
+        "seventh_template": { "x": 920, "y": 460, "label": "Seventh suggested template" }
+      }
+    },
+    "library": {
+      "description": "Library tab - template browser",
+      "elements": {
+        "tab_home":        { "x": 420, "y": 50,  "label": "Home tab" },
+        "tab_library":     { "x": 516, "y": 50,  "label": "Library tab" },
+        "tab_mywork":      { "x": 600, "y": 50,  "label": "My Work tab" },
+        "category_all":    { "x": 40,  "y": 155, "label": "All category pill" },
+        "category_mandalas": { "x": 120, "y": 155, "label": "Mandalas category pill" },
+        "category_animals":  { "x": 210, "y": 155, "label": "Animals category pill" },
+        "category_architecture": { "x": 320, "y": 155, "label": "Architecture category pill" },
+        "category_abstract": { "x": 420, "y": 155, "label": "Abstract category pill" },
+        "category_botanicals": { "x": 520, "y": 155, "label": "Botanicals category pill" },
+        "category_lifestyle": { "x": 620, "y": 155, "label": "Lifestyle category pill" },
+        "card_lotus_mandala":   { "x": 130, "y": 280, "label": "Lotus Mandala card" },
+        "card_owl_portrait":    { "x": 370, "y": 280, "label": "Owl Portrait card" },
+        "card_butterfly_garden":{ "x": 610, "y": 280, "label": "Butterfly Garden card" },
+        "card_rose_bouquet":    { "x": 850, "y": 280, "label": "Rose Bouquet card" },
+        "card_wave_pattern":    { "x": 130, "y": 520, "label": "Wave Pattern card" },
+        "card_hexagon_grid":    { "x": 370, "y": 520, "label": "Hexagon Grid card" },
+        "card_coffee_morning":  { "x": 610, "y": 520, "label": "Coffee Morning card" },
+        "card_sleeping_cats":   { "x": 850, "y": 520, "label": "Sleeping Cats card" },
+        "card_cloud_sofa":      { "x": 130, "y": 760, "label": "Cloud Sofa card" },
+        "card_cat_fish_dinner": { "x": 370, "y": 760, "label": "Cat Fish Dinner card" },
+        "card_kitchen_morning": { "x": 610, "y": 760, "label": "Kitchen Morning card" },
+        "card_afternoon_tea":   { "x": 850, "y": 760, "label": "Afternoon Tea card" }
+      }
+    },
+    "mywork": {
+      "description": "My Work tab - profile and artwork gallery",
+      "elements": {
+        "tab_home":        { "x": 420, "y": 50,  "label": "Home tab" },
+        "tab_library":     { "x": 516, "y": 50,  "label": "Library tab" },
+        "tab_mywork":      { "x": 600, "y": 50,  "label": "My Work tab" },
+        "avatar":          { "x": 516, "y": 130, "label": "Profile avatar" },
+        "share_button":    { "x": 516, "y": 220, "label": "Share your art button" },
+        "filter_all":      { "x": 250, "y": 280, "label": "All filter segment" },
+        "filter_inprogress": { "x": 516, "y": 280, "label": "In Progress filter segment" },
+        "filter_completed":  { "x": 780, "y": 280, "label": "Completed filter segment" }
+      }
+    },
+    "canvas": {
+      "description": "Canvas view - active coloring session (toolbar on LEFT)",
+      "elements": {
+        "back_button":     { "x": 30,  "y": 30,   "label": "Back to gallery" },
+        "toolbar_toggle":  { "x": 70,  "y": 30,   "label": "Toggle toolbar" },
+        "tool_pencil":     { "x": 50,  "y": 90,   "label": "Pencil tool" },
+        "tool_marker":     { "x": 50,  "y": 130,  "label": "Marker tool" },
+        "tool_watercolor": { "x": 50,  "y": 170,  "label": "Watercolor tool" },
+        "tool_eraser":     { "x": 50,  "y": 210,  "label": "Eraser tool" },
+        "tool_floodfill":  { "x": 50,  "y": 250,  "label": "Flood fill tool" },
+        "tool_eyedropper": { "x": 50,  "y": 290,  "label": "Eyedropper tool" },
+        "undo_button":     { "x": 50,  "y": 340,  "label": "Undo" },
+        "redo_button":     { "x": 50,  "y": 380,  "label": "Redo" },
+        "layers_button":   { "x": 50,  "y": 430,  "label": "Layers panel" },
+        "color_well":      { "x": 50,  "y": 510,  "label": "Selected color well" },
+        "canvas_center":   { "x": 516, "y": 688,  "label": "Canvas center" },
+        "canvas_region_1": { "x": 400, "y": 500,  "label": "Canvas region 1" },
+        "canvas_region_2": { "x": 650, "y": 500,  "label": "Canvas region 2" },
+        "canvas_region_3": { "x": 516, "y": 850,  "label": "Canvas region 3" },
+        "canvas_drag_start": { "x": 350, "y": 600, "label": "Drag start point" },
+        "canvas_drag_end":   { "x": 750, "y": 600, "label": "Drag end point" }
+      }
+    },
+    "canvas_detailed": {
+      "description": "Detailed canvas coordinates for in-depth testing",
+      "elements": {
+        "drawer_scrubber_top":     { "x": 120, "y": 80,  "label": "Brush scrubber top (small)" },
+        "drawer_scrubber_bottom":  { "x": 120, "y": 200, "label": "Brush scrubber bottom (large)" },
+        "drawer_opacity_left":     { "x": 100, "y": 240, "label": "Opacity slider left (0%)" },
+        "drawer_opacity_right":    { "x": 200, "y": 240, "label": "Opacity slider right (100%)" },
+        "picker_close":            { "x": 780, "y": 340, "label": "Close picker" },
+        "picker_spectrum":         { "x": 400, "y": 380, "label": "Spectrum mode button" },
+        "picker_palette":          { "x": 520, "y": 380, "label": "Palette mode button" },
+        "picker_hue_top":          { "x": 516, "y": 420, "label": "Hue ring top (red)" },
+        "picker_hue_right":        { "x": 700, "y": 550, "label": "Hue ring right (cyan)" },
+        "picker_swatch_center":    { "x": 516, "y": 550, "label": "Center swatch" },
+        "picker_swatch_top":       { "x": 516, "y": 450, "label": "Top swatch" },
+        "picker_recent_1":         { "x": 350, "y": 850, "label": "First recent color" },
+        "picker_brightness_min":   { "x": 400, "y": 780, "label": "Brightness min" },
+        "picker_brightness_max":   { "x": 650, "y": 780, "label": "Brightness max" },
+        "picker_brightness_close": { "x": 680, "y": 780, "label": "Brightness dismiss" },
+        "layer_lineart_eye":       { "x": 700, "y": 400, "label": "Line Art eye toggle" },
+        "layer_color_eye":         { "x": 700, "y": 500, "label": "Color eye toggle" },
+        "layer_bg_picker":         { "x": 600, "y": 600, "label": "Background color picker" },
+        "layer_done":              { "x": 950, "y": 50,  "label": "Layers Done button" },
+        "palette_pastels":         { "x": 500, "y": 420, "label": "Pastels palette" },
+        "palette_neon":            { "x": 500, "y": 460, "label": "Neon palette" },
+        "palette_earth":           { "x": 500, "y": 500, "label": "Earth Tones palette" },
+        "palette_vibrant":         { "x": 500, "y": 540, "label": "Vibrant palette" },
+        "toolbar_restore":         { "x": 50,  "y": 100, "label": "Restore toolbar button" }
+      }
+    }
+  }
+}

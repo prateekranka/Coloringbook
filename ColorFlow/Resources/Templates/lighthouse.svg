@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 900" width="700" height="900">
+  <!-- Coastal Lighthouse -->
+
+  <!-- Sky -->
+  <path id="region-1" d="M0,0 L700,0 L700,500 L0,500 Z" fill="none" stroke="black" stroke-width="1"/>
+
+  <!-- Cloud 1 -->
+  <path id="region-2" d="M80,120 C80,100 96,88 112,92 C115,80 128,72 144,76 C155,68 172,70 182,80 C192,76 204,82 207,94 C218,96 225,106 222,118 C219,130 208,136 197,134 C189,143 175,147 163,143 C154,152 138,154 127,147 C113,150 100,145 93,135 C82,133 76,128 80,120 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Cloud 2 -->
+  <path id="region-3" d="M460,80 C460,62 474,52 488,55 C491,44 503,37 517,40 C527,33 543,35 552,44 C561,40 572,46 575,57 C585,58 592,67 590,78 C588,88 578,94 568,92 C560,100 547,104 535,100 C527,108 513,110 503,104 C490,107 478,103 472,94 C462,92 456,87 460,80 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Sea / water -->
+  <path id="region-4" d="M0,500 C100,480 200,490 350,485 C500,480 600,490 700,500 L700,620 C600,600 500,610 350,605 C200,600 100,610 0,620 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-5" d="M0,620 C100,605 200,612 350,608 C500,604 600,612 700,620 L700,720 C600,700 500,710 350,705 C200,700 100,710 0,720 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-6" d="M0,720 L700,720 L700,900 L0,900 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Rocky shore -->
+  <path id="region-7" d="M0,580 C60,560 120,555 180,565 C140,580 100,590 60,590 C30,590 10,588 0,585 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="region-8" d="M520,570 C580,552 640,548 700,558 L700,590 C670,590 630,586 600,580 C570,574 548,572 520,570 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- LIGHTHOUSE TOWER -->
+  <!-- Foundation -->
+  <path id="region-9" d="M290,580 L290,560 L410,560 L410,580 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Tower body bottom section -->
+  <path id="region-10" d="M295,560 L300,440 L400,440 L405,560 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Tower stripe 1 (painted band) -->
+  <path id="region-11" d="M300,440 L301,390 L399,390 L400,440 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Tower body middle -->
+  <path id="region-12" d="M301,390 L303,310 L397,310 L399,390 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Tower stripe 2 -->
+  <path id="region-13" d="M303,310 L304,260 L396,260 L397,310 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Tower body top -->
+  <path id="region-14" d="M304,260 L308,200 L392,200 L396,260 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Gallery platform (walkway around light room) -->
+  <path id="region-15" d="M295,200 L295,190 L405,190 L405,200 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Gallery railing (decorative) -->
+  <path d="M295,190 L295,165" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M315,190 L315,165" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M335,190 L335,165" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M355,190 L355,165" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M375,190 L375,165" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M395,190 L395,165" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M405,190 L405,165" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M295,175 L405,175" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Light room -->
+  <path id="region-16" d="M305,165 L308,120 L392,120 L395,165 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Light room windows -->
+  <path id="region-17" d="M316,130 L316,158 L332,158 L332,130 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-18" d="M342,130 L342,158 L358,158 L358,130 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-19" d="M368,130 L368,158 L384,158 L384,130 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Dome / cap -->
+  <path id="region-20" d="M308,120 C308,100 325,88 350,88 C375,88 392,100 392,120 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Finial/light on top -->
+  <path id="region-21" d="M345,88 L348,60 L352,60 L355,88 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-22" d="M344,60 C344,52 356,52 356,60 C356,68 344,68 344,60 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- KEEPER'S COTTAGE -->
+  <!-- Cottage walls -->
+  <path id="region-23" d="M80,580 L80,480 L200,480 L200,580 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Cottage roof -->
+  <path id="region-24" d="M70,480 L140,420 L210,480 Z" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Chimney -->
+  <path id="region-25" d="M155,455 L155,415 L175,415 L175,455 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Cottage door -->
+  <path id="region-26" d="M125,580 C125,552 155,552 155,580 L155,580 L125,580 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Cottage windows -->
+  <path id="region-27" d="M88,500 L88,530 L112,530 L112,500 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-28" d="M168,500 L168,530 L192,530 L192,500 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Seagull 1 (decorative) -->
+  <path id="region-29" d="M200,200 C210,190 225,186 230,192 C225,198 218,200 210,200 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-30" d="M230,192 C235,186 250,190 260,200 C252,200 244,198 240,192 Z" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Seagull 2 -->
+  <path id="region-31" d="M440,240 C450,230 462,226 467,232 C462,238 456,240 448,240 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path id="region-32" d="M467,232 C472,226 484,230 494,240 C486,240 478,238 474,232 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Wave details -->
+  <path d="M50,530 C100,520 150,525 200,530" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M500,520 C550,510 600,515 650,520" fill="none" stroke="black" stroke-width="2"/>
+</svg>

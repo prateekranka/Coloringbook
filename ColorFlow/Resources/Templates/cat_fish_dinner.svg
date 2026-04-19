@@ -1,0 +1,149 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 840">
+
+  <!-- ═══ PINK WALL BACKGROUND ═══ -->
+  <rect id="wall_bg" x="0" y="0" width="600" height="840" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- ═══ CHAIR / HEADBOARD ═══ -->
+
+  <!-- Chair back post left -->
+  <rect id="post_left" x="182" y="20" width="22" height="220" rx="11" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Chair back post right -->
+  <rect id="post_right" x="396" y="20" width="22" height="220" rx="11" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Chair headboard panel -->
+  <rect id="headboard" x="166" y="80" width="268" height="100" rx="12" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Chair top knobs -->
+  <circle id="knob_left" cx="193" cy="22" r="16" fill="none" stroke="black" stroke-width="3"/>
+  <circle id="knob_right" cx="407" cy="22" r="16" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- ═══ GREEN GINGHAM TABLECLOTH ═══ -->
+
+  <!-- Tablecloth main rectangle -->
+  <rect id="tablecloth" x="0" y="380" width="600" height="460" rx="0" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Gingham large squares (decorative grid) -->
+  <path d="M 0,430 L 600,430" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 0,480 L 600,480" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 0,530 L 600,530" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 0,580 L 600,580" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 0,630 L 600,630" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 0,680 L 600,680" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 0,730 L 600,730" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 0,780 L 600,780" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 60,380 L 60,840" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 120,380 L 120,840" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 180,380 L 180,840" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 240,380 L 240,840" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 300,380 L 300,840" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 360,380 L 360,840" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 420,380 L 420,840" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 480,380 L 480,840" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 540,380 L 540,840" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- ═══ BLACK AND WHITE CAT PEEKING OVER TABLE EDGE ═══ -->
+
+  <!-- Cat body (visible above table edge) -->
+  <path id="cat_body" d="M 148,240 C 148,210 168,188 198,186            C 228,184 252,202 258,230            C 262,215 272,204 284,200            C 296,196 308,204 310,220            C 310,236 298,248 286,248            C 290,268 285,295 272,313            C 259,331 238,340 215,337            C 192,334 174,318 162,296            C 150,274 148,240 148,240 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cat left paw on table -->
+  <path id="paw_left" d="M 110,378 C 108,360 118,348 134,348            C 150,348 162,360 162,378            C 162,392 154,402 140,404            C 126,406 112,396 110,378 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Paw toe details left (decorative) -->
+  <path d="M 114,372 C 118,366 126,366 130,372" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 136,368 C 140,362 148,362 152,368" fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- Cat right paw on table -->
+  <path id="paw_right" d="M 440,378 C 438,360 448,348 464,348            C 480,348 492,360 492,378            C 492,392 484,402 470,404            C 456,406 442,396 440,378 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Paw toe details right (decorative) -->
+  <path d="M 444,372 C 448,366 456,366 460,372" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 466,368 C 470,362 478,362 482,368" fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- Cat white bib / chest patch -->
+  <path id="cat_bib" d="M 195,238 C 195,224 204,214 217,214            C 230,214 240,224 240,238            C 240,254 230,265 217,265            C 204,265 195,254 195,238 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cat ears -->
+  <path id="ear_left" d="M 158,220 L 148,192 L 178,210 Z" fill="none" stroke="black" stroke-width="3"/>
+  <path id="ear_right" d="M 258,210 L 275,185 L 278,215 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cat white inner ear -->
+  <path d="M 164,218 L 158,204 L 174,212 Z" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 262,210 L 272,196 L 273,212 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Cat eyes -->
+  <circle id="eye_left" cx="192" cy="264" r="14" fill="none" stroke="black" stroke-width="3"/>
+  <circle id="eye_right" cx="244" cy="264" r="14" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Eye pupils (decorative) -->
+  <circle cx="192" cy="264" r="6" fill="none" stroke="black" stroke-width="2"/>
+  <circle cx="244" cy="264" r="6" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Cat nose (pink triangle) -->
+  <path id="cat_nose" d="M 211,288 L 218,281 L 225,288 L 218,295 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Mouth (decorative) -->
+  <path d="M 218,295 C 212,302 206,302 202,298" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 218,295 C 224,302 230,302 234,298" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Whiskers (decorative) -->
+  <path d="M 188,284 L 148,276" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 188,292 L 148,294" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 248,284 L 288,276" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 248,292 L 288,294" fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- ═══ MARTINI GLASS ═══ -->
+
+  <!-- Glass bowl (wide V shape) -->
+  <path id="martini_bowl" d="M 60,420 C 76,420 92,422 100,428            L 145,498 L 115,498 L 70,430 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Martini glass full outline -->
+  <path id="martini_glass" d="M 55,420 L 186,420 L 120,516 L 120,560 M 90,560 L 150,560 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Martini liquid inside -->
+  <path id="martini_liquid" d="M 72,420 L 168,420 L 120,505 Z" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- ═══ OVAL PLATE WITH FISH ═══ -->
+
+  <!-- Outer plate -->
+  <ellipse id="plate_outer" cx="330" cy="700" rx="175" ry="95" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Inner plate rim -->
+  <ellipse id="plate_inner" cx="330" cy="700" rx="155" ry="78" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Fish body -->
+  <path id="fish_body" d="M 210,698 C 210,668 235,648 270,645            C 305,642 390,652 410,698            C 390,744 305,754 270,751            C 235,748 210,728 210,698 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Fish tail fin -->
+  <path id="fish_tail" d="M 405,698 C 428,680 450,672 460,680            C 450,698 448,718 460,718            C 450,726 428,718 405,698 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Fish eye -->
+  <circle id="fish_eye" cx="235" cy="690" r="15" fill="none" stroke="black" stroke-width="3"/>
+  <circle cx="235" cy="690" r="6" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Fish scales (decorative arcs using C curves) -->
+  <path d="M 270,655 C 278,648 292,648 300,655 C 292,662 278,662 270,655 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 300,655 C 308,648 322,648 330,655 C 322,662 308,662 300,655 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 330,655 C 338,648 352,648 360,655 C 352,662 338,662 330,655 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 270,672 C 278,665 292,665 300,672 C 292,679 278,679 270,672 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 300,672 C 308,665 322,665 330,672 C 322,679 308,679 300,672 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 330,672 C 338,665 352,665 360,672 C 352,679 338,679 330,672 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 285,689 C 293,682 307,682 315,689 C 307,696 293,696 285,689 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 315,689 C 323,682 337,682 345,689 C 337,696 323,696 315,689 Z" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 345,689 C 353,682 367,682 375,689 C 367,696 353,696 345,689 Z" fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- Fish top fin -->
+  <path id="fish_fin_top" d="M 280,648 C 295,628 325,622 345,635 L 330,648 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Lemon slice (bottom right of plate) -->
+  <circle id="lemon_outer" cx="398" cy="742" r="28" fill="none" stroke="black" stroke-width="3"/>
+  <circle id="lemon_inner" cx="398" cy="742" r="18" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Lemon segments (decorative) -->
+  <path d="M 398,724 L 398,760" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 380,742 L 416,742" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 385,729 L 411,755" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 411,729 L 385,755" fill="none" stroke="black" stroke-width="1.5"/>
+
+</svg>

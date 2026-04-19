@@ -1,0 +1,96 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640">
+
+  <!-- ═══ BLUE SKY BACKGROUND ═══ -->
+  <rect id="sky" x="0" y="0" width="800" height="640" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- ═══ CLOUDS ═══ -->
+
+  <!-- Cloud 1 – upper left, large -->
+  <path id="cloud_1" d="M 32,128 C 32,100 54,78 82,82            C 82,56 106,36 136,44            C 144,22 174,16 196,38            C 224,22 262,38 258,70            C 288,65 312,86 306,114            C 318,132 306,158 282,158            L 58,158 C 36,158 22,145 32,128 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cloud 2 – upper right -->
+  <path id="cloud_2" d="M 510,96 C 510,72 530,54 558,58            C 558,36 580,18 608,26            C 618,8 644,2 662,22            C 686,8 718,22 714,50            C 740,46 760,64 756,88            C 766,104 756,126 736,126            L 528,126 C 508,126 498,112 510,96 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cloud 3 – left side, mid -->
+  <path id="cloud_3" d="M 0,340 C 0,318 16,300 42,304            C 40,282 60,266 84,274            C 92,256 116,250 132,268            C 154,254 184,268 180,294            C 204,290 222,308 218,330            C 228,346 218,366 200,366            L 16,366 C -4,366 -8,352 0,340 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cloud 4 – lower right -->
+  <path id="cloud_4" d="M 560,500 C 560,478 578,460 604,464            C 604,444 624,428 648,436            C 656,416 682,410 700,430            C 724,414 756,428 752,456            C 776,452 798,472 800,496            L 800,520 L 570,520 C 548,518 546,508 560,500 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cloud 5 – bottom left -->
+  <path id="cloud_5" d="M 0,560 C 0,538 20,522 48,528            C 46,504 68,488 96,498            C 104,478 132,472 148,494            C 172,478 206,494 200,522            L 200,640 L 0,640 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- ═══ GREEN SOFA ═══ -->
+
+  <!-- Sofa back cushion -->
+  <rect id="sofa_back" x="188" y="250" width="424" height="155" rx="22" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Sofa seat -->
+  <rect id="sofa_seat" x="168" y="385" width="464" height="90" rx="12" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Left armrest -->
+  <rect id="sofa_left_arm" x="148" y="295" width="64" height="180" rx="18" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Right armrest -->
+  <rect id="sofa_right_arm" x="588" y="295" width="64" height="180" rx="18" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Sofa front legs (decorative) -->
+  <rect x="192" y="472" width="28" height="44" rx="6" fill="none" stroke="black" stroke-width="3"/>
+  <rect x="580" y="472" width="28" height="44" rx="6" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- ═══ SLEEPING PERSON ═══ -->
+
+  <!-- Head -->
+  <circle id="person_head" cx="238" cy="340" r="52" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Hair (dark short hair) -->
+  <path id="person_hair" d="M 190,330 C 188,302 202,278 228,272            C 254,266 278,280 288,306            C 292,290 284,274 272,266            C 252,254 226,256 208,270            C 192,284 186,310 190,330 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Sleeping face features (decorative) -->
+  <path d="M 218,340 C 225,334 236,336 240,342" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 244,342 C 248,336 258,334 265,340" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 232,358 C 238,366 250,366 256,358" fill="none" stroke="black" stroke-width="2"/>
+
+  <!-- Body / torso under blanket -->
+  <path id="person_body" d="M 285,370 C 320,360 400,362 480,368            L 490,390 C 410,384 330,382 295,392 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Feet sticking out at right end -->
+  <path id="foot_left" d="M 575,380 C 590,374 608,378 614,392            C 620,406 614,420 600,422            C 586,424 572,414 570,400 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <path id="foot_right" d="M 580,408 C 596,402 614,407 620,422            C 626,437 618,452 604,454            C 590,456 576,444 574,430 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- ═══ PLAID BLANKET ═══ -->
+  <rect id="blanket" x="278" y="362" width="300" height="110" rx="8" fill="none" stroke="black" stroke-width="3"/>
+  <!-- Blanket grid (decorative) -->
+  <path d="M 278,396 L 578,396" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 278,430 L 578,430" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 278,464 L 578,464" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 338,362 L 338,472" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 398,362 L 398,472" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 458,362 L 458,472" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 518,362 L 518,472" fill="none" stroke="black" stroke-width="1.5"/>
+
+  <!-- ═══ YELLOW CAT (resting on person's chest) ═══ -->
+
+  <!-- Cat body -->
+  <path id="cat_body" d="M 368,355 C 368,330 384,312 408,310            C 432,308 452,325 455,350            C 465,343 474,345 475,356            C 476,367 466,373 456,368            C 452,382 440,392 420,392            C 400,392 382,378 374,363            C 370,358 368,355 368,355 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cat tail -->
+  <path id="cat_tail" d="M 374,363 C 360,374 355,392 362,406            C 369,420 384,422 392,413            C 400,404 398,388 386,382 Z" fill="none" stroke="black" stroke-width="3"/>
+
+  <!-- Cat ears (decorative) -->
+  <path d="M 382,322 L 374,302 L 398,316 Z" fill="none" stroke="black" stroke-width="2.5"/>
+  <path d="M 428,316 L 440,296 L 448,318 Z" fill="none" stroke="black" stroke-width="2.5"/>
+
+  <!-- Cat face features (decorative) -->
+  <path d="M 396,345 C 402,340 410,342 414,348" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 417,348 C 421,342 429,340 434,345" fill="none" stroke="black" stroke-width="2"/>
+  <path d="M 408,360 C 412,366 420,366 424,360" fill="none" stroke="black" stroke-width="2"/>
+  <!-- Whiskers -->
+  <path d="M 392,352 L 368,346" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 392,358 L 368,360" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 436,352 L 462,346" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M 436,358 L 462,360" fill="none" stroke="black" stroke-width="1.5"/>
+
+</svg>

@@ -11,7 +11,7 @@ enum ImageProcessing {
         drawing: PKDrawing,
         template: UIImage?,
         size: CGSize,
-        scale: CGFloat = UIScreen.main.scale
+        scale: CGFloat = UITraitCollection.current.displayScale
     ) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { ctx in

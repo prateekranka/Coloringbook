@@ -54,9 +54,12 @@
 
 	<!-- ── Launch Screen (fixes "Launch screens will soon be required") ── -->
 	<!-- UILaunchScreen replaces LaunchScreen.storyboard for iOS 14+      -->
-	<!-- Shows app icon on a plain background; no custom layout needed.    -->
+	<!-- Matches app dark background so the SwiftUI splash never flashes white. -->
 	<key>UILaunchScreen</key>
-	<dict/>
+	<dict>
+		<key>UIColorName</key>
+		<string>CFBackground</string>
+	</dict>
 
 	<!-- ── Scene lifecycle (SwiftUI @main) ───────────────────── -->
 	<key>UIApplicationSceneManifest</key>
@@ -73,6 +76,36 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
 	</dict>
+
+	<!-- ── Privacy ─────────────────────────────────────────────── -->
+	<!-- Write: save finished artwork to Photos (used today). -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>ColorFlow needs permission to save your artwork to the Photos library.</string>
+
+	<!-- Read: import a photo and turn it into a coloring page (Phase C). -->
+	<!-- Shipped early so the string is reviewed once, not twice. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ColorFlow can turn a photo from your library into a hand-drawn coloring page. The photo stays on your device and is never uploaded.</string>
+
+	<!-- Camera capture → coloring page (Phase C). Same early-ship rationale. -->
+	<key>NSCameraUsageDescription</key>
+	<string>ColorFlow can use your camera to turn a photo into a hand-drawn coloring page. The image stays on your device and is never uploaded.</string>
+
+	<!-- ── Base orientation key (required alongside ~ipad variant) ── -->
+	<!-- Mirrors ~ipad variant so Split View / Slide Over don't hit an empty-set edge case. -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+
+	<!-- ── Export compliance ─────────────────────────────────────── -->
+	<!-- App uses no custom cryptography and only Apple-provided TLS. -->
+	<!-- Declaring this up front avoids the per-upload TestFlight prompt. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 
 </dict>
 </plist>

@@ -23,6 +23,7 @@ import CoreGraphics
 ///   4. lineArtImageView  – SVG line art with multiplyBlendMode compositing filter
 struct PencilCanvasRepresentable: UIViewRepresentable {
     var viewModel: CanvasViewModel
+    @Environment(CanvasSettings.self) private var canvasSettings
 
     // MARK: - makeUIView
 
@@ -265,28 +266,32 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
                 return
             }
 
-            print("[Canvas] drawingDidChange — tool=\(tool.rawValue) strokeCount=\(canvasView.drawing.strokes.count)")
+            if tool == .eraser {
+                AppLog.trace(AppLog.canvas, "drawingDidChange — eraser, bypassing stay-in-lines")
+                parent.viewModel.drawing = canvasView.drawing
+                parent.viewModel.scheduleAutoSave()
+                return
+            }
+
+            AppLog.trace(AppLog.canvas, "drawingDidChange — tool=\(tool.rawValue) strokeCount=\(canvasView.drawing.strokes.count)")
 
             var finalDrawing = canvasView.drawing
 
-            let stayInTheLines = UserDefaults.standard.object(forKey: "canvas.stayInTheLines") as? Bool ?? true
-            if stayInTheLines, let geometry = parent.viewModel.templateGeometry {
+            if parent.canvasSettings.stayInTheLines {
+                guard let geometry = parent.viewModel.templateGeometry else {
+                    AppLog.trace(AppLog.canvas, "drawingDidChange — geometry not loaded yet")
+                    parent.viewModel.drawing = canvasView.drawing
+                    parent.viewModel.scheduleAutoSave()
+                    return
+                }
                 let oldCount = parent.viewModel.drawing.strokes.count
                 let newStrokes = canvasView.drawing.strokes
                 if newStrokes.count > oldCount {
                     var clipped: [PKStroke] = Array(parent.viewModel.drawing.strokes)
                     for stroke in newStrokes[oldCount...] {
-                        guard let firstPoint = Array(stroke.path).first else {
-                            clipped.append(stroke)
-                            continue
-                        }
-                        if let region = geometry.region(at: firstPoint.location) {
-                            if let clippedStroke = StrokeClipper.clipStroke(stroke, toRegion: region) {
-                                clipped.append(clippedStroke)
-                            }
-                        } else {
-                            clipped.append(stroke)
-                        }
+                        let pieces = StrokeClipper.clipStroke(stroke, using: geometry)
+                        AppLog.trace(AppLog.canvas, "clip: points=\(Array(stroke.path).count) kept=\(pieces.count)")
+                        clipped.append(contentsOf: pieces)
                     }
                     finalDrawing = PKDrawing(strokes: clipped)
                 }

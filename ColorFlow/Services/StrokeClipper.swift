@@ -2,46 +2,35 @@ import PencilKit
 import CoreGraphics
 
 struct StrokeClipper {
-    static func clipStroke(_ stroke: PKStroke, toRegion region: RegionGeometry) -> PKStroke? {
-        let regionPath = region.path
-        let fillRule = region.fillRule
-
+    static func clipStroke(_ stroke: PKStroke, using geometry: TemplateGeometry) -> [PKStroke] {
         let points = Array(stroke.path)
+        guard !points.isEmpty else { return [] }
 
-        guard points.count >= 2 else {
-            if let first = points.first, regionPath.contains(first.location, using: fillRule) {
-                return stroke
-            }
-            return nil
+        guard let firstRegion = geometry.region(at: points[0].location) else {
+            return []
         }
+        let regionPath = firstRegion.path
+        let fillRule = firstRegion.fillRule
 
-        var resultPaths: [[PKStrokePoint]] = []
-        var currentRun: [PKStrokePoint] = []
-
-        for point in points {
-            let inside = regionPath.contains(point.location, using: fillRule)
-
-            if inside {
-                currentRun.append(point)
-            } else {
-                if !currentRun.isEmpty {
-                    if currentRun.count >= 2 {
-                        resultPaths.append(currentRun)
-                    }
-                    currentRun = []
-                }
+        var runs: [[PKStrokePoint]] = []
+        var current: [PKStrokePoint] = []
+        for p in points {
+            if regionPath.contains(p.location, using: fillRule) {
+                current.append(p)
+            } else if !current.isEmpty {
+                if current.count >= 2 { runs.append(current) }
+                current = []
             }
         }
+        if current.count >= 2 { runs.append(current) }
 
-        if currentRun.count >= 2 {
-            resultPaths.append(currentRun)
+        return runs.map { run in
+            PKStroke(
+                ink: stroke.ink,
+                path: PKStrokePath(controlPoints: run, creationDate: stroke.path.creationDate),
+                transform: stroke.transform,
+                mask: stroke.mask
+            )
         }
-
-        guard let longestRun = resultPaths.max(by: { $0.count < $1.count }) else {
-            return nil
-        }
-
-        let newPath = PKStrokePath(controlPoints: longestRun, creationDate: stroke.path.creationDate)
-        return PKStroke(ink: stroke.ink, path: newPath, transform: stroke.transform, mask: stroke.mask)
     }
 }

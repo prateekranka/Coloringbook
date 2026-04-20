@@ -16,9 +16,8 @@ struct CanvasView: View {
     @State private var showColorPicker = false
     @State private var showLayerPanel = false
     @State private var showCanvasSettings = false
+    @State private var canvasSettings = CanvasSettings()
 
-    /// Width of the left chrome lane. Kept constant so canvas width never changes
-    /// when the toolbar hides/shows.
     private let chromeGutter: CGFloat = 72
 
     var body: some View {
@@ -26,6 +25,7 @@ struct CanvasView: View {
             // Canvas (always full-bleed)
             AppTheme.Surface.canvas.ignoresSafeArea()
             PencilCanvasRepresentable(viewModel: viewModel)
+                .environment(canvasSettings)
                 .ignoresSafeArea()
 
             // Flood-fill progress overlay
@@ -66,7 +66,7 @@ struct CanvasView: View {
         }
         .sheet(isPresented: $showCanvasSettings) {
             CanvasSettingsSheet()
-                .environment(CanvasSettings())
+                .environment(canvasSettings)
         }
         // ── Lifecycle ─────────────────────────────────────────────────────
         .task {

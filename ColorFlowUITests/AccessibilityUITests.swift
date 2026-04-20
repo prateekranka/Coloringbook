@@ -20,20 +20,20 @@ final class AccessibilityUITests: XCTestCase {
     /// iPadOS 26.4+ renders TabView as a top segmented control instead of a bottom
     /// tab bar. This helper finds the tab element across all possible layouts.
     private func tabElement(_ app: XCUIApplication, _ label: String) -> XCUIElement {
-        let id = "tab.\(label.lowercased())"
-        // Try by accessibility identifier on buttons
-        if app.buttons[id].exists { return app.buttons[id] }
-        // Try by identifier on cells (iPadOS 26.4+ sidebar/outline)
-        if app.cells[id].exists { return app.cells[id] }
-        // Try by identifier on any element
-        if app.otherElements[id].exists { return app.otherElements[id] }
-        // Try by label on buttons (classic tab bar)
-        if app.buttons[label].exists { return app.buttons[label] }
-        // Try by label on cells (sidebar)
+        // SwiftUI TabView doesn't honor accessibility identifiers on tab
+        // buttons (iOS 18+ framework limitation), so we query by label. Scope
+        // to the tab bar first to avoid collisions with section headers that
+        // may share the same text (e.g., "Home" tab + "Home" screen title).
+        let tabBar = app.tabBars.firstMatch
+        if tabBar.exists, tabBar.buttons[label].exists { return tabBar.buttons[label] }
+        // iPadOS 26.4+ top-segmented-control variant exposes tabs as
+        // descendants of the first otherElement whose buttons include all
+        // three tab labels. Fall back to boundBy to avoid ambiguity.
+        let buttons = app.buttons.matching(NSPredicate(format: "label == %@", label))
+        if buttons.count == 1 { return buttons.firstMatch }
+        if buttons.count > 1 { return buttons.element(boundBy: 0) }
+        // Sidebar/outline variant
         if app.cells[label].exists { return app.cells[label] }
-        // Try by label on any element (iPadOS 26.4+ segmented control items)
-        if app.staticTexts[label].exists { return app.staticTexts[label] }
-        // Fallback to buttons by label
         return app.buttons[label]
     }
 

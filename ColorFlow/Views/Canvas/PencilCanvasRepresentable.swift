@@ -21,7 +21,6 @@ import CoreGraphics
 ///   2. fillImageView     – rendered fill regions
 ///   3. PKCanvasView      – PencilKit strokes (scroll + zoom DISABLED; outer SV owns that)
 ///   4. lineArtImageView  – SVG line art with multiplyBlendMode compositing filter
-///   5. selectionLayer    – CAShapeLayer marching-ants selection highlight
 struct PencilCanvasRepresentable: UIViewRepresentable {
     var viewModel: CanvasViewModel
 
@@ -126,9 +125,6 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             ? viewModel.templateImage
             : nil
 
-        // ── Selection highlight ─────────────────────────────────────────────
-        coordinator.updateSelectionHighlight()
-
         // ── Content size ────────────────────────────────────────────────────
         let size = viewModel.canvasSize
         if size != .zero && coordinator.contentContainer?.frame.size != size {
@@ -159,13 +155,14 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         let backgroundView   = UIView()
         let fillImageView    = UIImageView()
         let lineArtImageView = UIImageView()
-        let selectionLayer   = CAShapeLayer()
 
         /// Kept so updateUIView can toggle allowedTouchTypes dynamically.
         weak var tapGesture: UITapGestureRecognizer?
 
         /// Guards against infinite delegate loop when reverting ghost strokes.
         private var isRevertingDrawing = false
+        private var lastAppliedContentSize: CGSize = .zero
+        private var hasAppliedInitialFit = false
 
         init(_ parent: PencilCanvasRepresentable) {
             self.parent = parent
@@ -205,27 +202,15 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             lineArtImageView.isUserInteractionEnabled = false
             lineArtImageView.layer.compositingFilter = "multiplyBlendMode"
             container.addSubview(lineArtImageView)
-
-            // 4. Selection highlight (marching-ants)
-            selectionLayer.fillColor   = nil
-            selectionLayer.strokeColor = UIColor.systemBlue.cgColor
-            selectionLayer.lineWidth   = 2.0
-            selectionLayer.lineDashPattern = [8, 4]
-            selectionLayer.isHidden    = true
-
-            let dashAnim = CABasicAnimation(keyPath: "lineDashPhase")
-            dashAnim.fromValue   = 0
-            dashAnim.toValue     = 12
-            dashAnim.duration    = 0.5
-            dashAnim.repeatCount = .infinity
-            selectionLayer.add(dashAnim, forKey: "marchingAnts")
-
-            container.layer.addSublayer(selectionLayer)
         }
 
         // MARK: Content size / layout
 
         func updateContentSize(_ size: CGSize, in scrollView: UIScrollView) {
+            if size == lastAppliedContentSize {
+                return
+            }
+
             let rect = CGRect(origin: .zero, size: size)
 
             // Size all layers to the document dimensions.
@@ -239,6 +224,8 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             // The scroll view's contentSize matches the document too; UIKit
             // will expand it as needed when zoom applies the scale transform.
             scrollView.contentSize = size
+
+            lastAppliedContentSize = size
 
             guard scrollView.bounds.width > 0, scrollView.bounds.height > 0 else {
                 print("[Canvas] updateContentSize — bounds not ready, skipping fit-zoom")
@@ -254,34 +241,14 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             scrollView.minimumZoomScale = fitScale * 0.5
             scrollView.maximumZoomScale = fitScale * 10.0
 
-            if scrollView.zoomScale >= 0.99 {
+            if !hasAppliedInitialFit {
                 scrollView.setZoomScale(fitScale, animated: false)
                 scrollViewDidZoom(scrollView)
-                print("[Canvas] updateContentSize — applied fitScale=\(fitScale)")
+                hasAppliedInitialFit = true
+                print("[Canvas] updateContentSize — applied initial fitScale=\(fitScale)")
             } else {
-                print("[Canvas] updateContentSize — skipped zoom snap (user already zoomed to \(scrollView.zoomScale))")
+                print("[Canvas] updateContentSize — skipped zoom snap (already fitted, user zoomed to \(scrollView.zoomScale))")
             }
-        }
-
-        // MARK: Selection highlight
-
-        func updateSelectionHighlight() {
-            guard
-                let geometry   = parent.viewModel.templateGeometry,
-                let selectedID = parent.viewModel.selectedRegionID,
-                let region     = geometry.regions.first(where: { $0.id == selectedID })
-            else {
-                selectionLayer.path    = nil
-                selectionLayer.isHidden = true
-                return
-            }
-
-            var transform = TemplateRenderer.documentToViewTransform(
-                viewBox: geometry.viewBox,
-                viewSize: parent.viewModel.canvasSize
-            )
-            selectionLayer.path    = region.path.copy(using: &transform)
-            selectionLayer.isHidden = false
         }
 
         // MARK: PKCanvasViewDelegate
@@ -299,7 +266,37 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             }
 
             print("[Canvas] drawingDidChange — tool=\(tool.rawValue) strokeCount=\(canvasView.drawing.strokes.count)")
-            parent.viewModel.drawing = canvasView.drawing
+
+            var finalDrawing = canvasView.drawing
+
+            let stayInTheLines = UserDefaults.standard.object(forKey: "canvas.stayInTheLines") as? Bool ?? true
+            if stayInTheLines, let geometry = parent.viewModel.templateGeometry {
+                let oldCount = parent.viewModel.drawing.strokes.count
+                let newStrokes = canvasView.drawing.strokes
+                if newStrokes.count > oldCount {
+                    var clipped: [PKStroke] = Array(parent.viewModel.drawing.strokes)
+                    for stroke in newStrokes[oldCount...] {
+                        guard let firstPoint = Array(stroke.path).first else {
+                            clipped.append(stroke)
+                            continue
+                        }
+                        if let region = geometry.region(at: firstPoint.location) {
+                            if let clippedStroke = StrokeClipper.clipStroke(stroke, toRegion: region) {
+                                clipped.append(clippedStroke)
+                            }
+                        } else {
+                            clipped.append(stroke)
+                        }
+                    }
+                    finalDrawing = PKDrawing(strokes: clipped)
+                }
+            }
+
+            isRevertingDrawing = true
+            canvasView.drawing = finalDrawing
+            isRevertingDrawing = false
+
+            parent.viewModel.drawing = finalDrawing
             parent.viewModel.scheduleAutoSave()
         }
 
@@ -335,9 +332,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
                 parent.viewModel.pickColor(atDocumentPoint: docPoint)
 
             default:
-                // For drawing tools a tap is a no-op (selection scaffolding
-                // exists but isn't user-facing today).
-                parent.viewModel.selectRegion(atDocumentPoint: docPoint)
+                break
             }
         }
     }

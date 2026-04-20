@@ -43,6 +43,7 @@ targets:
       - path: ColorFlow/Assets.xcassets
       - path: ColorFlow/Resources/templates.json
       - path: ColorFlow/Resources/Palettes/palettes.json
+      - path: ColorFlow/Resources/Fonts
       - path: ColorFlow/PrivacyInfo.xcprivacy        # Required for App Store submission
       # CoreML model directory (populated after running Scripts/coreml/convert_informative_drawings.py)
       # - path: ColorFlow/Resources/Models            # Uncomment after model is converted
@@ -60,6 +61,12 @@ targets:
           for SVG in "${SRCROOT}/ColorFlow/Resources/Templates/"*.svg; do
             cp -f "${SVG}" "${DEST}/"
           done
+          if [ -f "${SRCROOT}/ColorFlow/Resources/templates.json" ]; then
+            cp -f "${SRCROOT}/ColorFlow/Resources/templates.json" "${DEST}/"
+          fi
+          if [ -f "${SRCROOT}/ColorFlow/Resources/Palettes/palettes.json" ]; then
+            cp -f "${SRCROOT}/ColorFlow/Resources/Palettes/palettes.json" "${DEST}/"
+          fi
         shell: /bin/sh
         basedOnDependencyAnalysis: false
 

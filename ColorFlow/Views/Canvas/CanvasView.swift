@@ -11,9 +11,11 @@ import PencilKit
 struct CanvasView: View {
     @Bindable var viewModel: CanvasViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showToolbar = true
     @State private var showColorPicker = false
     @State private var showLayerPanel = false
+    @State private var showCanvasSettings = false
 
     /// Width of the left chrome lane. Kept constant so canvas width never changes
     /// when the toolbar hides/shows.
@@ -22,13 +24,13 @@ struct CanvasView: View {
     var body: some View {
         ZStack {
             // Canvas (always full-bleed)
-            Color.white.ignoresSafeArea()
+            AppTheme.Surface.canvas.ignoresSafeArea()
             PencilCanvasRepresentable(viewModel: viewModel)
                 .ignoresSafeArea()
 
             // Flood-fill progress overlay
             if viewModel.isFilling {
-                Color.black.opacity(0.15)
+                AppTheme.Surface.scrim
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
                 ProgressView("Filling…")
@@ -54,10 +56,17 @@ struct CanvasView: View {
         .onAppear {
             AppLog.trace(AppLog.canvas, "CanvasView onAppear — \(viewModel.template.svgFilename)")
         }
+        .onChange(of: colorScheme) {
+            viewModel.reloadLineArt()
+        }
         // ── Sheets (layer panel only; color picker is now an overlay) ──
         .sheet(isPresented: $showLayerPanel) {
             LayerPanelView(viewModel: viewModel)
                 .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showCanvasSettings) {
+            CanvasSettingsSheet()
+                .environment(CanvasSettings())
         }
         // ── Lifecycle ─────────────────────────────────────────────────────
         .task {
@@ -82,6 +91,7 @@ struct CanvasView: View {
                         viewModel: viewModel,
                         showColorPicker: $showColorPicker,
                         showLayerPanel: $showLayerPanel,
+                        showCanvasSettings: $showCanvasSettings,
                         onDismiss: { dismiss() },
                         onToggleToolbar: {
                             withAnimation(AppTheme.Motion.pageTransition) {
@@ -114,8 +124,8 @@ struct CanvasView: View {
                 .padding(10)
                 .background(.regularMaterial, in: Circle())
         }
-        .tint(.primary)
-        .frame(minWidth: AppTheme.minTapTarget, minHeight: AppTheme.minTapTarget)
+        .tint(AppTheme.Ink.primary)
+        .frame(minWidth: AppTheme.Size.touchTarget, minHeight: AppTheme.Size.touchTarget)
         .accessibilityLabel("Show toolbar")
         .accessibilityIdentifier("canvas.toolbar.restore")
         .padding(.leading, 16)

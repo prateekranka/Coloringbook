@@ -17,7 +17,7 @@ struct MyWorkView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppTheme.background.ignoresSafeArea()
+                AppTheme.Surface.background.ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 24) {
@@ -33,7 +33,7 @@ struct MyWorkView: View {
                 ToolbarItem(placement: .principal) {
                     Text("My Work")
                         .font(.headline)
-                        .foregroundStyle(AppTheme.textPrimary)
+                        .foregroundStyle(AppTheme.Ink.primary)
                 }
             }
             .sheet(isPresented: $showShareSheet) {
@@ -51,16 +51,16 @@ struct MyWorkView: View {
             // Avatar
             ZStack {
                 Circle()
-                    .fill(AppTheme.surface)
+                    .fill(AppTheme.Surface.elevated)
                     .frame(width: 90, height: 90)
                 Image(systemName: "person.fill")
                     .font(.system(size: 40))
-                    .foregroundStyle(AppTheme.textSecondary)
+                    .foregroundStyle(AppTheme.Ink.secondary)
             }
 
             Text("You")
                 .font(.title3.bold())
-                .foregroundStyle(AppTheme.textPrimary)
+                .foregroundStyle(AppTheme.Ink.primary)
 
             // CTA
             Button {
@@ -68,11 +68,13 @@ struct MyWorkView: View {
             } label: {
                 Text("Share your art!")
                     .font(.subheadline.bold())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.Brand.onAccent)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 10)
-                    .background(Capsule().fill(AppTheme.accent))
+                    .background(Capsule().fill(AppTheme.Brand.accent))
             }
+            .disabled(viewModel.projects.isEmpty)
+            .opacity(viewModel.projects.isEmpty ? 0.4 : 1)
             .accessibilityIdentifier("mywork.share")
 
             // Stats row
@@ -104,7 +106,7 @@ struct MyWorkView: View {
             }
         }
         .pickerStyle(.segmented)
-        .padding(.horizontal, AppTheme.screenPadding)
+        .padding(.horizontal, AppTheme.Spacing.xl)
         .onAppear { styleSegmentedControl() }
         .accessibilityIdentifier("mywork.filter")
     }
@@ -118,12 +120,12 @@ struct MyWorkView: View {
             VStack(spacing: 16) {
                 Image(systemName: "paintpalette")
                     .font(.system(size: 48))
-                    .foregroundStyle(AppTheme.accent.opacity(0.5))
+                    .foregroundStyle(AppTheme.Brand.accent.opacity(0.5))
                 Text(viewModel.projects.isEmpty
                      ? "No artwork yet — start coloring!"
                      : "Nothing here yet.")
                     .font(.subheadline)
-                    .foregroundStyle(AppTheme.textSecondary)
+                    .foregroundStyle(AppTheme.Ink.secondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 40)
@@ -140,7 +142,7 @@ struct MyWorkView: View {
                     }
                 }
             }
-            .padding(.horizontal, AppTheme.screenPadding)
+            .padding(.horizontal, AppTheme.Spacing.xl)
         }
     }
 
@@ -164,11 +166,11 @@ struct MyWorkView: View {
     }
 
     private func styleSegmentedControl() {
-        UISegmentedControl.appearance().selectedSegmentTintColor = UIColor(AppTheme.accent)
+        UISegmentedControl.appearance().selectedSegmentTintColor = UIColor(AppTheme.Brand.accent)
         UISegmentedControl.appearance().setTitleTextAttributes(
-            [.foregroundColor: UIColor.white], for: .selected)
+            [.foregroundColor: UIColor(AppTheme.Brand.onAccent)], for: .selected)
         UISegmentedControl.appearance().setTitleTextAttributes(
-            [.foregroundColor: UIColor(AppTheme.textSecondary)], for: .normal)
+            [.foregroundColor: UIColor(AppTheme.Ink.secondary)], for: .normal)
     }
 }
 
@@ -182,10 +184,10 @@ private struct StatCell: View {
         VStack(spacing: 2) {
             Text("\(value)")
                 .font(.title3.bold())
-                .foregroundStyle(AppTheme.textPrimary)
+                .foregroundStyle(AppTheme.Ink.primary)
             Text(label)
                 .font(.caption)
-                .foregroundStyle(AppTheme.textSecondary)
+                .foregroundStyle(AppTheme.Ink.secondary)
         }
         .frame(minWidth: 70)
     }
@@ -203,7 +205,7 @@ private struct ArtworkCard: View {
     var body: some View {
         Button(action: onTap) {
             ZStack {
-                RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
+                RoundedRectangle(cornerRadius: AppTheme.Radius.md)
                     .fill(Color.white)
                     .aspectRatio(1, contentMode: .fit)
                     .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
@@ -212,7 +214,7 @@ private struct ArtworkCard: View {
                     Image(uiImage: img)
                         .resizable()
                         .scaledToFill()
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius))
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
                 } else {
                     Image(systemName: "photo")
                         .font(.largeTitle)

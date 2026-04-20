@@ -11,7 +11,7 @@ struct PageIndicator: View {
         HStack(spacing: 8) {
             ForEach(0..<count, id: \.self) { i in
                 Capsule()
-                    .fill(i == current ? accent : AppTheme.textSecondary.opacity(0.35))
+                    .fill(i == current ? accent : AppTheme.Ink.secondary.opacity(0.35))
                     .frame(width: i == current ? 24 : 8, height: 8)
                     .animation(AppTheme.Motion.quickSpring, value: current)
             }

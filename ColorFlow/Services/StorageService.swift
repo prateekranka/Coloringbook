@@ -54,9 +54,11 @@ class StorageService {
         let snapshot = project
         let drawingData = drawing.dataRepresentation()
         let fillData = fillLayer?.pngData()
+        let drawingImage = drawing.image(from: drawing.bounds, scale: UIScreen.main.scale)
         let thumbnailData = Self.composeThumbnail(
             template: templateImage,
-            fill: fillLayer
+            fill: fillLayer,
+            drawing: drawingImage
         )?.pngData()
 
         queue.sync {
@@ -87,7 +89,7 @@ class StorageService {
 
     /// Composite the line art + fills into a square 512×512 thumbnail.
     /// Returns nil if neither layer is available.
-    private static func composeThumbnail(template: UIImage?, fill: UIImage?) -> UIImage? {
+    private static func composeThumbnail(template: UIImage?, fill: UIImage?, drawing: UIImage?) -> UIImage? {
         guard template != nil || fill != nil else { return nil }
         let size = CGSize(width: 512, height: 512)
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -106,6 +108,7 @@ class StorageService {
             )
 
             fill?.draw(in: rect)
+            drawing?.draw(in: rect)
             let cg = ctx.cgContext
             cg.saveGState()
             cg.setBlendMode(.multiply)

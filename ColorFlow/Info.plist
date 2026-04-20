@@ -101,6 +101,12 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
+	<!-- ── Custom fonts ─────────────────────────────────────────────── -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>Fraunces.ttf</string>
+	</array>
+
 	<!-- ── Export compliance ─────────────────────────────────────── -->
 	<!-- App uses no custom cryptography and only Apple-provided TLS. -->
 	<!-- Declaring this up front avoids the per-upload TestFlight prompt. -->

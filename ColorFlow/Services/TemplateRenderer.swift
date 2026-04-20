@@ -5,7 +5,6 @@ struct TemplateRenderer {
 
     // MARK: - Coordinate Transform
 
-    /// The single coordinate transform used everywhere.
     static func documentToViewTransform(viewBox: CGRect, viewSize: CGSize) -> CGAffineTransform {
         let scale = min(viewSize.width / viewBox.width, viewSize.height / viewBox.height)
         let tx = (viewSize.width - viewBox.width * scale) / 2
@@ -15,38 +14,61 @@ struct TemplateRenderer {
 
     // MARK: - Fill Layer
 
-    /// Render filled regions to UIImage. Only regions with entries in `fills` are drawn.
-    /// fills: [regionID: hexColor]
     static func renderFillLayer(
         geometry: TemplateGeometry,
         fills: [String: String],
         size: CGSize
     ) -> UIImage {
+        let sortedRegions = geometry.regions.sorted { $0.zIndex < $1.zIndex }
+        let holeMap = Self.computeHoleMap(regions: sortedRegions)
+
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { context in
             let cgContext = context.cgContext
             let transform = documentToViewTransform(viewBox: geometry.viewBox, viewSize: size)
             cgContext.concatenate(transform)
 
-            let sortedRegions = geometry.regions.sorted { $0.zIndex < $1.zIndex }
             for region in sortedRegions {
                 guard let hexColor = fills[region.id] else { continue }
                 let color = UIColor(hex: hexColor)
+                let holes = holeMap[region.id] ?? []
 
-                cgContext.setFillColor(color.cgColor)
+                cgContext.saveGState()
                 cgContext.addPath(region.path)
-                cgContext.fillPath(using: region.fillRule)
+                for hole in holes {
+                    cgContext.addPath(hole.path)
+                }
+                cgContext.clip(using: .evenOdd)
+                cgContext.setFillColor(color.cgColor)
+                cgContext.fill(region.bounds)
+                cgContext.restoreGState()
             }
         }
     }
 
+    private static func computeHoleMap(regions: [RegionGeometry]) -> [String: [RegionGeometry]] {
+        var map: [String: [RegionGeometry]] = [:]
+        for region in regions {
+            var holes: [RegionGeometry] = []
+            for candidate in regions where candidate.zIndex > region.zIndex {
+                guard region.bounds.contains(candidate.bounds) else { continue }
+                let candidateCenter = CGPoint(x: candidate.bounds.midX, y: candidate.bounds.midY)
+                guard region.path.contains(candidateCenter, using: region.fillRule) else { continue }
+                holes.append(candidate)
+            }
+            if !holes.isEmpty {
+                map[region.id] = holes
+            }
+        }
+        return map
+    }
+
     // MARK: - Line Art
 
-    /// Render line art (all paths with black strokes) to UIImage.
-    /// This image is used as the topmost layer with .multiply blend mode.
     static func renderLineArt(
         geometry: TemplateGeometry,
-        size: CGSize
+        size: CGSize,
+        strokeColor: UIColor = UIColor(AppTheme.Ink.lineArt)
     ) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { context in
@@ -57,7 +79,7 @@ struct TemplateRenderer {
             let scale = min(size.width / geometry.viewBox.width, size.height / geometry.viewBox.height)
             let strokeWidth = 3.0 / scale
 
-            cgContext.setStrokeColor(UIColor.black.cgColor)
+            cgContext.setStrokeColor(strokeColor.cgColor)
             cgContext.setLineWidth(strokeWidth)
             cgContext.setLineCap(.round)
             cgContext.setLineJoin(.round)
@@ -77,7 +99,6 @@ struct TemplateRenderer {
 
     // MARK: - Thumbnail
 
-    /// Render a thumbnail for the template library.
     static func renderThumbnail(
         geometry: TemplateGeometry,
         fills: [String: String] = [:],
@@ -99,7 +120,6 @@ struct TemplateRenderer {
 
     // MARK: - Export
 
-    /// Composite all layers for export: background + fills + pencil strokes + line art.
     static func renderExport(
         geometry: TemplateGeometry,
         fills: [String: String],
@@ -111,20 +131,16 @@ struct TemplateRenderer {
         return renderer.image { context in
             let bounds = CGRect(origin: .zero, size: size)
 
-            // 1. Background
             backgroundColor.setFill()
             context.fill(bounds)
 
-            // 2. Fill layer
             let fillLayer = renderFillLayer(geometry: geometry, fills: fills, size: size)
             fillLayer.draw(in: bounds)
 
-            // 3. Pencil strokes composited on top of fills
             if let pencilImage = pencilImage {
                 pencilImage.draw(in: bounds)
             }
 
-            // 4. Line art on top with multiply blend mode
             let cgContext = context.cgContext
             cgContext.saveGState()
             cgContext.setBlendMode(.multiply)
@@ -134,5 +150,3 @@ struct TemplateRenderer {
         }
     }
 }
-
-// UIColor(hex:) is provided by Color+Extensions.swift

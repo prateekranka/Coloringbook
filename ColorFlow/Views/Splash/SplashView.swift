@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Cold-launch splash. Draws the ColorFlow brush mark tail-to-tip over 1.1s,
-/// holds briefly, then crossfades out. Respects Reduce Motion.
 struct SplashView: View {
     let onFinish: () -> Void
 
@@ -15,25 +13,23 @@ struct SplashView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.background.ignoresSafeArea()
+            AppTheme.Surface.background.ignoresSafeArea()
 
-            BrushMarkShape()
-                .trim(from: 0, to: progress)
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.36, green: 0.24, blue: 0.80),
-                            AppTheme.accent,
-                            Color(red: 0.76, green: 0.67, blue: 0.98)
-                        ],
-                        startPoint: .bottomLeading,
-                        endPoint: .topTrailing
-                    ),
-                    style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round)
-                )
-                .glow(color: AppTheme.accent.opacity(0.55), radius: 14)
-                .frame(width: 180, height: 180)
-                .opacity(opacity)
+            VStack(spacing: AppTheme.Spacing.lg) {
+                BrushMarkShape()
+                    .trim(from: 0, to: progress)
+                    .stroke(
+                        AppTheme.Brand.accent,
+                        style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round)
+                    )
+                    .glow(color: AppTheme.Brand.accent.opacity(0.55), radius: 14)
+                    .frame(width: 180, height: 180)
+
+                Text("ColorFlow")
+                    .font(Font.cfTitleLarge)
+                    .foregroundStyle(AppTheme.Ink.primary)
+            }
+            .opacity(opacity)
         }
         .accessibilityIdentifier("splash.view")
         .onAppear(perform: animate)
@@ -57,8 +53,6 @@ struct SplashView: View {
     }
 }
 
-/// A single-stroke brushmark resembling the app icon: bottom-left sweep up
-/// into a hooked tip. Drawn in a 180×180 unit box.
 private struct BrushMarkShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -77,4 +71,8 @@ private struct BrushMarkShape: Shape {
         )
         return path
     }
+}
+
+#Preview {
+    SplashView(onFinish: {})
 }

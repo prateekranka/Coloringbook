@@ -8,6 +8,7 @@ struct ToolbarView: View {
     @Bindable var viewModel: CanvasViewModel
     @Binding var showColorPicker: Bool
     @Binding var showLayerPanel: Bool
+    @Binding var showCanvasSettings: Bool
     var onDismiss: (() -> Void)? = nil
     var onToggleToolbar: (() -> Void)? = nil
 
@@ -31,8 +32,8 @@ struct ToolbarView: View {
                     Button(action: onDismiss) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .medium))
-                            .frame(width: AppTheme.minTapTarget, height: AppTheme.minTapTarget)
-                            .foregroundStyle(Color.primary)
+                            .frame(width: AppTheme.Size.touchTarget, height: AppTheme.Size.touchTarget)
+                            .foregroundStyle(AppTheme.Ink.primary)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -44,8 +45,8 @@ struct ToolbarView: View {
                     Button(action: onToggleToolbar) {
                         Image(systemName: "sidebar.left")
                             .font(.system(size: 16, weight: .medium))
-                            .frame(width: AppTheme.minTapTarget, height: AppTheme.minTapTarget)
-                            .foregroundStyle(Color.primary)
+                            .frame(width: AppTheme.Size.touchTarget, height: AppTheme.Size.touchTarget)
+                            .foregroundStyle(AppTheme.Ink.primary)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -64,11 +65,14 @@ struct ToolbarView: View {
                 ) {
                     HapticService.shared.impact(.light)
                     if viewModel.brushSettings.tool == tool {
-                        // Re-tap toggles the drawer for this tool.
                         toggleDrawer(for: tool)
                     } else {
                         viewModel.brushSettings.tool = tool
-                        drawerTool = nil
+                        if toolSupportsDrawer(tool) {
+                            drawerTool = tool
+                        } else {
+                            drawerTool = nil
+                        }
                     }
                 }
             }
@@ -100,6 +104,15 @@ struct ToolbarView: View {
             .accessibilityLabel("Layers")
             .accessibilityIdentifier("canvas.layers")
 
+            Button {
+                showCanvasSettings = true
+            } label: {
+                Image(systemName: "ellipsis")
+            }
+            .toolbarButtonStyle()
+            .accessibilityLabel("Canvas Settings")
+            .accessibilityIdentifier("canvas.settings")
+
             Spacer(minLength: 10)
 
             // Color well anchors the bottom of the rail and opens the
@@ -122,8 +135,8 @@ struct ToolbarView: View {
         if let tool = drawerTool, toolSupportsDrawer(tool) {
             VStack(alignment: .leading, spacing: 14) {
                 Text(drawerTitle(for: tool))
-                    .font(AppTheme.Typography.capsuleLabel)
-                    .foregroundStyle(AppTheme.textSecondary)
+                    .font(Font.cfCaption)
+                    .foregroundStyle(AppTheme.Ink.secondary)
 
                 BrushSizeScrubber(size: $viewModel.brushSettings.size)
 
@@ -136,7 +149,7 @@ struct ToolbarView: View {
             .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(.regularMaterial)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -173,10 +186,10 @@ private struct ColorWellButton: View {
             Circle()
                 .fill(color)
                 .frame(width: 32, height: 32)
-                .overlay(Circle().stroke(Color.primary.opacity(0.25), lineWidth: 1.5))
+                .overlay(Circle().stroke(AppTheme.Ink.primary.opacity(0.25), lineWidth: 1.5))
                 .glow(color: color.opacity(0.5), radius: 6)
                 .padding(6)
-                .frame(width: AppTheme.minTapTarget, height: AppTheme.minTapTarget)
+                .frame(width: AppTheme.Size.touchTarget, height: AppTheme.Size.touchTarget)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel("Selected color")
@@ -194,11 +207,11 @@ private struct ToolButton: View {
         Button(action: action) {
             Image(systemName: tool.systemImageName)
                 .font(.system(size: 18, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? AppTheme.accent : Color.primary)
-                .frame(width: AppTheme.minTapTarget, height: AppTheme.minTapTarget)
+                .foregroundStyle(isSelected ? AppTheme.Brand.accent : AppTheme.Ink.primary)
+                .frame(width: AppTheme.Size.touchTarget, height: AppTheme.Size.touchTarget)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(isSelected ? AppTheme.accent.opacity(0.22) : Color.clear)
+                        .fill(isSelected ? AppTheme.Brand.accentSubtle : Color.clear)
                 )
                 .contentShape(Rectangle())
         }
@@ -217,10 +230,10 @@ private struct OpacityScrubber: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Opacity")
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(AppTheme.textSecondary)
+                .foregroundStyle(AppTheme.Ink.secondary)
 
             Slider(value: $opacity, in: 0.1...1)
-                .tint(AppTheme.accent)
+                .tint(AppTheme.Brand.accent)
                 .frame(width: 120)
                 .accessibilityLabel("Opacity")
                 .accessibilityValue("\(Int(opacity * 100)) percent")
@@ -237,6 +250,6 @@ private extension View {
             .font(.system(size: 18))
             .frame(width: 40, height: 40)
             .buttonStyle(.plain)
-            .foregroundStyle(Color.primary)
+            .foregroundStyle(AppTheme.Ink.primary)
     }
 }

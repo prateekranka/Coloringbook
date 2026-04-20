@@ -30,7 +30,7 @@ struct TemplateCategoryView: View {
             .padding(.horizontal)
             .padding(.vertical, 10)
         }
-        .background(Color(.systemBackground).shadow(.inner(radius: 1)))
+        .background(AppTheme.Surface.background.shadow(.inner(radius: 1)))
     }
 }
 
@@ -52,9 +52,9 @@ private struct CategoryChip: View {
             .padding(.vertical, 7)
             .background(
                 Capsule()
-                    .fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.12))
+                    .fill(isSelected ? AppTheme.Brand.accent : AppTheme.Ink.secondary.opacity(0.12))
             )
-            .foregroundStyle(isSelected ? Color.white : Color.primary)
+            .foregroundStyle(isSelected ? AppTheme.Brand.onAccent : AppTheme.Ink.primary)
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.15), value: isSelected)

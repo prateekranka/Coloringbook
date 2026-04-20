@@ -13,7 +13,7 @@ struct LibraryTabView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppTheme.background.ignoresSafeArea()
+                AppTheme.Surface.background.ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Category pills
@@ -33,7 +33,7 @@ struct LibraryTabView: View {
                                 ? "Templates will appear here."
                                 : "Try a different search term.")
                         )
-                        .foregroundStyle(AppTheme.textSecondary)
+                        .foregroundStyle(AppTheme.Ink.secondary)
                         Spacer()
                     } else {
                         ScrollView {
@@ -44,7 +44,7 @@ struct LibraryTabView: View {
                                     }
                                 }
                             }
-                            .padding(AppTheme.screenPadding)
+                            .padding(AppTheme.Spacing.xl)
                         }
                     }
                 }
@@ -71,7 +71,7 @@ struct LibraryTabView: View {
         ToolbarItem(placement: .principal) {
             Text("Library")
                 .font(.headline)
-                .foregroundStyle(AppTheme.textPrimary)
+                .foregroundStyle(AppTheme.Ink.primary)
         }
     }
 }
@@ -94,9 +94,9 @@ struct LibraryCategoryBar: View {
                     }
                 }
             }
-            .padding(.horizontal, AppTheme.screenPadding)
+            .padding(.horizontal, AppTheme.Spacing.xl)
         }
-        .background(AppTheme.background)
+        .background(AppTheme.Surface.background)
         .frame(height: 46)
     }
 }
@@ -111,13 +111,13 @@ private struct CategoryTab: View {
             VStack(spacing: 0) {
                 Text(label)
                     .font(isSelected ? .subheadline.bold() : .subheadline)
-                    .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.textSecondary)
+                    .foregroundStyle(isSelected ? AppTheme.Brand.accent : AppTheme.Ink.secondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
 
                 // Underline indicator
                 Rectangle()
-                    .fill(isSelected ? AppTheme.accent : Color.clear)
+                    .fill(isSelected ? AppTheme.Brand.accent : Color.clear)
                     .frame(height: 2)
             }
         }
@@ -141,7 +141,7 @@ struct LibraryTemplateCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 // White card face (accessibility lives on the outer Button)
                 ZStack {
-                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
+                    RoundedRectangle(cornerRadius: AppTheme.Radius.md)
                         .fill(Color.white)
                         .aspectRatio(1, contentMode: .fit)
 
@@ -153,7 +153,7 @@ struct LibraryTemplateCard: View {
                     } else {
                         Image(systemName: template.category.systemImageName)
                             .font(.system(size: 36))
-                            .foregroundStyle(AppTheme.accent.opacity(0.4))
+                            .foregroundStyle(AppTheme.Brand.accent.opacity(0.4))
                     }
                 }
                 .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
@@ -161,7 +161,7 @@ struct LibraryTemplateCard: View {
                 // Name + difficulty
                 Text(template.name)
                     .font(.caption.bold())
-                    .foregroundStyle(AppTheme.textPrimary)
+                    .foregroundStyle(AppTheme.Ink.primary)
                     .lineLimit(1)
 
                 DifficultyPill(difficulty: template.difficulty)

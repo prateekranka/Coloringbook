@@ -10,7 +10,7 @@ struct PencilStrokeHeroView: View {
         ZStack {
             // Background reference squiggle (faint)
             SquigglePath()
-                .stroke(AppTheme.textPrimary.opacity(0.12), style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
+                .stroke(AppTheme.Ink.primary.opacity(0.12), style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
                 .frame(width: 260, height: 160)
 
             if reduceMotion {

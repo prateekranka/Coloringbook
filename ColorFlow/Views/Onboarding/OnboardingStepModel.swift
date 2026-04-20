@@ -37,7 +37,7 @@ enum OnboardingStep: Int, CaseIterable, Identifiable {
     var accent: Color {
         switch self {
         case .fill:   return Color(hue: 0.58, saturation: 0.55, brightness: 0.95)   // cyan-blue
-        case .pencil: return AppTheme.accent                                        // brand purple
+        case .pencil: return AppTheme.Brand.accent                                   // brand purple
         case .save:   return Color(hue: 0.38, saturation: 0.55, brightness: 0.85)   // minty green
         }
     }

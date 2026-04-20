@@ -78,7 +78,7 @@ private struct LayerRow: View {
                 }
             }
             .frame(width: 44, height: 44)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm))
 
             Image(systemName: icon)
                 .font(.body)
@@ -96,7 +96,7 @@ private struct LayerRow: View {
 
             Button { onToggle() } label: {
                 Image(systemName: isVisible ? "eye" : "eye.slash")
-                    .foregroundStyle(isVisible ? Color.primary : Color.secondary)
+                    .foregroundStyle(isVisible ? AppTheme.Ink.primary : Color.secondary)
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }

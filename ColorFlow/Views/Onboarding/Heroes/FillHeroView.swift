@@ -11,7 +11,7 @@ struct FillHeroView: View {
         ZStack {
             // Outline region (rounded blob)
             BlobShape()
-                .stroke(AppTheme.textPrimary.opacity(0.35), lineWidth: 3)
+                .stroke(AppTheme.Ink.primary.opacity(0.35), lineWidth: 3)
                 .frame(width: 220, height: 220)
                 .glow(color: accent.opacity(0.35), radius: 18)
 

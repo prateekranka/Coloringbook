@@ -27,7 +27,7 @@ struct BrushSizeScrubber: View {
         ZStack(alignment: .bottom) {
             // Track
             Capsule()
-                .fill(.ultraThinMaterial)
+                .fill(.regularMaterial)
                 .frame(width: trackWidth, height: trackHeight)
                 .overlay(
                     Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1)
@@ -35,7 +35,7 @@ struct BrushSizeScrubber: View {
 
             // Filled portion bottom-up
             Capsule()
-                .fill(AppTheme.accent.opacity(0.65))
+                .fill(AppTheme.Brand.accent.opacity(0.65))
                 .frame(width: trackWidth, height: max(trackWidth, trackHeight * fraction))
 
             // Thumb
@@ -44,11 +44,11 @@ struct BrushSizeScrubber: View {
                 .overlay(alignment: .trailing) {
                     if isDragging {
                         Text("\(Int(size))pt")
-                            .font(AppTheme.Typography.capsuleLabel)
-                            .foregroundStyle(AppTheme.textPrimary)
+                            .font(Font.cfCaption)
+                            .foregroundStyle(AppTheme.Ink.primary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Capsule().fill(AppTheme.surface))
+                            .background(Capsule().fill(AppTheme.Surface.elevated))
                             .offset(x: 42)
                             .transition(.opacity)
                     }

@@ -7,7 +7,7 @@ struct PhotoImportProgressView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.background.ignoresSafeArea()
+            AppTheme.Surface.background.ignoresSafeArea()
 
             VStack(spacing: 32) {
                 Spacer()
@@ -15,7 +15,7 @@ struct PhotoImportProgressView: View {
                 // Animated icon
                 Image(systemName: "wand.and.stars")
                     .font(.system(size: 56))
-                    .foregroundStyle(AppTheme.accent)
+                    .foregroundStyle(AppTheme.Brand.accent)
                     .symbolEffect(.pulse)
 
                 // Stage labels
@@ -24,19 +24,19 @@ struct PhotoImportProgressView: View {
                         StageRow(stage: s, currentStage: stage)
                     }
                 }
-                .padding(.horizontal, AppTheme.screenPadding * 2)
+                .padding(.horizontal, AppTheme.Spacing.xl * 2)
 
                 // Progress bar
                 ProgressView(value: stage.progress)
                     .progressViewStyle(.linear)
-                    .tint(AppTheme.accent)
-                    .padding(.horizontal, AppTheme.screenPadding * 2)
+                    .tint(AppTheme.Brand.accent)
+                    .padding(.horizontal, AppTheme.Spacing.xl * 2)
 
                 Spacer()
 
                 Button("Cancel", action: onCancel)
                     .buttonStyle(.bordered)
-                    .tint(AppTheme.textSecondary)
+                    .tint(AppTheme.Ink.secondary)
                     .padding(.bottom, 32)
                     .accessibilityIdentifier("photoImport.cancel")
             }
@@ -67,19 +67,19 @@ private struct StageRow: View {
                         .foregroundStyle(.green)
                 case .active:
                     ProgressView()
-                        .tint(AppTheme.accent)
+                        .tint(AppTheme.Brand.accent)
                         .scaleEffect(0.8)
                         .frame(width: 20, height: 20)
                 case .pending:
                     Image(systemName: "circle")
-                        .foregroundStyle(AppTheme.textSecondary.opacity(0.4))
+                        .foregroundStyle(AppTheme.Ink.secondary.opacity(0.4))
                 }
             }
             .frame(width: 20, height: 20)
 
             Text(stage.label)
                 .font(.subheadline)
-                .foregroundStyle(status == .pending ? AppTheme.textSecondary.opacity(0.5) : AppTheme.textPrimary)
+                .foregroundStyle(status == .pending ? AppTheme.Ink.secondary.opacity(0.5) : AppTheme.Ink.primary)
 
             Spacer()
         }

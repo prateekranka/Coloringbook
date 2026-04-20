@@ -48,10 +48,10 @@ enum DrawingTool: String, CaseIterable, Identifiable {
 }
 
 struct BrushSettings {
-    var tool: DrawingTool = .pencil
+    var tool: DrawingTool = .floodFill
     var size: CGFloat = 6.0
     var opacity: Double = 1.0
-    var color: Color = AppTheme.accent
+    var color: Color = AppTheme.Brand.accent
 
     static let sizeRange: ClosedRange<CGFloat> = 1...50
 }

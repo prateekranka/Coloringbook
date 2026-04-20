@@ -32,7 +32,7 @@ enum WheelGeometry {
     /// Swatch radius per ring, relative to outer radius.
     private static let ringSwatchRadii: [CGFloat] = [0.16, 0.14, 0.13, 0.135]
     /// Count of swatches per ring. Ring 0 = single center swatch.
-    private static let ringCounts: [Int] = [1, 6, 12, 12]
+    private static let ringCounts: [Int] = [2, 6, 12, 12]
 
     static func slots(for mode: FlowerMode, in size: CGSize) -> [SwatchSlot] {
         let outerRadius = min(size.width, size.height) / 2
@@ -76,7 +76,9 @@ enum WheelGeometry {
     }
 
     private static func spectrumColor(ring: Int, angleIndex: Int, totalInRing: Int) -> Color {
-        if ring == 0 { return .white }
+        if ring == 0 {
+            return angleIndex == 0 ? .white : .black
+        }
         let hue = Double(angleIndex) / Double(totalInRing)
         // Saturation increases outward, brightness decreases subtly at ring 3.
         let (s, b): (Double, Double) = {

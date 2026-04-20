@@ -49,7 +49,7 @@ struct GalleryView: View {
         VStack(spacing: 20) {
             Image(systemName: "paintpalette")
                 .font(.system(size: 64))
-                .foregroundStyle(Color.accentColor.opacity(0.6))
+                .foregroundStyle(AppTheme.Brand.accent.opacity(0.6))
             Text("Start Coloring")
                 .font(.title2.bold())
             Text("Pick a template and bring it to life.")
@@ -75,7 +75,7 @@ private struct ProjectCell: View {
         Button(action: onOpen) {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: AppTheme.Radius.md)
                         .fill(Color.secondary.opacity(0.1))
                         .aspectRatio(1, contentMode: .fit)
 
@@ -83,7 +83,7 @@ private struct ProjectCell: View {
                         Image(uiImage: thumb)
                             .resizable()
                             .scaledToFill()
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
                     } else {
                         Image(systemName: "paintpalette")
                             .font(.largeTitle)

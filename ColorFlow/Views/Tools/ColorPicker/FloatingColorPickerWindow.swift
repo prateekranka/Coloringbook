@@ -44,6 +44,7 @@ struct FloatingColorPickerWindow: View {
                     offsetFractionY = Double(clamped.height / max(geo.size.height, 1))
                 }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("picker.floating")
     }
 
@@ -83,13 +84,13 @@ struct FloatingColorPickerWindow: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(.regularMaterial)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
-        .shadow(color: AppTheme.accent.opacity(0.28), radius: 24, x: 0, y: 12)
+        .shadow(color: AppTheme.Brand.accent.opacity(0.28), radius: 24, x: 0, y: 12)
         .onDisappear { commitRecent() }
     }
 
@@ -97,16 +98,9 @@ struct FloatingColorPickerWindow: View {
 
     private var header: some View {
         HStack {
-            // Swatch preview that also confirms the current selection.
-            Circle()
-                .fill(selectedColor)
-                .frame(width: 20, height: 20)
-                .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
-                .glow(color: selectedColor.opacity(0.5), radius: 6)
-
             Text("Color")
-                .font(AppTheme.Typography.capsuleLabel)
-                .foregroundStyle(AppTheme.textPrimary)
+                .font(Font.cfCaption)
+                .foregroundStyle(AppTheme.Ink.primary)
 
             Spacer()
 
@@ -118,9 +112,9 @@ struct FloatingColorPickerWindow: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(AppTheme.textPrimary)
+                    .foregroundStyle(AppTheme.Ink.primary)
                     .frame(width: 30, height: 30)
-                    .background(Circle().fill(AppTheme.surface))
+                    .background(Circle().fill(AppTheme.Surface.background))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Close color picker")
@@ -136,22 +130,17 @@ struct FloatingColorPickerWindow: View {
 
     private var modeSwitch: some View {
         HStack(spacing: 10) {
-            modeChip(label: "Spectrum", system: "circle.hexagongrid", active: mode == .spectrum) {
-                withAnimation(AppTheme.Motion.pageTransition) {
-                    mode = .spectrum
-                }
-            }
-
             Button {
-                showPaletteMenu = true
+                showPaletteMenu.toggle()
             } label: {
-                modePill(system: "drop.fill",
-                         label: activePaletteName ?? "Palette",
-                         active: isPaletteMode)
+                modePill(system: mode == .spectrum ? "circle.hexagongrid" : "drop.fill",
+                         label: mode == .spectrum ? "Default" : (activePaletteName ?? "Palette"),
+                         active: true)
             }
             .buttonStyle(.plain)
+            .contentShape(Capsule())
             .accessibilityIdentifier("picker.mode.palette")
-            .popover(isPresented: $showPaletteMenu, arrowEdge: .top) {
+            .popover(isPresented: $showPaletteMenu, attachmentAnchor: .point(.bottom), arrowEdge: .top) {
                 paletteList
                     .presentationCompactAdaptation(.popover)
             }
@@ -161,30 +150,49 @@ struct FloatingColorPickerWindow: View {
         .padding(.horizontal, 18)
     }
 
-    private func modeChip(label: String, system: String, active: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            modePill(system: system, label: label, active: active)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("picker.mode.\(label.lowercased())")
-    }
-
     private func modePill(system: String, label: String, active: Bool) -> some View {
         HStack(spacing: 6) {
             Image(systemName: system)
             Text(label)
         }
-        .font(AppTheme.Typography.capsuleLabel)
-        .foregroundStyle(active ? AppTheme.textPrimary : AppTheme.textSecondary)
+        .font(Font.cfCaption)
+        .foregroundStyle(active ? AppTheme.Ink.primary : AppTheme.Ink.secondary)
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(
-            Capsule().fill(active ? AppTheme.accent.opacity(0.22) : AppTheme.surface.opacity(0.6))
+            Capsule().fill(active ? AppTheme.Brand.accentSubtle : AppTheme.Surface.elevated.opacity(0.6))
         )
     }
 
     private var paletteList: some View {
         VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(AppTheme.Motion.pageTransition) {
+                    mode = .spectrum
+                }
+                showPaletteMenu = false
+            } label: {
+                HStack {
+                    Image(systemName: "circle.hexagongrid")
+                    Text("Default")
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppTheme.Ink.primary)
+                    Spacer()
+                    if mode == .spectrum {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(AppTheme.Brand.accent)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("picker.palette.default")
+
+            Divider().padding(.horizontal, 8)
+
             ForEach(palettes) { p in
                 Button {
                     withAnimation(AppTheme.Motion.pageTransition) {
@@ -195,7 +203,7 @@ struct FloatingColorPickerWindow: View {
                     HStack {
                         Text(p.name)
                             .font(.system(size: 14))
-                            .foregroundStyle(AppTheme.textPrimary)
+                            .foregroundStyle(AppTheme.Ink.primary)
                         Spacer()
                     }
                     .padding(.horizontal, 14)
@@ -207,7 +215,7 @@ struct FloatingColorPickerWindow: View {
             }
         }
         .frame(minWidth: 180)
-        .background(AppTheme.surface)
+        .background(AppTheme.Surface.background)
     }
 
     private var isPaletteMode: Bool {
@@ -225,8 +233,8 @@ struct FloatingColorPickerWindow: View {
     private var recentRow: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Recent")
-                .font(AppTheme.Typography.capsuleLabel)
-                .foregroundStyle(AppTheme.textSecondary)
+                .font(Font.cfCaption)
+                .foregroundStyle(AppTheme.Ink.secondary)
                 .padding(.horizontal, 18)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -241,15 +249,13 @@ struct FloatingColorPickerWindow: View {
                         } label: {
                             Circle()
                                 .fill(c)
-                                .frame(width: 28, height: 28)
-                                .overlay(
-                                    Circle().stroke(
-                                        UIColor(c).hexString == UIColor(selectedColor).hexString
-                                            ? Color.white
-                                            : Color.white.opacity(0.1),
-                                        lineWidth: 2
-                                    )
+                                .strokeBorder(
+                                    UIColor(c).hexString == UIColor(selectedColor).hexString
+                                        ? Color.white
+                                        : .clear,
+                                    lineWidth: 2
                                 )
+                                .frame(width: 28, height: 28)
                                 .glow(color: c.opacity(0.5), radius: 6)
                         }
                         .buttonStyle(.plain)

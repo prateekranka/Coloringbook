@@ -10,7 +10,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppTheme.background.ignoresSafeArea()
+                AppTheme.Surface.background.ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 28) {
@@ -38,23 +38,23 @@ struct HomeView: View {
 
     private var heroPlaceholder: some View {
         ZStack(alignment: .bottomLeading) {
-            RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
-                .fill(AppTheme.surface)
+            RoundedRectangle(cornerRadius: AppTheme.Radius.md)
+                .fill(AppTheme.Surface.elevated)
                 .frame(maxWidth: .infinity)
                 .frame(height: 220)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Start Coloring")
                     .font(.title2.bold())
-                    .foregroundStyle(AppTheme.textPrimary)
+                    .foregroundStyle(AppTheme.Ink.primary)
                 Text("Pick a template and bring it to life.")
                     .font(.subheadline)
-                    .foregroundStyle(AppTheme.textSecondary)
+                    .foregroundStyle(AppTheme.Ink.secondary)
 
                 HStack(spacing: 10) {
                     Button("Browse Templates") { showTemplateLibrary = true }
                         .buttonStyle(.borderedProminent)
-                        .tint(AppTheme.accent)
+                        .tint(AppTheme.Brand.accent)
                         .accessibilityIdentifier("home.browseTemplates")
 
                     Button {
@@ -63,14 +63,14 @@ struct HomeView: View {
                         Label("From Photo", systemImage: "camera.fill")
                     }
                     .buttonStyle(.bordered)
-                    .tint(AppTheme.accent)
+                    .tint(AppTheme.Brand.accent)
                     .accessibilityIdentifier("home.createFromPhoto")
                 }
                 .padding(.top, 4)
             }
             .padding(20)
         }
-        .padding(.horizontal, AppTheme.screenPadding)
+        .padding(.horizontal, AppTheme.Spacing.xl)
         .padding(.top, 12)
     }
 
@@ -79,13 +79,13 @@ struct HomeView: View {
     private var recentWorkSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "My Recent Work")
-                .padding(.horizontal, AppTheme.screenPadding)
+                .padding(.horizontal, AppTheme.Spacing.xl)
 
             if galleryViewModel.projects.isEmpty {
                 Text("No projects yet — start coloring!")
                     .font(.subheadline)
-                    .foregroundStyle(AppTheme.textSecondary)
-                    .padding(.horizontal, AppTheme.screenPadding)
+                    .foregroundStyle(AppTheme.Ink.secondary)
+                    .padding(.horizontal, AppTheme.Spacing.xl)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -95,7 +95,7 @@ struct HomeView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, AppTheme.screenPadding)
+                    .padding(.horizontal, AppTheme.Spacing.xl)
                 }
             }
         }
@@ -106,7 +106,7 @@ struct HomeView: View {
     private var suggestionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "Suggested For You")
-                .padding(.horizontal, AppTheme.screenPadding)
+                .padding(.horizontal, AppTheme.Spacing.xl)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
@@ -116,7 +116,7 @@ struct HomeView: View {
                         }
                     }
                 }
-                .padding(.horizontal, AppTheme.screenPadding)
+                .padding(.horizontal, AppTheme.Spacing.xl)
             }
         }
     }
@@ -128,12 +128,12 @@ struct HomeView: View {
         ToolbarItem(placement: .principal) {
             Text("ColorFlow")
                 .font(.headline)
-                .foregroundStyle(AppTheme.textPrimary)
+                .foregroundStyle(AppTheme.Ink.primary)
         }
         ToolbarItem(placement: .primaryAction) {
             Button { showTemplateLibrary = true } label: {
                 Image(systemName: "plus.circle.fill")
-                    .foregroundStyle(AppTheme.accent)
+                    .foregroundStyle(AppTheme.Brand.accent)
                     .font(.title3)
             }
             .accessibilityLabel("Browse templates")
@@ -149,7 +149,7 @@ struct SectionHeader: View {
     var body: some View {
         Text(title)
             .font(.title3.bold())
-            .foregroundStyle(AppTheme.textPrimary)
+            .foregroundStyle(AppTheme.Ink.primary)
     }
 }
 
@@ -169,25 +169,25 @@ private struct RecentWorkCell: View {
                             .resizable()
                             .scaledToFill()
                     } else {
-                        RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
+                        RoundedRectangle(cornerRadius: AppTheme.Radius.md)
                             .fill(Color.white.opacity(0.08))
                             .overlay {
                                 Image(systemName: "photo")
-                                    .foregroundStyle(AppTheme.textSecondary)
+                                    .foregroundStyle(AppTheme.Ink.secondary)
                             }
                     }
                 }
                 .frame(width: 140, height: 140)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
                 .background(
-                    RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
+                    RoundedRectangle(cornerRadius: AppTheme.Radius.md)
                         .fill(Color.white)
                 )
 
                 // Restart badge
                 Image(systemName: "arrow.counterclockwise.circle.fill")
                     .font(.title3)
-                    .foregroundStyle(AppTheme.surface)
+                    .foregroundStyle(AppTheme.Surface.elevated)
                     .background(Circle().fill(Color.white).padding(2))
                     .padding(6)
             }
@@ -223,7 +223,7 @@ private struct SuggestedTemplateCell: View {
     var body: some View {
         Button(action: onTap) {
             ZStack {
-                RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
+                RoundedRectangle(cornerRadius: AppTheme.Radius.md)
                     .fill(Color.white)
                     .frame(width: 140, height: 140)
 
@@ -233,11 +233,11 @@ private struct SuggestedTemplateCell: View {
                         .scaledToFit()
                         .padding(8)
                         .frame(width: 140, height: 140)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius))
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
                 } else {
                     Image(systemName: template.category.systemImageName)
                         .font(.largeTitle)
-                        .foregroundStyle(AppTheme.accent.opacity(0.5))
+                        .foregroundStyle(AppTheme.Brand.accent.opacity(0.5))
                 }
             }
         }

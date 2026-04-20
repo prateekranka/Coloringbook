@@ -16,7 +16,7 @@ struct StylePresetPickerView: View {
                     }
                 }
             }
-            .padding(.horizontal, AppTheme.screenPadding)
+            .padding(.horizontal, AppTheme.Spacing.xl)
             .padding(.vertical, 4)
         }
     }
@@ -41,7 +41,7 @@ private struct PresetChip: View {
 
                 Text(preset.description)
                     .font(.caption2)
-                    .foregroundStyle(isSelected ? AppTheme.textPrimary.opacity(0.8) : AppTheme.textSecondary)
+                    .foregroundStyle(isSelected ? AppTheme.Ink.primary.opacity(0.8) : AppTheme.Ink.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .frame(width: 100)
@@ -50,17 +50,17 @@ private struct PresetChip: View {
             .padding(.horizontal, 8)
             .frame(width: 120)
             .background(
-                RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
-                    .fill(isSelected ? AppTheme.accent.opacity(0.2) : AppTheme.surface)
+                RoundedRectangle(cornerRadius: AppTheme.Radius.md)
+                    .fill(isSelected ? AppTheme.Brand.accentSubtle : AppTheme.Surface.elevated)
                     .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
+                        RoundedRectangle(cornerRadius: AppTheme.Radius.md)
                             .strokeBorder(
-                                isSelected ? AppTheme.accent : Color.clear,
+                                isSelected ? AppTheme.Brand.accent : Color.clear,
                                 lineWidth: 1.5
                             )
                     )
             )
-            .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.textSecondary)
+            .foregroundStyle(isSelected ? AppTheme.Brand.accent : AppTheme.Ink.secondary)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(preset.rawValue) style: \(preset.description)")

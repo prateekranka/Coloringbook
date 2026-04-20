@@ -56,7 +56,7 @@ private struct CardTile: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 18)
-            .fill(AppTheme.surface)
+            .fill(AppTheme.Surface.elevated)
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)

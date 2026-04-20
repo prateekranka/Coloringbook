@@ -122,21 +122,21 @@ private struct TemplateThumbnailCell: View {
         Button(action: onSelect) {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.white)
+                    RoundedRectangle(cornerRadius: AppTheme.Radius.md)
+                        .fill(AppTheme.Surface.canvas)
                         .aspectRatio(1, contentMode: .fit)
-                        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+                        .shadow(color: AppTheme.Surface.scrim, radius: AppTheme.Spacing.xxs, y: 2)
 
                     if let thumb = thumbnail {
                         Image(uiImage: thumb)
                             .resizable()
                             .scaledToFit()
                             .padding(10)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+.clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
                     } else {
                         Image(systemName: template.category.systemImageName)
                             .font(.largeTitle)
-                            .foregroundStyle(Color.gray.opacity(0.4))
+                            .foregroundStyle(AppTheme.Ink.tertiary.opacity(0.4))
                     }
 
                     // Difficulty badge
@@ -214,12 +214,12 @@ private struct UserTemplateThumbnailCell: View {
                         } else {
                             Image(systemName: "wand.and.stars")
                                 .font(.largeTitle)
-                                .foregroundStyle(Color.purple.opacity(0.4))
+                                .foregroundStyle(AppTheme.Brand.accent.opacity(0.4))
                         }
                     }
                     .frame(width: 140, height: 140)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .background(Color.white.clipShape(RoundedRectangle(cornerRadius: 12)))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
+                    .background(AppTheme.Surface.canvas.clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md)))
                     .shadow(color: .black.opacity(0.1), radius: 3, y: 1)
 
                     // Delete button
@@ -277,6 +277,6 @@ private struct DifficultyBadge: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
             .background(color.opacity(0.85), in: Capsule())
-            .foregroundStyle(.white)
+            .foregroundStyle(AppTheme.Brand.onAccent)
     }
 }

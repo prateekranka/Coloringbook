@@ -37,9 +37,8 @@ struct OnboardingView: View {
                     .padding(.horizontal, 40)
                     .padding(.bottom, 48)
             }
-            .padding(.horizontal, AppTheme.screenPadding)
+            .padding(.horizontal, AppTheme.Spacing.xl)
         }
-        .preferredColorScheme(.dark)
         .sensoryFeedback(.selection, trigger: currentIndex)
         .gesture(pageDrag)
     }
@@ -48,7 +47,7 @@ struct OnboardingView: View {
 
     private var backgroundLayer: some View {
         ZStack {
-            AppTheme.background
+            AppTheme.Surface.background
                 .ignoresSafeArea()
 
             // A subtle gradient tinted by the current step's accent.
@@ -70,12 +69,12 @@ struct OnboardingView: View {
                 dismiss()
             } label: {
                 Text("Skip")
-                    .font(AppTheme.Typography.capsuleLabel)
-                    .foregroundStyle(AppTheme.textSecondary)
+                    .font(Font.cfCaption)
+                    .foregroundStyle(AppTheme.Ink.secondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(
-                        Capsule().fill(AppTheme.surface.opacity(0.6))
+                        Capsule().fill(.regularMaterial)
                     )
             }
             .opacity(currentIndex == steps.count - 1 ? 0 : 1)
@@ -97,15 +96,15 @@ struct OnboardingView: View {
 
             VStack(spacing: 14) {
                 Text(currentStep.title)
-                    .font(AppTheme.Typography.heroTitle)
-                    .foregroundStyle(AppTheme.textPrimary)
+                    .font(Font.cfDisplayHero)
+                    .foregroundStyle(AppTheme.Ink.primary)
                     .multilineTextAlignment(.center)
                     .contentTransition(.opacity)
                     .id("title-\(currentStep.id)")
 
                 Text(currentStep.body)
-                    .font(AppTheme.Typography.heroBody)
-                    .foregroundStyle(AppTheme.textSecondary)
+                    .font(Font.cfBody)
+                    .foregroundStyle(AppTheme.Ink.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
                     .id("body-\(currentStep.id)")
@@ -131,23 +130,23 @@ struct OnboardingView: View {
         } label: {
             Text(currentStep.ctaLabel)
                 .font(.system(size: 17, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(AppTheme.Brand.onAccent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [currentStep.accent, currentStep.accent.opacity(0.75)],
+                                colors: [AppTheme.Brand.accent, AppTheme.Brand.accentPressed],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
                 )
                 .overlay(
-                    Capsule().stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    Capsule().stroke(AppTheme.Brand.onAccent.opacity(0.15), lineWidth: 1)
                 )
-                .shadow(color: currentStep.accent.opacity(0.45), radius: 18, x: 0, y: 10)
+                .shadow(color: AppTheme.Brand.accent.opacity(0.45), radius: 18, x: 0, y: 10)
                 .contentTransition(.opacity)
         }
         .buttonStyle(.plain)

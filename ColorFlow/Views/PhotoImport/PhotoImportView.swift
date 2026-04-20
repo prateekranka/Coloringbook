@@ -19,7 +19,7 @@ struct PhotoImportView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppTheme.background.ignoresSafeArea()
+                AppTheme.Surface.background.ignoresSafeArea()
 
                 // Progress overlay covers the entire sheet while running.
                 if case .processing(let stage) = viewModel.viewState {
@@ -104,8 +104,8 @@ struct PhotoImportView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Choose a photo to turn into a coloring template")
                 .font(.subheadline)
-                .foregroundStyle(AppTheme.textSecondary)
-                .padding(.horizontal, AppTheme.screenPadding)
+                .foregroundStyle(AppTheme.Ink.secondary)
+                .padding(.horizontal, AppTheme.Spacing.xl)
                 .padding(.top, 16)
 
             HStack(spacing: 12) {
@@ -124,7 +124,7 @@ struct PhotoImportView: View {
                 }
                 .accessibilityIdentifier("photoImport.camera")
             }
-            .padding(.horizontal, AppTheme.screenPadding)
+            .padding(.horizontal, AppTheme.Spacing.xl)
         }
     }
 
@@ -137,8 +137,8 @@ struct PhotoImportView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius))
-        .foregroundStyle(AppTheme.textPrimary)
+        .background(AppTheme.Surface.elevated, in: RoundedRectangle(cornerRadius: AppTheme.Radius.md))
+        .foregroundStyle(AppTheme.Ink.primary)
     }
 
     // MARK: - Validation feedback
@@ -148,19 +148,19 @@ struct PhotoImportView: View {
         switch viewModel.viewState {
         case .prevalidationFailed(let result):
             ValidationBanner(result: result, isBlocking: true) {}
-                .padding(.horizontal, AppTheme.screenPadding)
+                .padding(.horizontal, AppTheme.Spacing.xl)
 
         case .prevalidationWarning(let result):
             ValidationBanner(result: result, isBlocking: false) {
                 viewModel.proceedDespiteWarning()
             }
-            .padding(.horizontal, AppTheme.screenPadding)
+            .padding(.horizontal, AppTheme.Spacing.xl)
 
         case .failed(let error):
             Text(error.localizedDescription ?? "An error occurred.")
                 .font(.subheadline)
                 .foregroundStyle(.red)
-                .padding(.horizontal, AppTheme.screenPadding)
+                .padding(.horizontal, AppTheme.Spacing.xl)
 
         default:
             EmptyView()
@@ -173,15 +173,15 @@ struct PhotoImportView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Selected Photo")
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(AppTheme.textSecondary)
-                .padding(.horizontal, AppTheme.screenPadding)
+                .foregroundStyle(AppTheme.Ink.secondary)
+                .padding(.horizontal, AppTheme.Spacing.xl)
 
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()
                 .frame(maxHeight: 300)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius))
-                .padding(.horizontal, AppTheme.screenPadding)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
+                .padding(.horizontal, AppTheme.Spacing.xl)
         }
     }
 
@@ -191,8 +191,8 @@ struct PhotoImportView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Choose a Style")
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(AppTheme.textSecondary)
-                .padding(.horizontal, AppTheme.screenPadding)
+                .foregroundStyle(AppTheme.Ink.secondary)
+                .padding(.horizontal, AppTheme.Spacing.xl)
 
             StylePresetPickerView(selectedPreset: $viewModel.selectedPreset)
 
@@ -203,11 +203,11 @@ struct PhotoImportView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(AppTheme.accent, in: RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius))
-                    .foregroundStyle(.white)
+                    .background(AppTheme.Brand.accent, in: RoundedRectangle(cornerRadius: AppTheme.Radius.md))
+                    .foregroundStyle(AppTheme.Brand.onAccent)
             }
             .disabled(!viewModel.canStartPipeline)
-            .padding(.horizontal, AppTheme.screenPadding)
+            .padding(.horizontal, AppTheme.Spacing.xl)
             .accessibilityIdentifier("photoImport.createTemplate")
         }
     }
@@ -218,7 +218,7 @@ struct PhotoImportView: View {
     private var closeButton: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
             Button("Close") { dismiss() }
-                .foregroundStyle(AppTheme.textSecondary)
+                .foregroundStyle(AppTheme.Ink.secondary)
                 .accessibilityIdentifier("photoImport.close")
         }
     }
@@ -275,12 +275,12 @@ private struct ValidationBanner: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(message)
                     .font(.subheadline)
-                    .foregroundStyle(AppTheme.textPrimary)
+                    .foregroundStyle(AppTheme.Ink.primary)
 
                 if !isBlocking {
                     Button("Continue anyway") { onDismiss() }
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(AppTheme.accent)
+                        .foregroundStyle(AppTheme.Brand.accent)
                 }
             }
 

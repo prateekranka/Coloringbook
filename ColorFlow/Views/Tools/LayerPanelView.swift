@@ -36,6 +36,7 @@ struct LayerPanelView: View {
                     Image(systemName: "square.fill")
                         .font(.title3)
                         .foregroundStyle(viewModel.backgroundColor)
+                        .accessibilityLabel("Background color")
                     Text("Background")
                     Spacer()
                     ColorPicker("", selection: $viewModel.backgroundColor)
@@ -92,6 +93,7 @@ private struct LayerRow: View {
                 Image(systemName: "lock.fill")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .accessibilityLabel("Locked")
             }
 
             Button { onToggle() } label: {

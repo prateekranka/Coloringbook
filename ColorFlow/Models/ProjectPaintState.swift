@@ -9,12 +9,5 @@ struct ProjectPaintState: Codable {
     /// PencilKit freehand drawing data (PKDrawing serialized)
     var freehandDrawingData: Data?
 
-    /// Currently selected region ID (transient — not persisted)
-    var selectedRegionID: String?
-
-    enum CodingKeys: String, CodingKey {
-        case regionFills
-        case freehandDrawingData
-        // selectedRegionID is intentionally excluded — it's transient
-    }
+    
 }

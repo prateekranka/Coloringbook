@@ -1,6 +1,6 @@
 import XCTest
 
-@MainActor
+
 final class DeepColoristTests: XCTestCase {
     
     private var harness: PersonaHarness!
@@ -9,22 +9,27 @@ final class DeepColoristTests: XCTestCase {
         try XCTSkipIf(!ProcessInfo.processInfo.arguments.contains("-personaRun"),
                       "Persona tests require -personaRun launch argument")
         continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launchArguments += ["-skipOnboarding", "-personaRun", "-personaSeed=deep-colorist"]
-        app.launch()
+        let app = MainActor.assumeIsolated { XCUIApplication() }
+        MainActor.assumeIsolated {
+            app.launchArguments += ["-skipOnboarding", "-personaRun", "-personaSeed=deep-colorist"]
+            app.launch()
+        }
         let udid = ProcessInfo.processInfo.environment["SIMULATOR_UDID"] ?? ""
-        harness = PersonaHarness(app: app, udid: udid)
+        harness = MainActor.assumeIsolated { PersonaHarness(app: app, udid: udid) }
     }
     
     override func tearDownWithError() throws {
-        harness?.captureDiagnostics(testCase: self)
+        MainActor.assumeIsolated {
+            harness?.captureDiagnostics(testCase: self)
+        }
         harness = nil
     }
     
+    @MainActor
     func test_longPencilSession() throws {
         try harness.tap(id: "canvas.tool.pencil")
         
-        let tree = try harness.describeUI()
+        let _ = try harness.describeUI()
         let steps: [PersonaHarness.BatchStep] = (0..<50).map { _ in
             let startX = Double.random(in: 100...700)
             let startY = Double.random(in: 100...700)

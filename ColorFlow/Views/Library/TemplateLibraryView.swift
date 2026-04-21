@@ -90,7 +90,7 @@ struct TemplateLibraryView: View {
             .padding(.horizontal)
             .padding(.top, 16)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 12) {
                     ForEach(viewModel.userTemplates) { userTemplate in
                         UserTemplateThumbnailCell(userTemplate: userTemplate) {
@@ -103,6 +103,7 @@ struct TemplateLibraryView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 8)
             }
+            .scrollIndicators(.hidden)
 
             Divider()
                 .padding(.horizontal)

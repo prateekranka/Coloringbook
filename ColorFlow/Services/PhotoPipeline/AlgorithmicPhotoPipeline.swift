@@ -84,14 +84,13 @@ final class AlgorithmicPhotoPipeline: PhotoPipelineService, @unchecked Sendable 
 
             // Edge detection: neural for Artistic, XDoG for all other presets.
             let edges: UIImage
-            var modelUnavailableError: PhotoPipelineError? = nil
+
             if preset == .artistic {
                 switch NeuralEdgeDetector.detect(segmented) {
                 case .success(let img):
                     edges = img
-                case .fallback(let img, let err):
+                case .fallback(let img, _):
                     edges = img
-                    modelUnavailableError = err  // surface to caller after success
                 }
             } else {
                 edges = XDoGEdgeDetector.detect(segmented, params: params.xdog)
@@ -145,7 +144,7 @@ final class AlgorithmicPhotoPipeline: PhotoPipelineService, @unchecked Sendable 
             case .success(let g):
                 geometry = g
             case .failure(let e):
-                return .failure(.svgAssemblyFailed("Produced SVG failed parser parity check: \(e.localizedDescription ?? "\(e)")"))
+                return .failure(.svgAssemblyFailed("Produced SVG failed parser parity check: \(e.localizedDescription)"))
             }
 
             // Persist and return the user template

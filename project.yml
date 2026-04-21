@@ -132,6 +132,7 @@ targets:
         DEVELOPMENT_TEAM: Y4QMMY38ZN
         CODE_SIGN_STYLE: Automatic
         TEST_TARGET_NAME: ColorFlow
+        SWIFT_STRICT_CONCURRENCY: minimal
 
 schemes:
   ColorFlow:

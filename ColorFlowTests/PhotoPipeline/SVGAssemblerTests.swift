@@ -61,7 +61,7 @@ final class SVGAssemblerTests: XCTestCase {
             XCTAssertGreaterThan(geo.viewBox.width, 0)
             XCTAssertGreaterThan(geo.viewBox.height, 0)
         case .failure(let error):
-            XCTFail("SVGParser rejected assembler output: \(error.localizedDescription ?? "\(error)")")
+            XCTFail("SVGParser rejected assembler output: \(error.localizedDescription)")
         }
     }
 

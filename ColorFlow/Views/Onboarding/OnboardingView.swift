@@ -143,9 +143,9 @@ struct OnboardingView: View {
                             )
                         )
                 )
-                .overlay(
+                .overlay {
                     Capsule().stroke(AppTheme.Brand.onAccent.opacity(0.15), lineWidth: 1)
-                )
+                }
                 .shadow(color: AppTheme.Brand.accent.opacity(0.45), radius: 18, x: 0, y: 10)
                 .contentTransition(.opacity)
         }

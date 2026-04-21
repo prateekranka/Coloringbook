@@ -6,7 +6,7 @@ struct ColorSwatch: Identifiable, Codable, Hashable {
     let hex: String
 
     var color: Color { Color(hex: hex) }
-    var uiColor: UIColor { UIColor(hex: hex) }
+    
 }
 
 struct ColorPalette: Identifiable, Codable {

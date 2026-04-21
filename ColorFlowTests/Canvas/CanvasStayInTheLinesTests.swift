@@ -22,8 +22,6 @@ final class CanvasStayInTheLinesTests: XCTestCase {
         geometry = nil
     }
 
-    // MARK: - StrokeClipper unit tests
-
     func test_strokeFullyInsideRegion_emitsOneStroke() throws {
         let region = try firstRegion()
         let interior = CanvasTestFixture.interiorPoint(of: region)
@@ -38,7 +36,7 @@ final class CanvasStayInTheLinesTests: XCTestCase {
 
         let result = StrokeClipper.clipStroke(stroke, using: geometry)
         XCTAssertEqual(result.count, 1, "Fully inside stroke should emit exactly one stroke")
-        XCTAssertTrue(result.allSatisfy { $0.path.count >= 2 }, "Each emitted stroke should have >= 2 points")
+        XCTAssertTrue(result.allSatisfy { $0.path.count >= 2 })
     }
 
     func test_strokeStartingOutsideRegion_isDropped() throws {
@@ -57,6 +55,37 @@ final class CanvasStayInTheLinesTests: XCTestCase {
         XCTAssertTrue(result.isEmpty, "Outside-start stroke should be dropped entirely")
     }
 
+    func test_strokeWithControlsInsideButSplineOutside_isClipped() throws {
+        let region = try firstRegion()
+        let bbox = region.bounds
+        let interior = CanvasTestFixture.interiorPoint(of: region)
+
+        let edgeInset = bbox.width * 0.05
+        let p1 = CGPoint(x: bbox.minX + edgeInset, y: interior.y)
+        let p2 = CGPoint(x: bbox.maxX - edgeInset, y: interior.y)
+
+        let tool = PKInkingTool(.marker, color: UIColor.red, width: 40)
+        let stroke = PKStrokeFactory.straightLine(
+            from: p1, to: p2, steps: 3, ink: tool.ink,
+            strokeSize: CGSize(width: 40, height: 40)
+        )
+
+        let result = StrokeClipper.clipStroke(stroke, using: geometry)
+        if !result.isEmpty {
+            for piece in result {
+                let samples = Array(piece.path)
+                let regionPath = region.path
+                let fillRule = region.fillRule
+                for s in samples {
+                    XCTAssertTrue(
+                        regionPath.contains(s.location, using: fillRule),
+                        "Interpolated sample at (\(s.location.x), \(s.location.y)) should be inside region"
+                    )
+                }
+            }
+        }
+    }
+
     func test_strokeCrossingBoundaryOnce_isTrimmedAtExit() throws {
         let region = try firstRegion()
         let interior = CanvasTestFixture.interiorPoint(of: region)
@@ -73,7 +102,7 @@ final class CanvasStayInTheLinesTests: XCTestCase {
         XCTAssertEqual(result.count, 1, "Stroke starting inside and exiting should emit one inside-run")
         let kept = result[0]
         XCTAssertTrue(kept.path.count < stroke.path.count,
-                       "Kept stroke should have fewer points than original (trimmed at exit)")
+                       "Kept stroke should have fewer points than original")
     }
 
     func test_strokeExitsAndReenters_emitsMultipleStrokes() throws {
@@ -133,7 +162,7 @@ final class CanvasStayInTheLinesTests: XCTestCase {
         XCTAssertTrue(result.count >= 1, "Re-entry should produce at least one inside-run")
     }
 
-    func test_strokeCrossingIntoSecondRegion_isClippedToFirst() throws {
+    func test_strokeStartingInRegionA_crossingIntoB_locksToA() throws {
         let regions = geometry.regions.sorted { $0.zIndex > $1.zIndex }
         guard regions.count >= 2 else {
             throw XCTSkip("Need at least 2 regions for cross-region test")
@@ -168,8 +197,6 @@ final class CanvasStayInTheLinesTests: XCTestCase {
         }, "Clipped segments should only contain points inside the first-entered region, not region B")
     }
 
-    // MARK: - CanvasSettings tests
-
     func test_settingPersistsAcrossInstances() {
         let key = "canvas.stayInTheLines"
 
@@ -186,8 +213,6 @@ final class CanvasStayInTheLinesTests: XCTestCase {
 
         UserDefaults.standard.removeObject(forKey: key)
     }
-
-    // MARK: - Helpers
 
     private func firstRegion() throws -> RegionGeometry {
         guard let region = geometry.regions.first else {

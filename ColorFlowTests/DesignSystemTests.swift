@@ -65,7 +65,6 @@ final class DesignSystemTests: XCTestCase {
     func test_strokeTokens_resolveToColors() {
         let _: Color = AppTheme.Stroke.hairline
         let _: Color = AppTheme.Stroke.swatchBorder
-        let _: Color = AppTheme.Stroke.previewBorder
     }
 
     func test_stateTokens_resolveToColors() {

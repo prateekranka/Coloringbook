@@ -24,14 +24,6 @@ enum Difficulty: String, Codable, CaseIterable {
     case easy = "Easy"
     case medium = "Medium"
     case hard = "Hard"
-
-    var color: String {
-        switch self {
-        case .easy: return "green"
-        case .medium: return "orange"
-        case .hard: return "red"
-        }
-    }
 }
 
 struct Template: Identifiable, Codable, Hashable {

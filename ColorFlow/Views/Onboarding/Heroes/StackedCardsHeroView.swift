@@ -57,10 +57,10 @@ private struct CardTile: View {
     var body: some View {
         RoundedRectangle(cornerRadius: 18)
             .fill(AppTheme.Surface.elevated)
-            .overlay(
+            .overlay {
                 RoundedRectangle(cornerRadius: 18)
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            )
+            }
             .overlay(alignment: .topLeading) {
                 // Mini artwork motif
                 VStack(alignment: .leading, spacing: 10) {

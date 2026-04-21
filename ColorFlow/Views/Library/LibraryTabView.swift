@@ -83,7 +83,7 @@ struct LibraryCategoryBar: View {
     let categories: [TemplateCategory]
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 0) {
                 CategoryTab(label: "All", isSelected: selectedCategory == nil) {
                     withAnimation(.easeInOut(duration: 0.18)) { selectedCategory = nil }
@@ -96,6 +96,7 @@ struct LibraryCategoryBar: View {
             }
             .padding(.horizontal, AppTheme.Spacing.xl)
         }
+        .scrollIndicators(.hidden)
         .background(AppTheme.Surface.background)
         .frame(height: 46)
     }

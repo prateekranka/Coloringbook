@@ -111,39 +111,4 @@ protocol PhotoPipelineService: AnyObject, Sendable {
     func cancel()
 }
 
-// MARK: - Stub implementation (replaced in C2)
 
-/// Stub that drives the UI through all four stages without real processing.
-/// Replaced by `AlgorithmicPhotoPipeline` in C2.
-final class StubPhotoPipeline: PhotoPipelineService, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _cancelled = false
-    private var cancelled: Bool {
-        lock.lock(); defer { lock.unlock() }
-        return _cancelled
-    }
-    private func setCancelled(_ v: Bool) {
-        lock.lock(); defer { lock.unlock() }
-        _cancelled = v
-    }
-
-    func run(
-        image: UIImage,
-        preset: PhotoStylePreset,
-        progressHandler: @escaping @Sendable (PhotoPipelineStage) -> Void
-    ) async -> Result<UserTemplate, PhotoPipelineError> {
-        setCancelled(false)
-        for stage in PhotoPipelineStage.allCases {
-            guard !cancelled else {
-                return .failure(.processingFailed("Cancelled"))
-            }
-            progressHandler(stage)
-            try? await Task.sleep(nanoseconds: 400_000_000) // 0.4s per stage
-        }
-        return .failure(.processingFailed("Stub pipeline — not yet implemented"))
-    }
-
-    func cancel() {
-        setCancelled(true)
-    }
-}

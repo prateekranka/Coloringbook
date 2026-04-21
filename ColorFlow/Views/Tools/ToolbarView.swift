@@ -35,6 +35,7 @@ struct ToolbarView: View {
                             .frame(width: AppTheme.Size.touchTarget, height: AppTheme.Size.touchTarget)
                             .foregroundStyle(AppTheme.Ink.primary)
                             .contentShape(Rectangle())
+                            .offset(x: -1)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Back to gallery")
@@ -108,6 +109,7 @@ struct ToolbarView: View {
                 showCanvasSettings = true
             } label: {
                 Image(systemName: "ellipsis")
+                    .offset(y: -1)
             }
             .toolbarButtonStyle()
             .accessibilityLabel("Canvas Settings")
@@ -123,7 +125,7 @@ struct ToolbarView: View {
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 6)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.Radius.lg))
         .padding(.leading, 12)
         .padding(.top, 12)
     }
@@ -148,13 +150,13 @@ struct ToolbarView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 16)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
                     .fill(.regularMaterial)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-            )
+            .overlay {
+                RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
+                    .stroke(AppTheme.Stroke.hairline, lineWidth: 1)
+            }
             .padding(.top, 12)
             .transition(.move(edge: .leading).combined(with: .opacity))
         }
@@ -186,12 +188,13 @@ private struct ColorWellButton: View {
             Circle()
                 .fill(color)
                 .frame(width: 32, height: 32)
-                .overlay(Circle().stroke(AppTheme.Ink.primary.opacity(0.25), lineWidth: 1.5))
+                .overlay { Circle().stroke(AppTheme.Stroke.swatchBorder, lineWidth: 1.5) }
                 .glow(color: color.opacity(0.5), radius: 6)
                 .padding(6)
                 .frame(width: AppTheme.Size.touchTarget, height: AppTheme.Size.touchTarget)
                 .contentShape(Rectangle())
         }
+        .buttonStyle(PressableButtonStyle())
         .accessibilityLabel("Selected color")
         .accessibilityHint("Opens the color picker")
         .accessibilityIdentifier("canvas.colorWell")
@@ -215,7 +218,7 @@ private struct ToolButton: View {
                 )
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
         .accessibilityLabel(tool.rawValue)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityIdentifier("canvas.tool.\(tool.rawValue.lowercased())")
@@ -248,8 +251,8 @@ private extension View {
     func toolbarButtonStyle() -> some View {
         self
             .font(.system(size: 18))
-            .frame(width: 40, height: 40)
-            .buttonStyle(.plain)
+            .frame(width: AppTheme.Size.touchTarget, height: AppTheme.Size.touchTarget)
+            .buttonStyle(PressableButtonStyle())
             .foregroundStyle(AppTheme.Ink.primary)
     }
 }

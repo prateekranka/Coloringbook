@@ -6,11 +6,15 @@ enum WorkFilter: String, CaseIterable {
     case completed  = "Completed"
 }
 
+struct ShareItem: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
 struct MyWorkView: View {
     @Environment(GalleryViewModel.self) var viewModel
     @State private var filter: WorkFilter = .all
-    @State private var shareImage: UIImage?
-    @State private var showShareSheet = false
+    @State private var shareItem: ShareItem?
 
     private let columns = [GridItem(.adaptive(minimum: 180), spacing: 14)]
 
@@ -36,10 +40,8 @@ struct MyWorkView: View {
                         .foregroundStyle(AppTheme.Ink.primary)
                 }
             }
-            .sheet(isPresented: $showShareSheet) {
-                if let img = shareImage {
-                    ShareSheet(image: img)
-                }
+            .sheet(item: $shareItem) {
+                ShareSheet(image: $0.image)
             }
         }
     }
@@ -137,8 +139,7 @@ struct MyWorkView: View {
                     } onDelete: {
                         viewModel.delete(project)
                     } onShare: { img in
-                        shareImage = img
-                        showShareSheet = true
+                        shareItem = ShareItem(image: img)
                     }
                 }
             }
@@ -160,8 +161,7 @@ struct MyWorkView: View {
                 .appendingPathComponent(latest.fillLayerPath)
             guard let data = try? Data(contentsOf: url),
                   let img = UIImage(data: data) else { return }
-            shareImage = img
-            showShareSheet = true
+            shareItem = ShareItem(image: img)
         }
     }
 
@@ -233,6 +233,7 @@ private struct ArtworkCard: View {
                 }
             }
         }
+        .accessibilityLabel("Artwork: \(project.templateName)")
         .accessibilityIdentifier("mywork.artwork.\(project.id.uuidString)")
         .task { thumbnail = await loadThumbnail() }
     }

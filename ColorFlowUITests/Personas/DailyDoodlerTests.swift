@@ -1,6 +1,6 @@
 import XCTest
 
-@MainActor
+
 final class DailyDoodlerTests: XCTestCase {
     
     private var harness: PersonaHarness!
@@ -9,18 +9,23 @@ final class DailyDoodlerTests: XCTestCase {
         try XCTSkipIf(!ProcessInfo.processInfo.arguments.contains("-personaRun"),
                       "Persona tests require -personaRun launch argument")
         continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launchArguments += ["-skipOnboarding", "-personaRun", "-personaSeed=daily-doodler"]
-        app.launch()
+        let app = MainActor.assumeIsolated { XCUIApplication() }
+        MainActor.assumeIsolated {
+            app.launchArguments += ["-skipOnboarding", "-personaRun", "-personaSeed=daily-doodler"]
+            app.launch()
+        }
         let udid = ProcessInfo.processInfo.environment["SIMULATOR_UDID"] ?? ""
-        harness = PersonaHarness(app: app, udid: udid)
+        harness = MainActor.assumeIsolated { PersonaHarness(app: app, udid: udid) }
     }
     
     override func tearDownWithError() throws {
-        harness?.captureDiagnostics(testCase: self)
+        MainActor.assumeIsolated {
+            harness?.captureDiagnostics(testCase: self)
+        }
         harness = nil
     }
     
+    @MainActor
     func test_shortSessions() throws {
         let sessionCount = 20
         

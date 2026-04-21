@@ -32,15 +32,16 @@ struct BrightnessStrip: View {
                     .background(Circle().fill(AppTheme.Surface.elevated))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Close")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(
             Capsule(style: .continuous).fill(.regularMaterial)
         )
-        .overlay(
+        .overlay {
             Capsule(style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
+        }
         .onAppear {
             let current: Color = color
             let (h, s, b) = current.hsb

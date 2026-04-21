@@ -23,8 +23,6 @@ final class CanvasViewModel {
     var showLineArt = true
     var showColorLayer = true
 
-    var selectedRegionID: String?
-
     var canvasSize: CGSize = .zero
 
     var effectiveTemplateImage: UIImage? { showLineArt ? templateImage : nil }
@@ -94,7 +92,7 @@ final class CanvasViewModel {
 
             let size = canvasSize
             let fills = paintState.regionFills
-            let lineArtColor = UIColor(AppTheme.Ink.lineArt)
+            let lineArtColor = UIColor.black
 
             async let lineArtTask = Task.detached(priority: .userInitiated) {
                 TemplateRenderer.renderLineArt(geometry: geometry, size: size, strokeColor: lineArtColor)
@@ -113,7 +111,7 @@ final class CanvasViewModel {
     func reloadLineArt() {
         guard let geometry = templateGeometry else { return }
         let size = canvasSize
-        let lineArtColor = UIColor(AppTheme.Ink.lineArt)
+        let lineArtColor = UIColor.black
 
         Task {
             let image = await Task.detached(priority: .userInitiated) {
@@ -157,17 +155,6 @@ final class CanvasViewModel {
         HapticService.shared.impact(.light)
         addRecentColor(brushSettings.color)
         scheduleAutoSave()
-    }
-
-    func selectRegion(atDocumentPoint docPoint: CGPoint) {
-        guard let geometry = templateGeometry else { return }
-        selectedRegionID = geometry.region(at: docPoint)?.id
-        paintState.selectedRegionID = selectedRegionID
-    }
-
-    func clearSelection() {
-        selectedRegionID = nil
-        paintState.selectedRegionID = nil
     }
 
     func pickColor(atDocumentPoint docPoint: CGPoint) {

@@ -102,7 +102,7 @@ final class PhotoPreValidatorTests: XCTestCase {
     // MARK: - Helpers
 
     private func makeImage(width: Int, height: Int, color: UIColor = .gray) -> UIImage {
-        var format = UIGraphicsImageRendererFormat.preferred()
+        let format = UIGraphicsImageRendererFormat.preferred()
         format.scale = 1.0
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format)
         return renderer.image { context in
@@ -112,7 +112,7 @@ final class PhotoPreValidatorTests: XCTestCase {
     }
 
     private func makeCheckerboard(size: Int, tileSize: Int) -> UIImage {
-        var format = UIGraphicsImageRendererFormat.preferred()
+        let format = UIGraphicsImageRendererFormat.preferred()
         format.scale = 1.0
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size), format: format)
         return renderer.image { context in

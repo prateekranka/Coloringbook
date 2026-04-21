@@ -98,7 +98,7 @@ struct PhotoImportView: View {
 
     // MARK: - Source section
 
-    @State private var photoPickerPresented = false
+    
 
     private var sourceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -128,13 +128,9 @@ struct PhotoImportView: View {
         }
     }
 
-    private func sourceButton(icon: String, label: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title3)
-            Text(label)
-                .font(.subheadline.weight(.medium))
-        }
+    nonisolated private func sourceButton(icon: String, label: String) -> some View {
+        Label(label, systemImage: icon)
+            .font(.subheadline.weight(.medium))
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
         .background(AppTheme.Surface.elevated, in: RoundedRectangle(cornerRadius: AppTheme.Radius.md))
@@ -157,7 +153,7 @@ struct PhotoImportView: View {
             .padding(.horizontal, AppTheme.Spacing.xl)
 
         case .failed(let error):
-            Text(error.localizedDescription ?? "An error occurred.")
+            Text(error.localizedDescription)
                 .font(.subheadline)
                 .foregroundStyle(.red)
                 .padding(.horizontal, AppTheme.Spacing.xl)
@@ -181,6 +177,7 @@ struct PhotoImportView: View {
                 .scaledToFit()
                 .frame(maxHeight: 300)
                 .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
+                .accessibilityLabel("Selected photo preview")
                 .padding(.horizontal, AppTheme.Spacing.xl)
         }
     }
@@ -271,6 +268,7 @@ private struct ValidationBanner: View {
             Image(systemName: isBlocking ? "xmark.circle.fill" : "exclamationmark.triangle.fill")
                 .foregroundStyle(isBlocking ? .red : .orange)
                 .font(.title3)
+                .accessibilityLabel(isBlocking ? "Error" : "Warning")
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(message)

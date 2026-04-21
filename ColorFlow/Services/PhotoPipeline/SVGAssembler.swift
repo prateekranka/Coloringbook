@@ -122,9 +122,9 @@ enum SVGAssembler {
     // MARK: - Helpers
 
     private static func xmlEscape(_ s: String) -> String {
-        s.replacingOccurrences(of: "&",  with: "&amp;")
-         .replacingOccurrences(of: "<",  with: "&lt;")
-         .replacingOccurrences(of: ">",  with: "&gt;")
-         .replacingOccurrences(of: "\"", with: "&quot;")
+        s.replacing(/&/,  with: "&amp;")
+         .replacing(/</,  with: "&lt;")
+         .replacing(/>/,  with: "&gt;")
+         .replacing(/"/,  with: "&quot;")
     }
 }

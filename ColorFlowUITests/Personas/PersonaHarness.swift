@@ -1,7 +1,6 @@
 import XCTest
 
-@MainActor
-final class PersonaHarness {
+final class PersonaHarness: @unchecked Sendable {
     let app: XCUIApplication
     let udid: String
     private let axePath = "/opt/homebrew/bin/axe"

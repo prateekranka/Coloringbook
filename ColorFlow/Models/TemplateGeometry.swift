@@ -1,9 +1,9 @@
 import Foundation
-import CoreGraphics
+@preconcurrency import CoreGraphics
 
 /// Immutable geometry for a fully parsed SVG coloring template.
 /// Contains all fillable regions and decorative paths.
-struct TemplateGeometry {
+struct TemplateGeometry: Sendable {
     let viewBox: CGRect
     let regions: [RegionGeometry]     // fillable regions (paths with IDs)
     let decorativePaths: [CGPath]     // non-fillable detail strokes (paths without IDs)

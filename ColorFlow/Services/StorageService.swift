@@ -12,7 +12,7 @@ class StorageService {
     // MARK: - URLs
 
     static var documentsURL: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        URL.documentsDirectory
     }
 
     private var projectsURL: URL {
@@ -50,11 +50,11 @@ class StorageService {
         fillLayer: UIImage?,
         templateImage: UIImage? = nil
     ) {
-        project.modifiedAt = Date()
+        project.modifiedAt = .now
         let snapshot = project
         let drawingData = drawing.dataRepresentation()
         let fillData = fillLayer?.pngData()
-        let drawingImage = drawing.image(from: drawing.bounds, scale: UIScreen.main.scale)
+        let drawingImage = drawing.image(from: drawing.bounds, scale: 2.0)
         let thumbnailData = Self.composeThumbnail(
             template: templateImage,
             fill: fillLayer,

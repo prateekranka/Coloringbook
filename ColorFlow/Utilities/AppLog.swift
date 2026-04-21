@@ -14,8 +14,6 @@ enum AppLog {
     static let app      = Logger(subsystem: subsystem, category: "App")
     static let template = Logger(subsystem: subsystem, category: "Template")
     static let canvas   = Logger(subsystem: subsystem, category: "Canvas")
-    static let storage  = Logger(subsystem: subsystem, category: "Storage")
-    static let svg      = Logger(subsystem: subsystem, category: "SVGParser")
 
     private static let subsystem = "com.colorflow.app"
 

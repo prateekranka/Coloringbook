@@ -24,6 +24,7 @@ final class UserTemplatePersistenceTests: XCTestCase {
         // Reload and re-save the index to remove our test entries.
         let remaining = storage.loadUserTemplates()
             .filter { !createdTemplateIDs.contains($0.id) }
+        _ = remaining
         // (Re-save is internal; just verify cleanup via loadUserTemplates.)
         super.tearDown()
     }

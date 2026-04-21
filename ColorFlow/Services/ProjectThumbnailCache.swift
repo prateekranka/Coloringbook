@@ -3,7 +3,7 @@ import UIKit
 /// Loads project thumbnails from disk with an in-memory cache keyed by project id.
 /// Prefers the composited thumbnail at `thumbnailPath`; falls back to the raw
 /// fill-layer PNG so projects saved before the thumbnail pass still display.
-final class ProjectThumbnailCache {
+final class ProjectThumbnailCache: @unchecked Sendable {
     static let shared = ProjectThumbnailCache()
 
     private let cache = NSCache<NSUUID, UIImage>()

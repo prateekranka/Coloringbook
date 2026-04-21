@@ -79,7 +79,7 @@ final class SVGCatalogParityTests: XCTestCase {
                     "\(url.lastPathComponent): parsed successfully but contains no regions or decorative paths"
                 )
             case .failure(let error):
-                failures.append((url.lastPathComponent, error.localizedDescription ?? "\(error)"))
+                failures.append((url.lastPathComponent, error.localizedDescription))
             }
         }
 
@@ -107,7 +107,7 @@ final class SVGCatalogParityTests: XCTestCase {
         }
 
         let bundleRoot = Bundle.main.resourceURL ?? URL(fileURLWithPath: "/dev/null")
-        let templatesDir = Bundle.main.url(forResource: "Templates", withExtension: nil)
+        let _ = Bundle.main.url(forResource: "Templates", withExtension: nil)
 
         for entry in templates {
             let filename = entry.svgFilename

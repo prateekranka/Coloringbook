@@ -92,6 +92,16 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         content.addGestureRecognizer(tap)
         coordinator.tapGesture = tap
 
+        let touchObserver = UILongPressGestureRecognizer(
+            target: coordinator,
+            action: #selector(Coordinator.handleStrokeBegin(_:))
+        )
+        touchObserver.minimumPressDuration = 0
+        touchObserver.cancelsTouchesInView = false
+        touchObserver.delaysTouchesBegan = false
+        touchObserver.delegate = coordinator
+        canvas.addGestureRecognizer(touchObserver)
+
         // Expose the PKCanvasView to the view model (weak ref).
         viewModel.pencilCanvas = canvas
 
@@ -129,7 +139,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         // ── Content size ────────────────────────────────────────────────────
         let size = viewModel.canvasSize
         if size != .zero && coordinator.contentContainer?.frame.size != size {
-            print("[Canvas] contentSize mismatch — setting \(size), zoomScale=\(scrollView.zoomScale)")
+            AppLog.trace(AppLog.canvas, "contentSize mismatch — setting \(size), zoomScale=\(scrollView.zoomScale)")
             coordinator.updateContentSize(size, in: scrollView)
         }
 
@@ -164,6 +174,8 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
         private var isRevertingDrawing = false
         private var lastAppliedContentSize: CGSize = .zero
         private var hasAppliedInitialFit = false
+        private let regionMaskLayer = CAShapeLayer()
+        private var lockedRegionID: String? = nil
 
         init(_ parent: PencilCanvasRepresentable) {
             self.parent = parent
@@ -203,6 +215,11 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
             lineArtImageView.isUserInteractionEnabled = false
             lineArtImageView.layer.compositingFilter = "multiplyBlendMode"
             container.addSubview(lineArtImageView)
+
+            regionMaskLayer.frame = canvas.bounds
+            regionMaskLayer.path = CGPath(rect: canvas.bounds, transform: nil)
+            regionMaskLayer.fillRule = .evenOdd
+            canvas.layer.mask = regionMaskLayer
         }
 
         // MARK: Content size / layout
@@ -228,8 +245,16 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
 
             lastAppliedContentSize = size
 
+            if lockedRegionID == nil {
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                regionMaskLayer.frame = rect
+                regionMaskLayer.path = CGPath(rect: rect, transform: nil)
+                CATransaction.commit()
+            }
+
             guard scrollView.bounds.width > 0, scrollView.bounds.height > 0 else {
-                print("[Canvas] updateContentSize — bounds not ready, skipping fit-zoom")
+                AppLog.trace(AppLog.canvas, "updateContentSize — bounds not ready, skipping fit-zoom")
                 return
             }
 
@@ -237,7 +262,7 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
                 scrollView.bounds.width  / size.width,
                 scrollView.bounds.height / size.height
             )
-            print("[Canvas] updateContentSize — docSize=\(size) bounds=\(scrollView.bounds.size) fitScale=\(fitScale) currentZoom=\(scrollView.zoomScale)")
+            AppLog.trace(AppLog.canvas, "updateContentSize — docSize=\(size) bounds=\(scrollView.bounds.size) fitScale=\(fitScale) currentZoom=\(scrollView.zoomScale)")
 
             scrollView.minimumZoomScale = fitScale * 0.5
             scrollView.maximumZoomScale = fitScale * 10.0
@@ -246,20 +271,33 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
                 scrollView.setZoomScale(fitScale, animated: false)
                 scrollViewDidZoom(scrollView)
                 hasAppliedInitialFit = true
-                print("[Canvas] updateContentSize — applied initial fitScale=\(fitScale)")
+                AppLog.trace(AppLog.canvas, "updateContentSize — applied initial fitScale=\(fitScale)")
             } else {
-                print("[Canvas] updateContentSize — skipped zoom snap (already fitted, user zoomed to \(scrollView.zoomScale))")
+                AppLog.trace(AppLog.canvas, "updateContentSize — skipped zoom snap (already fitted, user zoomed to \(scrollView.zoomScale))")
             }
         }
 
         // MARK: PKCanvasViewDelegate
+
+        func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
+            guard parent.canvasSettings.stayInTheLines,
+                  parent.viewModel.brushSettings.tool != .eraser,
+                  parent.viewModel.templateGeometry != nil else {
+                clearRegionMask(canvas: canvasView)
+                return
+            }
+        }
+
+        func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
+            clearRegionMask(canvas: canvasView)
+            lockedRegionID = nil
+        }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
             guard !isRevertingDrawing else { return }
 
             let tool = parent.viewModel.brushSettings.tool
             if tool == .floodFill || tool == .eyedropper {
-                print("[Canvas] drawingDidChange while tool=\(tool.rawValue) — reverting ghost stroke")
                 isRevertingDrawing = true
                 canvasView.drawing = parent.viewModel.drawing
                 isRevertingDrawing = false
@@ -284,16 +322,21 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
                     parent.viewModel.scheduleAutoSave()
                     return
                 }
-                let oldCount = parent.viewModel.drawing.strokes.count
+                let oldStrokes = parent.viewModel.drawing.strokes
                 let newStrokes = canvasView.drawing.strokes
+                let oldCount = oldStrokes.count
                 if newStrokes.count > oldCount {
-                    var clipped: [PKStroke] = Array(parent.viewModel.drawing.strokes)
+                    var clipped: [PKStroke] = oldStrokes
                     for stroke in newStrokes[oldCount...] {
                         let pieces = StrokeClipper.clipStroke(stroke, using: geometry)
-                        AppLog.trace(AppLog.canvas, "clip: points=\(Array(stroke.path).count) kept=\(pieces.count)")
+                        AppLog.trace(AppLog.canvas, "clip: controls=\(Array(stroke.path).count) kept=\(pieces.count)")
                         clipped.append(contentsOf: pieces)
                     }
                     finalDrawing = PKDrawing(strokes: clipped)
+                } else if newStrokes.count < oldCount {
+                    parent.viewModel.drawing = canvasView.drawing
+                    parent.viewModel.scheduleAutoSave()
+                    return
                 }
             }
 
@@ -303,6 +346,53 @@ struct PencilCanvasRepresentable: UIViewRepresentable {
 
             parent.viewModel.drawing = finalDrawing
             parent.viewModel.scheduleAutoSave()
+        }
+
+        // MARK: Mask helpers
+
+        func applyRegionMask(_ region: RegionGeometry, to canvas: PKCanvasView) {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            regionMaskLayer.frame = canvas.bounds
+            regionMaskLayer.path = region.path
+            regionMaskLayer.fillRule = (region.fillRule == .evenOdd) ? .evenOdd : .nonZero
+            CATransaction.commit()
+        }
+
+        func applyEmptyMask(to canvas: PKCanvasView) {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            regionMaskLayer.frame = canvas.bounds
+            regionMaskLayer.path = CGPath(rect: .zero, transform: nil)
+            CATransaction.commit()
+        }
+
+        func clearRegionMask(canvas: PKCanvasView) {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            regionMaskLayer.frame = canvas.bounds
+            regionMaskLayer.path = CGPath(rect: canvas.bounds, transform: nil)
+            CATransaction.commit()
+        }
+
+        // MARK: Stroke-begin mask
+
+        @objc func handleStrokeBegin(_ gesture: UILongPressGestureRecognizer) {
+            guard gesture.state == .began else { return }
+            guard parent.canvasSettings.stayInTheLines,
+                  parent.viewModel.brushSettings.tool != .eraser,
+                  let geometry = parent.viewModel.templateGeometry,
+                  let canvas = canvas else {
+                return
+            }
+            let loc = gesture.location(in: canvas)
+            if let region = geometry.region(at: loc) {
+                lockedRegionID = region.id
+                applyRegionMask(region, to: canvas)
+            } else {
+                applyEmptyMask(to: canvas)
+                lockedRegionID = nil
+            }
         }
 
         // MARK: UIGestureRecognizerDelegate

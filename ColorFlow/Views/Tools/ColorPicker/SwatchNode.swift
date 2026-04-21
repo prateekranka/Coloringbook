@@ -25,9 +25,9 @@ struct SwatchNode: View {
                 // Main disc
                 Circle()
                     .fill(color)
-                    .overlay(
-                        Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
-                    )
+                    .overlay {
+                    Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+                }
 
                 // Selection halo
                 if isSelected {

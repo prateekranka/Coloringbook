@@ -10,7 +10,6 @@ import CoreGraphics
 ///
 /// The SVG resolution mirrors `SVGCatalogParityTests` — under xctest, the host
 /// app bundle is where the preBuildScript has copied `Templates/*.svg`.
-@MainActor
 enum CanvasTestFixture {
 
     /// Default fixture template: sunflower_mandala has 27 regions with
@@ -22,6 +21,7 @@ enum CanvasTestFixture {
     ///
     /// - Parameter templateName: filename stem (no `.svg`) to load from the
     ///   test-host bundle. Defaults to `sunflower_mandala`.
+    @MainActor
     static func makeLoadedViewModel(
         templateName: String = defaultTemplateName
     ) async throws -> CanvasViewModel {

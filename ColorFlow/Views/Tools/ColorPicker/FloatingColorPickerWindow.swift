@@ -21,11 +21,12 @@ struct FloatingColorPickerWindow: View {
     @State private var brightnessTarget: Color? = nil
     @State private var showPaletteMenu = false
     @GestureState private var dragTranslation: CGSize = .zero
+    @State private var lastGeometrySize: CGSize? = nil
 
     private let cardWidth: CGFloat = 560
     private let cardHeight: CGFloat = 680
 
-    var body: some View {
+var body: some View {
         GeometryReader { geo in
             let base = resolvedOffset(in: geo.size)
             let current = CGSize(
@@ -37,11 +38,11 @@ struct FloatingColorPickerWindow: View {
                 .frame(width: cardWidth, height: cardHeight)
                 .position(x: geo.size.width / 2 + current.width,
                           y: geo.size.height / 2 + current.height)
-                .onChange(of: geo.size) { _, _ in
-                    // After rotation, re-clamp the persisted offset to new bounds.
-                    let clamped = clampedOffset(resolvedOffset(in: geo.size), in: geo.size)
-                    offsetFractionX = Double(clamped.width / max(geo.size.width, 1))
-                    offsetFractionY = Double(clamped.height / max(geo.size.height, 1))
+                .onChange(of: geo.size) { _, newSize in
+                    lastGeometrySize = newSize
+                    let clamped = clampedOffset(resolvedOffset(in: newSize), in: newSize)
+                    offsetFractionX = Double(clamped.width / max(newSize.width, 1))
+                    offsetFractionY = Double(clamped.height / max(newSize.height, 1))
                 }
         }
         .accessibilityElement(children: .contain)
@@ -83,47 +84,56 @@ struct FloatingColorPickerWindow: View {
         }
         .padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: AppTheme.Radius.xxl, style: .continuous)
                 .fill(.regularMaterial)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-        )
-        .shadow(color: AppTheme.Brand.accent.opacity(0.28), radius: 24, x: 0, y: 12)
+        .overlay {
+            RoundedRectangle(cornerRadius: AppTheme.Radius.xxl, style: .continuous)
+                .stroke(AppTheme.Stroke.hairline, lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+        .shadow(color: .black.opacity(0.18), radius: 24, y: 12)
         .onDisappear { commitRecent() }
     }
 
     // MARK: - Header (drag + close)
 
     private var header: some View {
-        HStack {
-            Text("Color")
-                .font(Font.cfCaption)
-                .foregroundStyle(AppTheme.Ink.primary)
+        VStack(spacing: 6) {
+            Capsule()
+                .fill(AppTheme.Ink.tertiary)
+                .frame(width: 36, height: 4)
 
-            Spacer()
-
-            Button {
-                commitRecent()
-                withAnimation(AppTheme.Motion.quickSpring) {
-                    isPresented = false
-                }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .bold))
+            HStack {
+                Text("Color")
+                    .font(Font.cfCaption)
                     .foregroundStyle(AppTheme.Ink.primary)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(AppTheme.Surface.background))
+
+                Spacer()
+
+                Button {
+                    commitRecent()
+                    withAnimation(AppTheme.Motion.exit) {
+                        isPresented = false
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(AppTheme.Ink.primary)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(AppTheme.Surface.background))
+                        .frame(width: AppTheme.Size.touchTarget, height: AppTheme.Size.touchTarget)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PressableButtonStyle())
+                .accessibilityLabel("Close color picker")
+                .accessibilityIdentifier("picker.close")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close color picker")
-            .accessibilityIdentifier("picker.close")
+            .padding(.horizontal, 18)
+            .contentShape(Rectangle())
+            .gesture(dragGesture)
         }
-        .padding(.horizontal, 18)
         .padding(.top, 6)
-        .contentShape(Rectangle())
-        .gesture(dragGesture)
     }
 
     // MARK: - Mode switch (Spectrum / Palette)
@@ -137,7 +147,8 @@ struct FloatingColorPickerWindow: View {
                          label: mode == .spectrum ? "Default" : (activePaletteName ?? "Palette"),
                          active: true)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
+            .frame(minHeight: AppTheme.Size.touchTarget)
             .contentShape(Capsule())
             .accessibilityIdentifier("picker.mode.palette")
             .popover(isPresented: $showPaletteMenu, attachmentAnchor: .point(.bottom), arrowEdge: .top) {
@@ -151,11 +162,8 @@ struct FloatingColorPickerWindow: View {
     }
 
     private func modePill(system: String, label: String, active: Bool) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: system)
-            Text(label)
-        }
-        .font(Font.cfCaption)
+        Label(label, systemImage: system)
+            .font(Font.cfCaption)
         .foregroundStyle(active ? AppTheme.Ink.primary : AppTheme.Ink.secondary)
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
@@ -188,7 +196,7 @@ struct FloatingColorPickerWindow: View {
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
             .accessibilityIdentifier("picker.palette.default")
 
             Divider().padding(.horizontal, 8)
@@ -210,7 +218,7 @@ struct FloatingColorPickerWindow: View {
                     .padding(.vertical, 10)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
                 .accessibilityIdentifier("picker.palette.\(p.name.lowercased().replacingOccurrences(of: " ", with: "_"))")
             }
         }
@@ -218,10 +226,7 @@ struct FloatingColorPickerWindow: View {
         .background(AppTheme.Surface.background)
     }
 
-    private var isPaletteMode: Bool {
-        if case .palette = mode { return true }
-        return false
-    }
+    
 
     private var activePaletteName: String? {
         if case let .palette(p) = mode { return p.name }
@@ -237,7 +242,7 @@ struct FloatingColorPickerWindow: View {
                 .foregroundStyle(AppTheme.Ink.secondary)
                 .padding(.horizontal, 18)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 10) {
                     ForEach(recentColors.indices, id: \.self) { i in
                         let c = recentColors[i]
@@ -256,14 +261,18 @@ struct FloatingColorPickerWindow: View {
                                     lineWidth: 2
                                 )
                                 .frame(width: 28, height: 28)
+                                .frame(width: AppTheme.Size.swatchCell, height: AppTheme.Size.swatchCell)
+                                .contentShape(Circle())
                                 .glow(color: c.opacity(0.5), radius: 6)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(PressableButtonStyle())
+                        .accessibilityLabel("Recent color \(i + 1)")
                         .accessibilityIdentifier("picker.recent.\(i)")
                     }
                 }
                 .padding(.horizontal, 18)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -275,17 +284,15 @@ struct FloatingColorPickerWindow: View {
                 state = value.translation
             }
             .onEnded { value in
-                // Read geometry from the latest view — compute once and persist fraction.
-                // We don't have a GeometryReader proxy here so re-derive on end from UIScreen.
-                let screen = UIScreen.main.bounds.size
-                let base = resolvedOffset(in: screen)
+                guard let geoSize = lastGeometrySize else { return }
+                let base = resolvedOffset(in: geoSize)
                 let raw = CGSize(
                     width: base.width + value.translation.width,
                     height: base.height + value.translation.height
                 )
-                let clamped = clampedOffset(raw, in: screen)
-                offsetFractionX = Double(clamped.width / max(screen.width, 1))
-                offsetFractionY = Double(clamped.height / max(screen.height, 1))
+                let clamped = clampedOffset(raw, in: geoSize)
+                offsetFractionX = Double(clamped.width / max(geoSize.width, 1))
+                offsetFractionY = Double(clamped.height / max(geoSize.height, 1))
             }
     }
 

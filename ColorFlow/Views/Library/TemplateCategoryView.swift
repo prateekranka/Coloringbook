@@ -6,9 +6,8 @@ struct TemplateCategoryView: View {
     let categories: [TemplateCategory]
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 8) {
-                // "All" chip
                 CategoryChip(
                     label: "All",
                     icon: "square.grid.2x2",
@@ -30,6 +29,7 @@ struct TemplateCategoryView: View {
             .padding(.horizontal)
             .padding(.vertical, 10)
         }
+        .scrollIndicators(.hidden)
         .background(AppTheme.Surface.background.shadow(.inner(radius: 1)))
     }
 }
@@ -42,13 +42,9 @@ private struct CategoryChip: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.caption)
-                Text(label)
-                    .font(.subheadline)
-            }
-            .padding(.horizontal, 14)
+            Label(label, systemImage: icon)
+                .font(.subheadline)
+                .padding(.horizontal, 14)
             .padding(.vertical, 7)
             .background(
                 Capsule()

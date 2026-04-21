@@ -55,7 +55,6 @@ enum AppTheme {
     enum Stroke {
         static let hairline       = Color.adaptiveOpacity(light: "#1A1A1A1F", dark: "#F5EFE61F")
         static let swatchBorder   = Color.adaptiveOpacity(light: "#00000040", dark: "#FFFFFF2E")
-        static let previewBorder  = Color.adaptiveOpacity(light: "#00000033", dark: "#FFFFFF26")
     }
 
     // MARK: - State
@@ -66,12 +65,31 @@ enum AppTheme {
         static let danger  = Color(hex: "#E63946")
     }
 
+    // MARK: - Shadow
+
+    enum Shadow {
+        static func card(content: some View) -> some View {
+            content
+                .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+                .shadow(color: .black.opacity(0.12), radius: 16, y: 8)
+        }
+
+        static func hud(content: some View) -> some View {
+            content
+                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                .shadow(color: .black.opacity(0.18), radius: 24, y: 12)
+        }
+    }
+
     // MARK: - Radius
 
     enum Radius {
-        static let sm: CGFloat = 8
-        static let md: CGFloat = 12
-        static let lg: CGFloat = 16
+        static let xs: CGFloat  = 6
+        static let sm: CGFloat  = 8
+        static let md: CGFloat  = 12
+        static let lg: CGFloat  = 16
+        static let xl: CGFloat  = 20
+        static let xxl: CGFloat = 24
         static let pill: CGFloat = 999
     }
 
@@ -113,6 +131,7 @@ enum AppTheme {
         static let bloomSpring:    Animation = .spring(response: 0.55, dampingFraction: 0.62)
         static let pageTransition: Animation = .spring(response: 0.45, dampingFraction: 0.85)
         static let staggerBase:    Double    = 0.025
+        static let exit: Animation = .easeOut(duration: 0.18)
     }
 
     // MARK: - Typography
@@ -134,6 +153,14 @@ enum AppTheme {
     static var cardCornerRadius: CGFloat { Radius.md }
     static var screenPadding: CGFloat { Spacing.xl }
     static var minTapTarget: CGFloat { Size.touchTarget }
+}
+
+struct PressableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.7 : 1)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
 }
 
 // MARK: - Adaptive Accent Resolution

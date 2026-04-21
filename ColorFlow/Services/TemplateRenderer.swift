@@ -77,7 +77,7 @@ struct TemplateRenderer {
             cgContext.concatenate(transform)
 
             let scale = min(size.width / geometry.viewBox.width, size.height / geometry.viewBox.height)
-            let strokeWidth = 3.0 / scale
+            let strokeWidth = 5.0 / scale
 
             cgContext.setStrokeColor(strokeColor.cgColor)
             cgContext.setLineWidth(strokeWidth)

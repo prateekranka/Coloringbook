@@ -5,7 +5,7 @@ struct StylePresetPickerView: View {
     @Binding var selectedPreset: PhotoStylePreset
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal) {
             HStack(spacing: 10) {
                 ForEach(PhotoStylePreset.allCases) { preset in
                     PresetChip(
@@ -19,6 +19,7 @@ struct StylePresetPickerView: View {
             .padding(.horizontal, AppTheme.Spacing.xl)
             .padding(.vertical, 4)
         }
+        .scrollIndicators(.hidden)
     }
 }
 
@@ -52,13 +53,13 @@ private struct PresetChip: View {
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.Radius.md)
                     .fill(isSelected ? AppTheme.Brand.accentSubtle : AppTheme.Surface.elevated)
-                    .overlay(
+                    .overlay {
                         RoundedRectangle(cornerRadius: AppTheme.Radius.md)
                             .strokeBorder(
                                 isSelected ? AppTheme.Brand.accent : Color.clear,
                                 lineWidth: 1.5
                             )
-                    )
+                    }
             )
             .foregroundStyle(isSelected ? AppTheme.Brand.accent : AppTheme.Ink.secondary)
         }

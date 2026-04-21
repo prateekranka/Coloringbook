@@ -78,9 +78,9 @@ struct HueRingView: View {
         Circle()
             .fill(Color.white)
             .frame(width: indicatorRadius * 2, height: indicatorRadius * 2)
-            .overlay(
+            .overlay {
                 Circle().stroke(Color.black.opacity(0.2), lineWidth: 1)
-            )
+            }
             .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
     }
 

@@ -33,7 +33,7 @@ struct ColorFlowApp: App {
         WindowGroup {
             ContentView()
                 .environment(galleryViewModel)
-                .preferredColorScheme(AppState.shared.appearance.colorScheme)
+                .environment(AppState.shared)
         }
     }
 
@@ -91,6 +91,7 @@ struct ColorFlowApp: App {
 
 struct ContentView: View {
     @Environment(GalleryViewModel.self) var galleryViewModel
+    @Environment(AppState.self) private var appState
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     /// True only for this process lifetime. Scene-phase reactivations
@@ -104,6 +105,13 @@ struct ContentView: View {
     }
 
     /// UI tests launch with "-skipOnboarding" to bypass the flow deterministically.
+    private var onboardingBinding: Binding<Bool> {
+        Binding(
+            get: { !hasSeenOnboarding },
+            set: { hasSeenOnboarding = !$0 }
+        )
+    }
+
     private var skipOnboardingForTests: Bool {
         ProcessInfo.processInfo.arguments.contains("-skipOnboarding")
     }
@@ -111,10 +119,7 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             if !hasSeenOnboarding && !skipOnboardingForTests {
-                OnboardingView(isPresented: Binding(
-                    get: { !hasSeenOnboarding },
-                    set: { hasSeenOnboarding = !$0 }
-                ))
+                OnboardingView(isPresented: onboardingBinding)
             } else {
                 MainTabView()
             }
@@ -126,6 +131,7 @@ struct ContentView: View {
             }
         }
         .animation(AppTheme.Motion.pageTransition, value: splashDone)
+        .preferredColorScheme(appState.appearance.colorScheme)
     }
 }
 

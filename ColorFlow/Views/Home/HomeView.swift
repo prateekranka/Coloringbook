@@ -87,7 +87,7 @@ struct HomeView: View {
                     .foregroundStyle(AppTheme.Ink.secondary)
                     .padding(.horizontal, AppTheme.Spacing.xl)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
+                ScrollView(.horizontal) {
                     HStack(spacing: 12) {
                         ForEach(galleryViewModel.recentProjects) { project in
                             RecentWorkCell(project: project) {
@@ -97,6 +97,7 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, AppTheme.Spacing.xl)
                 }
+                .scrollIndicators(.hidden)
             }
         }
     }
@@ -108,7 +109,7 @@ struct HomeView: View {
             SectionHeader(title: "Suggested For You")
                 .padding(.horizontal, AppTheme.Spacing.xl)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal) {
                 HStack(spacing: 12) {
                     ForEach(galleryViewModel.suggestedTemplates) { template in
                         SuggestedTemplateCell(template: template) {
@@ -118,6 +119,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, AppTheme.Spacing.xl)
             }
+            .scrollIndicators(.hidden)
         }
     }
 

@@ -29,9 +29,9 @@ struct BrushSizeScrubber: View {
             Capsule()
                 .fill(.regularMaterial)
                 .frame(width: trackWidth, height: trackHeight)
-                .overlay(
+                .overlay {
                     Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1)
-                )
+                }
 
             // Filled portion bottom-up
             Capsule()

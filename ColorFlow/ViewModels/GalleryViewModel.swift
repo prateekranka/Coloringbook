@@ -16,6 +16,7 @@ final class GalleryViewModel {
 
     private let storageService = StorageService()
     private let allTemplates: [Template]
+    private var cachedSuggestions: [Template] = []
 
     init() {
         allTemplates = Template.loadAll()
@@ -23,7 +24,12 @@ final class GalleryViewModel {
     }
 
     func reload() {
+        let oldStartedIds = Set(projects.map(\.templateId))
         projects = storageService.loadAllProjects().sorted { $0.modifiedAt > $1.modifiedAt }
+        let newStartedIds = Set(projects.map(\.templateId))
+        if newStartedIds != oldStartedIds {
+            cachedSuggestions = []
+        }
     }
 
     func open(_ project: Project) {
@@ -58,10 +64,13 @@ final class GalleryViewModel {
 
     /// Up to 8 templates that don't yet have a project started.
     var suggestedTemplates: [Template] {
+        if !cachedSuggestions.isEmpty {
+            return cachedSuggestions
+        }
         let startedTemplateIds = Set(projects.map(\.templateId))
         let unstarted = allTemplates.filter { !startedTemplateIds.contains($0.id) }
-        // Shuffle so suggestions feel fresh across launches.
-        return Array(unstarted.shuffled().prefix(8))
+        cachedSuggestions = Array(unstarted.shuffled().prefix(8))
+        return cachedSuggestions
     }
 
     // MARK: - My Work Stats

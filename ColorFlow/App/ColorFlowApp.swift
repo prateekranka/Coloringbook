@@ -84,6 +84,12 @@ struct ColorFlowApp: App {
         UINavigationBar.appearance().standardAppearance = navBar
         UINavigationBar.appearance().scrollEdgeAppearance = navBar
         UINavigationBar.appearance().tintColor = accent
+
+        UISegmentedControl.appearance().selectedSegmentTintColor = UIColor(AppTheme.Brand.accent)
+        UISegmentedControl.appearance().setTitleTextAttributes(
+            [.foregroundColor: UIColor(AppTheme.Brand.onAccent)], for: .selected)
+        UISegmentedControl.appearance().setTitleTextAttributes(
+            [.foregroundColor: UIColor(AppTheme.Ink.secondary)], for: .normal)
     }
 }
 
@@ -145,20 +151,17 @@ struct MainTabView: View {
         // identifiers on iPadOS 18+. Tests should query by label text
         // (app.tabBars.buttons["Home"]) instead of a "tab.*" identifier.
         TabView {
-            HomeView()
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
+            Tab("Home", systemImage: "house.fill") {
+                HomeView()
+            }
 
-            LibraryTabView()
-                .tabItem {
-                    Label("Library", systemImage: "book.fill")
-                }
+            Tab("Library", systemImage: "book.fill") {
+                LibraryTabView()
+            }
 
-            MyWorkView()
-                .tabItem {
-                    Label("My Work", systemImage: "person.fill")
-                }
+            Tab("My Work", systemImage: "person.fill") {
+                MyWorkView()
+            }
         }
         // Force classic bottom tab bar — iOS 18 iPad defaults to a sidebar/top style.
         .tint(AppTheme.Brand.accent)

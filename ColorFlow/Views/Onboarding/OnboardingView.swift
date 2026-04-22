@@ -40,6 +40,7 @@ struct OnboardingView: View {
             .padding(.horizontal, AppTheme.Spacing.xl)
         }
         .sensoryFeedback(.selection, trigger: currentIndex)
+        .sensoryFeedback(.success, trigger: isPresented)
         .gesture(pageDrag)
     }
 
@@ -174,7 +175,6 @@ struct OnboardingView: View {
     }
 
     private func advance() {
-        HapticService.shared.impact(.light)
         if currentIndex < steps.count - 1 {
             move(to: currentIndex + 1)
         } else {
@@ -189,7 +189,6 @@ struct OnboardingView: View {
     }
 
     private func dismiss() {
-        HapticService.shared.notify(.success)
         withAnimation(.easeOut(duration: 0.25)) {
             isPresented = false
         }

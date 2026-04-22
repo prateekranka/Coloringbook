@@ -32,24 +32,24 @@ struct SplashView: View {
             .opacity(opacity)
         }
         .accessibilityIdentifier("splash.view")
-        .onAppear(perform: animate)
+        .task { await animate() }
     }
 
-    private func animate() {
+    private func animate() async {
         if reduceMotion {
             progress = 1
-            DispatchQueue.main.asyncAfter(deadline: .now() + hold) {
-                withAnimation(.easeOut(duration: fade)) { opacity = 0 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + fade) { onFinish() }
-            }
+            try? await Task.sleep(for: .seconds(hold))
+            withAnimation(.easeOut(duration: fade)) { opacity = 0 }
+            try? await Task.sleep(for: .seconds(fade))
+            onFinish()
             return
         }
 
         withAnimation(.easeInOut(duration: strokeDuration)) { progress = 1 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + strokeDuration + hold) {
-            withAnimation(.easeOut(duration: fade)) { opacity = 0 }
-            DispatchQueue.main.asyncAfter(deadline: .now() + fade) { onFinish() }
-        }
+        try? await Task.sleep(for: .seconds(strokeDuration + hold))
+        withAnimation(.easeOut(duration: fade)) { opacity = 0 }
+        try? await Task.sleep(for: .seconds(fade))
+        onFinish()
     }
 }
 

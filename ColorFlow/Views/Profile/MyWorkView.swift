@@ -109,7 +109,6 @@ struct MyWorkView: View {
         }
         .pickerStyle(.segmented)
         .padding(.horizontal, AppTheme.Spacing.xl)
-        .onAppear { styleSegmentedControl() }
         .accessibilityIdentifier("mywork.filter")
     }
 
@@ -163,14 +162,6 @@ struct MyWorkView: View {
                   let img = UIImage(data: data) else { return }
             shareItem = ShareItem(image: img)
         }
-    }
-
-    private func styleSegmentedControl() {
-        UISegmentedControl.appearance().selectedSegmentTintColor = UIColor(AppTheme.Brand.accent)
-        UISegmentedControl.appearance().setTitleTextAttributes(
-            [.foregroundColor: UIColor(AppTheme.Brand.onAccent)], for: .selected)
-        UISegmentedControl.appearance().setTitleTextAttributes(
-            [.foregroundColor: UIColor(AppTheme.Ink.secondary)], for: .normal)
     }
 }
 

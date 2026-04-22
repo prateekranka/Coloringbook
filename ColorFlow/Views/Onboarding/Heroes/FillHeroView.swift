@@ -47,20 +47,18 @@ struct FillHeroView: View {
             if reduceMotion {
                 progress = 0.8
             } else {
-                startCycle()
+                Task { await startCycle() }
             }
         }
     }
 
-    private func startCycle() {
+    private func startCycle() async {
         progress = 0
         withAnimation(.easeInOut(duration: 1.6)) { progress = 0.85 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation(.easeInOut(duration: 1.0)) { progress = 0 }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                startCycle()
-            }
-        }
+        try? await Task.sleep(for: .seconds(2.0))
+        withAnimation(.easeInOut(duration: 1.0)) { progress = 0 }
+        try? await Task.sleep(for: .seconds(1.2))
+        await startCycle()
     }
 }
 

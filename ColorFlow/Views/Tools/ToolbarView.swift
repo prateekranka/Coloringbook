@@ -64,7 +64,6 @@ struct ToolbarView: View {
                     tool: tool,
                     isSelected: viewModel.brushSettings.tool == tool
                 ) {
-                    HapticService.shared.impact(.light)
                     if viewModel.brushSettings.tool == tool {
                         toggleDrawer(for: tool)
                     } else {
@@ -76,6 +75,7 @@ struct ToolbarView: View {
                         }
                     }
                 }
+                .sensoryFeedback(.selection, trigger: viewModel.brushSettings.tool == tool)
             }
 
             Divider().padding(.horizontal, 6)

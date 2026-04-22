@@ -45,8 +45,10 @@ final class CanvasViewModel {
     init(project: Project, template: Template) {
         self.project = project
         self.template = template
-        self.palettes = ColorPalette.loadAll()
-        loadRecentColors()
+        Task { @MainActor in
+            self.palettes = ColorPalette.loadAll()
+            loadRecentColors()
+        }
     }
 
     var currentPKTool: PKTool {
@@ -238,7 +240,10 @@ final class CanvasViewModel {
     }
 
     func addRecentColor(_ color: Color) {
-        var updated = recentColors.filter { $0 != color }
+        let hex = UIColor(color).hexString
+        if let first = recentColors.first, UIColor(first).hexString == hex { return }
+
+        var updated = recentColors.filter { UIColor($0).hexString != hex }
         updated.insert(color, at: 0)
         recentColors = Array(updated.prefix(12))
 

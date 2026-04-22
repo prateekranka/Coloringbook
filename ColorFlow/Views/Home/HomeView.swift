@@ -181,6 +181,7 @@ private struct RecentWorkCell: View {
                 }
                 .frame(width: 140, height: 140)
                 .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
+                .compositingGroup()
                 .background(
                     RoundedRectangle(cornerRadius: AppTheme.Radius.md)
                         .fill(Color.white)

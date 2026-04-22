@@ -34,7 +34,7 @@ struct HueRingView: View {
                 // Glow behind the ring
                 Circle()
                     .stroke(
-                        AngularGradient(gradient: hueGradient, center: .center),
+                        AngularGradient(gradient: Self.hueGradient, center: .center),
                         lineWidth: lineWidth
                     )
                     .blur(radius: 14)
@@ -44,7 +44,7 @@ struct HueRingView: View {
                 // The crisp ring
                 Circle()
                     .stroke(
-                        AngularGradient(gradient: hueGradient, center: .center),
+                        AngularGradient(gradient: Self.hueGradient, center: .center),
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                     )
                     .frame(width: size, height: size)
@@ -65,6 +65,7 @@ struct HueRingView: View {
                     .position(indicatorPosition(center: center, radius: radius))
             }
             .contentShape(Circle().inset(by: -lineWidth))
+            .sensoryFeedback(.selection, trigger: lastCommittedTick)
             .gesture(ringDrag(center: center))
             .onAppear {
                 syncFromSelectedColor()
@@ -99,7 +100,6 @@ struct HueRingView: View {
                 let tick = nearestTick(for: angle)
                 if tick != lastCommittedTick {
                     commit(tick: tick)
-                    HapticService.shared.impact(.light)
                     lastCommittedTick = tick
                 }
             }
@@ -142,9 +142,7 @@ struct HueRingView: View {
         )
     }
 
-    private var hueGradient: Gradient {
-        Gradient(colors: stride(from: 0.0, through: 1.0, by: 1.0 / 12.0).map {
-            Color(hue: $0, saturation: 1, brightness: 1)
-        })
-    }
+    private static let hueGradient = Gradient(colors: stride(from: 0.0, through: 1.0, by: 1.0 / 12.0).map {
+        Color(hue: $0, saturation: 1, brightness: 1)
+    })
 }

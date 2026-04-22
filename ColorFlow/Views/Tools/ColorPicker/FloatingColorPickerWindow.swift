@@ -244,13 +244,11 @@ var body: some View {
 
             ScrollView(.horizontal) {
                 HStack(spacing: 10) {
-                    ForEach(recentColors.indices, id: \.self) { i in
-                        let c = recentColors[i]
+                    ForEach(Array(recentColors.enumerated()), id: \.offset) { index, c in
                         Button {
                             withAnimation(AppTheme.Motion.quickSpring) {
                                 selectedColor = c
                             }
-                            HapticService.shared.impact(.light)
                         } label: {
                             Circle()
                                 .fill(c)
@@ -266,8 +264,9 @@ var body: some View {
                                 .glow(color: c.opacity(0.5), radius: 6)
                         }
                         .buttonStyle(PressableButtonStyle())
-                        .accessibilityLabel("Recent color \(i + 1)")
-                        .accessibilityIdentifier("picker.recent.\(i)")
+                        .sensoryFeedback(.selection, trigger: c)
+                        .accessibilityLabel("Recent color \(index + 1)")
+                        .accessibilityIdentifier("picker.recent.\(index)")
                     }
                 }
                 .padding(.horizontal, 18)

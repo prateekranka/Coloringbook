@@ -220,6 +220,7 @@ private struct UserTemplateThumbnailCell: View {
                     }
                     .frame(width: 140, height: 140)
                     .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
+                    .compositingGroup()
                     .background(AppTheme.Surface.canvas.clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md)))
                     .shadow(color: .black.opacity(0.1), radius: 3, y: 1)
 

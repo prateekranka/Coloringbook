@@ -34,6 +34,7 @@ struct FlowerWheelView: View {
                             onTap: { select(slot.color) },
                             onLongPress: { onLongPressSwatch(slot.color) }
                         )
+                        .sensoryFeedback(.selection, trigger: slot.id == haloID)
                         .position(slot.center)
                     }
                 }
@@ -49,20 +50,17 @@ struct FlowerWheelView: View {
     /// so the halo always lands on a real swatch even when the bound color
     /// came from outside the wheel (e.g. recents / hue scrubber).
     private func nearestSlotID(in slots: [SwatchSlot]) -> String? {
-        let current: Color = selectedColor
-        let (sh, ss, sb) = current.hsb
-
-        // Fast path: exact hex match still wins.
-        let selectedHex = UIColor(current).hexString
+        let selectedHex = UIColor(selectedColor).hexString
         if let exact = slots.first(where: { UIColor($0.color).hexString == selectedHex }) {
             return exact.id
         }
+
+        let (sh, ss, sb) = selectedColor.hsb
 
         var bestID: String?
         var bestDistance = Double.infinity
         for slot in slots {
             let (h, s, b) = slot.color.hsb
-            // Hue is circular; take the shorter arc.
             let dh = min(abs(h - sh), 1 - abs(h - sh))
             let distance = hypot(hypot(dh, s - ss), b - sb)
             if distance < bestDistance {
@@ -77,7 +75,6 @@ struct FlowerWheelView: View {
         withAnimation(AppTheme.Motion.quickSpring) {
             selectedColor = color
         }
-        HapticService.shared.impact(.light)
     }
 
     private func delay(for slot: SwatchSlot) -> Double {

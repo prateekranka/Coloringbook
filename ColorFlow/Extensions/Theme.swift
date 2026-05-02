@@ -35,7 +35,9 @@ enum AppTheme {
 
     enum Surface {
         static let background = Color.adaptive(light: "#FFFFFF", dark: "#151210")
-        static let canvas     = Color.adaptive(light: "#FAFAF7", dark: "#1E1A17")
+        // Canvas surface is locked to white in both modes — the drawing
+        // surface is the user's paper, not app chrome (per design feedback).
+        static let canvas     = Color(hex: "#FFFFFF")
         static let sheet      = Color.adaptive(light: "#FFFFFF", dark: "#1C1915")
         static let elevated   = Color.adaptive(light: "#F2F2F7", dark: "#2A2520")
         static let scrim      = Color.adaptiveOpacity(light: "#00000026", dark: "#00000066")

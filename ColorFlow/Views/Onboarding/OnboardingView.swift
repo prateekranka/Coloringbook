@@ -96,6 +96,13 @@ struct OnboardingView: View {
                 ))
 
             VStack(spacing: 14) {
+                Text(currentStep.eyebrow.uppercased())
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .tracking(2.4)
+                    .foregroundStyle(currentStep.accent)
+                    .contentTransition(.opacity)
+                    .id("eyebrow-\(currentStep.id)")
+
                 Text(currentStep.title)
                     .font(Font.cfDisplayHero)
                     .foregroundStyle(AppTheme.Ink.primary)
@@ -119,9 +126,9 @@ struct OnboardingView: View {
     @ViewBuilder
     private func hero(for step: OnboardingStep) -> some View {
         switch step {
-        case .fill:   FillHeroView(accent: step.accent)
-        case .pencil: PencilStrokeHeroView(accent: step.accent)
-        case .save:   StackedCardsHeroView(accent: step.accent)
+        case .stayInLines:   FillHeroView(accent: step.accent)
+        case .multipleTools: PencilStrokeHeroView(accent: step.accent)
+        case .iCloudSync:    StackedCardsHeroView(accent: step.accent)
         }
     }
 

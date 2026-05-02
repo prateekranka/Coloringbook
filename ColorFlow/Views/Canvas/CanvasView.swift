@@ -18,15 +18,29 @@ struct CanvasView: View {
     @State private var showCanvasSettings = false
     @State private var canvasSettings = CanvasSettings()
 
+    // Radial tool selector — press-to-summon (per design feedback).
+    @State private var radialPoint: CGPoint? = nil
+    @State private var radialCanvasSize: CGSize = .zero
+
     private let chromeGutter: CGFloat = 72
 
     var body: some View {
+        GeometryReader { geo in
         ZStack {
             // Canvas (always full-bleed)
             AppTheme.Surface.canvas.ignoresSafeArea()
             PencilCanvasRepresentable(viewModel: viewModel)
                 .environment(canvasSettings)
                 .ignoresSafeArea()
+
+            // Invisible long-press capture above the canvas — summons the
+            // radial tool selector at the touch point.
+            Color.clear
+                .contentShape(Rectangle())
+                .onAppear { radialCanvasSize = geo.size }
+                .onChange(of: geo.size) { _, newValue in radialCanvasSize = newValue }
+                .gesture(radialSummonGesture)
+                .allowsHitTesting(radialPoint == nil)
 
             // Flood-fill progress overlay
             if viewModel.isFilling {
@@ -52,6 +66,27 @@ struct CanvasView: View {
 
             // ── Chrome lane (toolbar or retracted restore button) ─────────
             chromeLane
+
+            // ── Radial tool selector (press-to-summon) ───────────────────
+            if let point = radialPoint {
+                RadialToolSelector(
+                    isPresented: Binding(
+                        get: { radialPoint != nil },
+                        set: { if !$0 { radialPoint = nil } }
+                    ),
+                    center: point,
+                    canvasSnapshot: nil,
+                    canvasSize: radialCanvasSize,
+                    tools: DrawingTool.allCases,
+                    activeTool: viewModel.brushSettings.tool,
+                    onSelect: { tool in
+                        viewModel.brushSettings.tool = tool
+                        HapticService.shared.impact(.light)
+                    }
+                )
+                .transition(.opacity)
+            }
+        }
         }
         .onAppear {
             AppLog.trace(AppLog.canvas, "CanvasView onAppear — \(viewModel.template.svgFilename)")
@@ -108,6 +143,26 @@ struct CanvasView: View {
             }
             Spacer(minLength: 0)
         }
+    }
+
+    // MARK: - Radial summon gesture
+
+    /// Long-press anywhere on the canvas to summon the radial tool selector
+    /// at that point. Mirrors the iOS text-loupe affordance.
+    private var radialSummonGesture: some Gesture {
+        LongPressGesture(minimumDuration: 0.35)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+            .onEnded { value in
+                switch value {
+                case .second(true, let drag?):
+                    HapticService.shared.impact(.medium)
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                        radialPoint = drag.location
+                    }
+                default:
+                    break
+                }
+            }
     }
 
     // When the toolbar is hidden, a single small button (not two) lets the user

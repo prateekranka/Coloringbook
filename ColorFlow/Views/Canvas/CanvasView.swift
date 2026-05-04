@@ -11,11 +11,13 @@ import PencilKit
 struct CanvasView: View {
     @Bindable var viewModel: CanvasViewModel
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
     @State private var showToolbar = true
     @State private var showColorPicker = false
-    @State private var showLayerPanel = false
-    @State private var showCanvasSettings = false
+    private enum CanvasSheet: Identifiable {
+        case layers, settings
+        var id: Self { self }
+    }
+    @State private var presentedSheet: CanvasSheet?
     @State private var canvasSettings = CanvasSettings()
 
     // Radial tool selector — press-to-summon (per design feedback).
@@ -42,6 +44,11 @@ struct CanvasView: View {
                 .gesture(radialSummonGesture)
                 .allowsHitTesting(radialPoint == nil)
 
+            // Error overlay
+            if let error = viewModel.loadError {
+                errorOverlay(error: error)
+            }
+
             // Flood-fill progress overlay
             if viewModel.isFilling {
                 AppTheme.Surface.scrim
@@ -66,6 +73,8 @@ struct CanvasView: View {
 
             // ── Chrome lane (toolbar or retracted restore button) ─────────
             chromeLane
+                .ignoresSafeArea()
+                .zIndex(10)
 
             // ── Radial tool selector (press-to-summon) ───────────────────
             if let point = radialPoint {
@@ -87,21 +96,19 @@ struct CanvasView: View {
                 .transition(.opacity)
             }
         }
-        }
         .onAppear {
             AppLog.trace(AppLog.canvas, "CanvasView onAppear — \(viewModel.template.svgFilename)")
         }
-        .onChange(of: colorScheme) {
-            viewModel.reloadLineArt()
-        }
-        // ── Sheets (layer panel only; color picker is now an overlay) ──
-        .sheet(isPresented: $showLayerPanel) {
-            LayerPanelView(viewModel: viewModel)
-                .presentationDetents([.medium])
-        }
-        .sheet(isPresented: $showCanvasSettings) {
-            CanvasSettingsSheet()
-                .environment(canvasSettings)
+        // ── Sheets (mutually exclusive; driven by enum) ──
+        .sheet(item: $presentedSheet) { sheet in
+            switch sheet {
+            case .layers:
+                LayerPanelView(viewModel: viewModel)
+                    .presentationDetents([.medium])
+            case .settings:
+                CanvasSettingsSheet()
+                    .environment(canvasSettings)
+            }
         }
         // ── Lifecycle ─────────────────────────────────────────────────────
         .task {
@@ -125,8 +132,14 @@ struct CanvasView: View {
                     ToolbarView(
                         viewModel: viewModel,
                         showColorPicker: $showColorPicker,
-                        showLayerPanel: $showLayerPanel,
-                        showCanvasSettings: $showCanvasSettings,
+                        showLayerPanel: Binding(
+                            get: { presentedSheet == .layers },
+                            set: { if $0 { presentedSheet = .layers } }
+                        ),
+                        showCanvasSettings: Binding(
+                            get: { presentedSheet == .settings },
+                            set: { if $0 { presentedSheet = .settings } }
+                        ),
                         onDismiss: { dismiss() },
                         onToggleToolbar: {
                             withAnimation(AppTheme.Motion.pageTransition) {
@@ -165,6 +178,33 @@ struct CanvasView: View {
             }
     }
 
+    private func errorOverlay(error: Error) -> some View {
+        ZStack {
+            AppTheme.Surface.scrim
+                .ignoresSafeArea()
+            VStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(AppTheme.Brand.accent)
+                Text("Failed to load template")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.Ink.primary)
+                Text(error.localizedDescription)
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.Ink.secondary)
+                    .multilineTextAlignment(.center)
+                Button("Try Again") {
+                    Task { await viewModel.loadTemplate() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppTheme.Brand.accent)
+            }
+            .padding(32)
+            .background(AppTheme.Surface.elevated, in: RoundedRectangle(cornerRadius: AppTheme.Radius.lg))
+            .padding(40)
+        }
+    }
+
     // When the toolbar is hidden, a single small button (not two) lets the user
     // restore it. The back-to-gallery affordance lives inside the toolbar, so
     // we don't repeat the "<" chevron here.
@@ -186,4 +226,16 @@ struct CanvasView: View {
         .padding(.leading, 16)
         .padding(.top, 72)
     }
+}
+
+// MARK: - Preview
+
+#Preview {
+    guard let template = Template.loadAll().first else {
+        return Text("No templates available for preview")
+    }
+    let project = Project(template: template)
+    let viewModel = CanvasViewModel(project: project, template: template)
+    return CanvasView(viewModel: viewModel)
+        .environment(AppState.shared)
 }

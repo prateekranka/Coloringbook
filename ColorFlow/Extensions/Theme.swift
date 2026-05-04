@@ -272,4 +272,42 @@ enum AppearancePreference: String, CaseIterable {
         case .dark:   .dark
         }
     }
+
+    var systemImageName: String {
+        switch self {
+        case .system: return "circle.lefthalf.filled"
+        case .light:  return "sun.max.fill"
+        case .dark:   return "moon.fill"
+        }
+    }
+
+    var next: AppearancePreference {
+        switch self {
+        case .system: return .light
+        case .light:  return .dark
+        case .dark:   return .system
+        }
+    }
+}
+
+// MARK: - Appearance Toggle
+
+struct AppearanceToggle: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        Button {
+            appState.appearance = appState.appearance.next
+        } label: {
+            Image(systemName: appState.appearance.systemImageName)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(AppTheme.Ink.primary)
+                .frame(width: AppTheme.Size.touchTarget, height: AppTheme.Size.touchTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableButtonStyle())
+        .accessibilityLabel("Appearance: \(appState.appearance.rawValue)")
+        .accessibilityHint("Cycles to next appearance mode")
+        .accessibilityIdentifier("home.appearanceToggle")
+    }
 }

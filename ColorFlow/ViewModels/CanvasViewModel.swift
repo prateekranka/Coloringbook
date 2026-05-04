@@ -22,6 +22,7 @@ final class CanvasViewModel {
     var isFilling = false
     var showLineArt = true
     var showColorLayer = true
+    var loadError: Error?
 
     var canvasSize: CGSize = .zero
 
@@ -60,9 +61,11 @@ final class CanvasViewModel {
 
     func loadTemplate() async {
         AppLog.trace(AppLog.canvas, "loadTemplate: \(template.svgFilename)")
+        loadError = nil
 
         guard let svgURL = template.svgURL else {
             AppLog.error(AppLog.canvas, "loadTemplate: svgURL is nil for '\(template.svgFilename)'")
+            loadError = CanvasError.missingSVG
             return
         }
 
@@ -73,6 +76,7 @@ final class CanvasViewModel {
         switch parseResult {
         case .failure(let error):
             AppLog.error(AppLog.canvas, "loadTemplate: SVG parse failed for '\(template.svgFilename)' — \(error.localizedDescription)")
+            loadError = error
             return
 
         case .success(let geometry):
@@ -251,6 +255,15 @@ final class CanvasViewModel {
         if let data = try? JSONEncoder().encode(hexArray),
            let str = String(data: data, encoding: .utf8) {
             UserDefaults.standard.set(str, forKey: Self.recentColorsKey)
+        }
+    }
+
+    enum CanvasError: LocalizedError {
+        case missingSVG
+        var errorDescription: String? {
+            switch self {
+            case .missingSVG: return "Template file not found."
+            }
         }
     }
 

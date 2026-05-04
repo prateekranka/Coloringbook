@@ -68,7 +68,7 @@ struct TemplateRenderer {
     static func renderLineArt(
         geometry: TemplateGeometry,
         size: CGSize,
-        strokeColor: UIColor = UIColor(AppTheme.Ink.lineArt)
+        strokeColor: UIColor = .black
     ) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { context in
@@ -98,6 +98,18 @@ struct TemplateRenderer {
     }
 
     // MARK: - Thumbnail
+
+    static func thumbnail(
+        for template: Template,
+        fills: [String: String] = [:],
+        size: CGSize = CGSize(width: 400, height: 400)
+    ) async -> UIImage? {
+        guard let url = template.svgURL else { return nil }
+        return await Task.detached(priority: .userInitiated) {
+            guard case .success(let geo) = SVGParser.parse(url: url) else { return nil }
+            return renderThumbnail(geometry: geo, fills: fills, size: size)
+        }.value
+    }
 
     static func renderThumbnail(
         geometry: TemplateGeometry,

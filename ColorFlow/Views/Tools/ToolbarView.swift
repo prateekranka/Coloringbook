@@ -252,6 +252,7 @@ private extension View {
         self
             .font(.system(size: 18))
             .frame(width: AppTheme.Size.touchTarget, height: AppTheme.Size.touchTarget)
+            .contentShape(Rectangle())
             .buttonStyle(PressableButtonStyle())
             .foregroundStyle(AppTheme.Ink.primary)
     }

@@ -13,7 +13,7 @@ final class AppState {
 
     init() {
         let raw = UserDefaults.standard.string(forKey: "appearance") ?? "system"
-        appearance = AppearancePreference(rawValue: raw) ?? .system
+        appearance = AppearancePreference(rawValue: raw) ?? .dark
     }
 }
 
@@ -137,7 +137,7 @@ struct ContentView: View {
             }
         }
         .animation(AppTheme.Motion.pageTransition, value: splashDone)
-        .preferredColorScheme(appState.appearance.colorScheme)
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -164,6 +164,7 @@ struct MainTabView: View {
             }
         }
         // Force classic bottom tab bar — iOS 18 iPad defaults to a sidebar/top style.
+        .tabViewStyle(.page(indexDisplayMode: .never))
         .tint(AppTheme.Brand.accent)
         // Single canvas presenter — avoids duplicate fullScreenCover conflicts
         // across tabs that all share the same openedProject binding.

@@ -33,13 +33,6 @@ struct MyWorkView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("My Work")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.Ink.primary)
-                }
-            }
             .sheet(item: $shareItem) {
                 ShareSheet(image: $0.image)
             }
@@ -133,7 +126,7 @@ struct MyWorkView: View {
         } else {
             LazyVGrid(columns: columns, spacing: 14) {
                 ForEach(displayed) { project in
-                    ArtworkCard(project: project) {
+                    ArtworkCard(project: project, template: viewModel.template(for: project)) {
                         viewModel.open(project)
                     } onDelete: {
                         viewModel.delete(project)
@@ -154,12 +147,31 @@ struct MyWorkView: View {
     // MARK: - Helpers
 
     private func shareLatestArtwork() {
-        guard let latest = viewModel.projects.first else { return }
+        guard let latest = viewModel.projects.first,
+              let template = viewModel.template(for: latest) else { return }
         Task {
-            let url = StorageService.documentsURL
-                .appendingPathComponent(latest.fillLayerPath)
-            guard let data = try? Data(contentsOf: url),
-                  let img = UIImage(data: data) else { return }
+            let paintState: ProjectPaintState
+            let paintStateURL = StorageService.documentsURL
+                .appendingPathComponent("fills/\(latest.id.uuidString).json")
+            if let data = try? Data(contentsOf: paintStateURL),
+               let saved = try? JSONDecoder().decode(ProjectPaintState.self, from: data) {
+                paintState = saved
+            } else {
+                paintState = ProjectPaintState()
+            }
+
+            guard let svgURL = template.svgURL,
+                  case .success(let geometry) = SVGParser.parse(url: svgURL) else { return }
+
+            let img = await Task.detached {
+                TemplateRenderer.renderExport(
+                    geometry: geometry,
+                    fills: paintState.regionFills,
+                    pencilImage: nil,
+                    backgroundColor: .white,
+                    size: CGSize(width: 1024, height: 1024)
+                )
+            }.value
             shareItem = ShareItem(image: img)
         }
     }
@@ -188,10 +200,10 @@ private struct StatCell: View {
 
 private struct ArtworkCard: View {
     let project: Project
+    let template: Template?
     let onTap: () -> Void
     let onDelete: () -> Void
     let onShare: (UIImage) -> Void
-    @State private var thumbnail: UIImage?
 
     var body: some View {
         Button(action: onTap) {
@@ -201,16 +213,12 @@ private struct ArtworkCard: View {
                     .aspectRatio(1, contentMode: .fit)
                     .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
 
-                if let img = thumbnail {
-                    Image(uiImage: img)
-                        .resizable()
-                        .scaledToFill()
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
-                } else {
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(Color.gray.opacity(0.3))
-                }
+                AsyncThumbnail(
+                    load: { await loadThumbnail() },
+                    contentMode: .fill,
+                    placeholderSystemName: "photo"
+                )
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
             }
         }
         .buttonStyle(.plain)
@@ -218,28 +226,76 @@ private struct ArtworkCard: View {
             Button(role: .destructive) { onDelete() } label: {
                 Label("Delete", systemImage: "trash")
             }
-            if let img = thumbnail {
-                Button { onShare(img) } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
-                }
+            Button { shareHighRes() } label: {
+                Label("Share", systemImage: "square.and.arrow.up")
             }
         }
         .accessibilityLabel("Artwork: \(project.templateName)")
         .accessibilityIdentifier("mywork.artwork.\(project.id.uuidString)")
-        .task { thumbnail = await loadThumbnail() }
     }
 
     private func loadThumbnail() async -> UIImage? {
-        let projectID = project.id
-        let thumbPath = project.thumbnailPath
-        let fillPath = project.fillLayerPath
+        guard let template = template else {
+            return await Task.detached {
+                ProjectThumbnailCache.shared.load(
+                    id: self.project.id,
+                    thumbnailPath: self.project.thumbnailPath,
+                    fillLayerPath: self.project.fillLayerPath
+                )
+            }.value
+        }
+
         return await Task.detached(priority: .userInitiated) {
-            ProjectThumbnailCache.shared.load(
-                id: projectID,
-                thumbnailPath: thumbPath,
-                fillLayerPath: fillPath
+            let paintState: ProjectPaintState
+            let paintStateURL = StorageService.documentsURL
+                .appendingPathComponent("fills/\(self.project.id.uuidString).json")
+            if let data = try? Data(contentsOf: paintStateURL),
+               let saved = try? JSONDecoder().decode(ProjectPaintState.self, from: data) {
+                paintState = saved
+            } else {
+                paintState = ProjectPaintState()
+            }
+
+            guard let svgURL = template.svgURL,
+                  case .success(let geometry) = SVGParser.parse(url: svgURL) else {
+                return nil as UIImage?
+            }
+
+            return TemplateRenderer.renderThumbnail(
+                geometry: geometry,
+                fills: paintState.regionFills,
+                size: CGSize(width: 360, height: 360)
             )
         }.value
+    }
+
+    private func shareHighRes() {
+        guard let template = template else { return }
+        Task {
+            let paintState: ProjectPaintState
+            let paintStateURL = StorageService.documentsURL
+                .appendingPathComponent("fills/\(self.project.id.uuidString).json")
+            if let data = try? Data(contentsOf: paintStateURL),
+               let saved = try? JSONDecoder().decode(ProjectPaintState.self, from: data) {
+                paintState = saved
+            } else {
+                paintState = ProjectPaintState()
+            }
+
+            guard let svgURL = template.svgURL,
+                  case .success(let geometry) = SVGParser.parse(url: svgURL) else { return }
+
+            let img = await Task.detached {
+                TemplateRenderer.renderExport(
+                    geometry: geometry,
+                    fills: paintState.regionFills,
+                    pencilImage: nil,
+                    backgroundColor: .white,
+                    size: CGSize(width: 1024, height: 1024)
+                )
+            }.value
+            onShare(img)
+        }
     }
 }
 
@@ -252,4 +308,12 @@ struct ShareSheet: UIViewControllerRepresentable {
         UIActivityViewController(activityItems: [image], applicationActivities: nil)
     }
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - Preview
+
+#Preview {
+    MyWorkView()
+        .environment(GalleryViewModel())
+        .environment(AppState.shared)
 }

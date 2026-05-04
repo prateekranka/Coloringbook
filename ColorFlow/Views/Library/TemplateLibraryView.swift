@@ -2,9 +2,13 @@ import SwiftUI
 
 struct TemplateLibraryView: View {
     @State private var viewModel = TemplateLibraryViewModel()
+    private enum LibrarySheet: Identifiable {
+        case photoImport
+        var id: Self { self }
+    }
     @State private var selectedTemplate: Template?
     @State private var selectedUserTemplate: UserTemplate?
-    @State private var showPhotoImport = false
+    @State private var presentedSheet: LibrarySheet?
 
     let columns = [
         GridItem(.adaptive(minimum: 220), spacing: 16)
@@ -46,9 +50,9 @@ struct TemplateLibraryView: View {
             }
             .navigationTitle("Templates")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        showPhotoImport = true
+                        presentedSheet = .photoImport
                     } label: {
                         Label("Create from Photo", systemImage: "camera.fill")
                     }
@@ -66,9 +70,12 @@ struct TemplateLibraryView: View {
                 let canvasVM = CanvasViewModel(project: project, template: template)
                 CanvasView(viewModel: canvasVM)
             }
-            .sheet(isPresented: $showPhotoImport) {
-                PhotoImportView { template in
-                    viewModel.reloadUserTemplates()
+            .sheet(item: $presentedSheet) { sheet in
+                switch sheet {
+                case .photoImport:
+                    PhotoImportView { template in
+                        viewModel.reloadUserTemplates()
+                    }
                 }
             }
         }
@@ -117,7 +124,6 @@ struct TemplateLibraryView: View {
 private struct TemplateThumbnailCell: View {
     let template: Template
     let onSelect: () -> Void
-    @State private var thumbnail: UIImage?
 
     var body: some View {
         Button(action: onSelect) {
@@ -128,16 +134,16 @@ private struct TemplateThumbnailCell: View {
                         .aspectRatio(1, contentMode: .fit)
                         .shadow(color: AppTheme.Surface.scrim, radius: AppTheme.Spacing.xxs, y: 2)
 
-                    if let thumb = thumbnail {
-                        Image(uiImage: thumb)
-                            .resizable()
-                            .scaledToFit()
-                            .padding(10)
-.clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
-                    } else {
-                        Image(systemName: template.category.systemImageName)
-                            .font(.largeTitle)
-                            .foregroundStyle(AppTheme.Ink.tertiary.opacity(0.4))
+                    AsyncThumbnail(
+                        load: { await loadThumbnail() },
+                        contentMode: .fit,
+                        placeholderSystemName: template.category.systemImageName
+                    )
+                    .padding(10)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: AppTheme.Radius.md)
+                            .strokeBorder(Color.black, lineWidth: 1)
                     }
 
                     // Difficulty badge
@@ -161,37 +167,32 @@ private struct TemplateThumbnailCell: View {
             }
         }
         .buttonStyle(.plain)
-        .task { await loadThumbnail() }
     }
 
-    private func loadThumbnail() async {
-        // Load cached thumbnail PNG from Caches directory
-        let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        let thumbURL = cachesURL.appendingPathComponent("thumbnails/\(template.svgFilename).png")
+    private func loadThumbnail() async -> UIImage? {
+        await Task.detached(priority: .userInitiated) {
+            let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+            let thumbURL = cachesURL.appendingPathComponent("thumbnails/\(template.svgFilename).png")
 
-        if let data = try? Data(contentsOf: thumbURL), let img = UIImage(data: data) {
-            thumbnail = img
-            return
-        }
-
-        // Not cached — parse SVG and render thumbnail on background thread
-        guard let svgURL = template.svgURL else { return }
-        let img = await Task.detached(priority: .background) {
-            guard case .success(let geometry) = SVGParser.parse(url: svgURL) else {
-                return UIImage()
+            if let data = try? Data(contentsOf: thumbURL), let img = UIImage(data: data) {
+                return img
             }
-            return TemplateRenderer.renderThumbnail(
+
+            guard let svgURL = template.svgURL else { return nil }
+            guard case .success(let geometry) = SVGParser.parse(url: svgURL) else {
+                return nil
+            }
+            let img = TemplateRenderer.renderThumbnail(
                 geometry: geometry,
                 size: CGSize(width: 400, height: 400)
             )
-        }.value
 
-        // Cache it
-        try? FileManager.default.createDirectory(at: thumbURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let data = img.pngData() {
-            try? data.write(to: thumbURL)
-        }
-        thumbnail = img
+            if let data = img.pngData() {
+                try? FileManager.default.createDirectory(at: thumbURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try? data.write(to: thumbURL)
+            }
+            return img
+        }.value
     }
 }
 

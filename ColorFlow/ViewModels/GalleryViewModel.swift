@@ -62,6 +62,17 @@ final class GalleryViewModel {
         Array(projects.prefix(6))
     }
 
+    func template(for project: Project) -> Template? {
+        allTemplates.first { $0.id == project.templateId }
+    }
+
+    /// Up to 6 templates shown as colourful inspiration previews.
+    var inspirationTemplates: [Template] {
+        let startedIds = Set(projects.map(\.templateId))
+        let pool = allTemplates.filter { !startedIds.contains($0.id) }
+        return Array(pool.prefix(6))
+    }
+
     /// Up to 8 templates that don't yet have a project started.
     var suggestedTemplates: [Template] {
         if !cachedSuggestions.isEmpty {

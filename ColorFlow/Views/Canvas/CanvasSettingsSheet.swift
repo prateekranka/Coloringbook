@@ -21,14 +21,6 @@ struct CanvasSettingsSheet: View {
                     }
                     .tint(AppTheme.Brand.accent)
                 }
-                Section("Appearance") {
-                    Picker("Appearance", selection: $appState.appearance) {
-                        Text("System").tag(AppearancePreference.system)
-                        Text("Light").tag(AppearancePreference.light)
-                        Text("Dark").tag(AppearancePreference.dark)
-                    }
-                    .pickerStyle(.segmented)
-                }
             }
             .navigationTitle("Canvas Settings")
             .navigationBarTitleDisplayMode(.inline)

@@ -41,7 +41,7 @@ struct OnboardingView: View {
         }
         .sensoryFeedback(.selection, trigger: currentIndex)
         .sensoryFeedback(.success, trigger: isPresented)
-        .gesture(pageDrag)
+        .simultaneousGesture(pageDrag)
     }
 
     // MARK: - Layers
@@ -157,7 +157,6 @@ struct OnboardingView: View {
                 .shadow(color: AppTheme.Brand.accent.opacity(0.45), radius: 18, x: 0, y: 10)
                 .contentTransition(.opacity)
         }
-        .buttonStyle(.plain)
         .accessibilityIdentifier("onboarding.cta")
     }
 

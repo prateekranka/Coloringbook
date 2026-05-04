@@ -50,7 +50,6 @@ struct LibraryTabView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { libraryToolbar }
             .searchable(text: $searchText,
                         placement: .navigationBarDrawer(displayMode: .always),
                         prompt: "Search templates")
@@ -66,14 +65,6 @@ struct LibraryTabView: View {
         }
     }
 
-    @ToolbarContentBuilder
-    private var libraryToolbar: some ToolbarContent {
-        ToolbarItem(placement: .principal) {
-            Text("Library")
-                .font(.headline)
-                .foregroundStyle(AppTheme.Ink.primary)
-        }
-    }
 }
 
 // MARK: - Category Bar (underline-style)
@@ -135,7 +126,6 @@ private struct CategoryTab: View {
 struct LibraryTemplateCard: View {
     let template: Template
     let onSelect: () -> Void
-    @State private var thumbnail: UIImage?
 
     var body: some View {
         Button(action: onSelect) {
@@ -146,16 +136,14 @@ struct LibraryTemplateCard: View {
                         .fill(Color.white)
                         .aspectRatio(1, contentMode: .fit)
 
-                    if let img = thumbnail {
-                        Image(uiImage: img)
-                            .resizable()
-                            .scaledToFit()
-                            .padding(10)
-                    } else {
-                        Image(systemName: template.category.systemImageName)
-                            .font(.system(size: 36))
-                            .foregroundStyle(AppTheme.Brand.accent.opacity(0.4))
-                    }
+                    AsyncThumbnail(
+                        load: {
+                            await TemplateRenderer.thumbnail(for: template, size: CGSize(width: 400, height: 400))
+                        },
+                        contentMode: .fit,
+                        placeholderSystemName: template.category.systemImageName
+                    )
+                    .padding(10)
                 }
                 .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
 
@@ -173,15 +161,6 @@ struct LibraryTemplateCard: View {
         .accessibilityLabel("\(template.name), \(template.category.rawValue), difficulty \(template.difficulty.rawValue)")
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("library.template.\(template.id.uuidString)")
-        .task { thumbnail = await loadThumbnail() }
-    }
-
-    private func loadThumbnail() async -> UIImage? {
-        guard let url = template.svgURL else { return nil }
-        return await Task.detached(priority: .userInitiated) {
-            guard case .success(let geo) = SVGParser.parse(url: url) else { return nil }
-            return TemplateRenderer.renderThumbnail(geometry: geo, size: CGSize(width: 400, height: 400))
-        }.value
     }
 }
 
@@ -208,4 +187,12 @@ struct DifficultyPill: View {
                 Capsule().fill(color.opacity(0.18))
             )
     }
+}
+
+// MARK: - Preview
+
+#Preview {
+    LibraryTabView()
+        .environment(GalleryViewModel())
+        .environment(AppState.shared)
 }

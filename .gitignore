@@ -27,3 +27,5 @@ pipeline_work/
 # UI test screenshots and baselines (local only)
 Scripts/testing/baselines/
 Scripts/testing/.screenshots/
+.lazyweb
+.opencode/skills

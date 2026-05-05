@@ -84,7 +84,7 @@ struct CanvasView: View {
                         set: { if !$0 { radialPoint = nil } }
                     ),
                     center: point,
-                    canvasSnapshot: nil,
+                    canvasSnapshot: nil as UIImage?,
                     canvasSize: radialCanvasSize,
                     tools: DrawingTool.allCases,
                     activeTool: viewModel.brushSettings.tool,
@@ -96,10 +96,6 @@ struct CanvasView: View {
                 .transition(.opacity)
             }
         }
-        .onAppear {
-            AppLog.trace(AppLog.canvas, "CanvasView onAppear — \(viewModel.template.svgFilename)")
-        }
-        // ── Sheets (mutually exclusive; driven by enum) ──
         .sheet(item: $presentedSheet) { sheet in
             switch sheet {
             case .layers:
@@ -109,6 +105,10 @@ struct CanvasView: View {
                 CanvasSettingsSheet()
                     .environment(canvasSettings)
             }
+        }
+        }
+        .onAppear {
+            AppLog.trace(AppLog.canvas, "CanvasView onAppear — \(viewModel.template.svgFilename)")
         }
         // ── Lifecycle ─────────────────────────────────────────────────────
         .task {

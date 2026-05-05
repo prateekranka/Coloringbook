@@ -5,10 +5,10 @@
 
 	<!-- ── Identity ─────────────────────────────────────────── -->
 	<key>CFBundleName</key>
-	<string>ColorFlow</string>
+	<string>Gouache</string>
 
 	<key>CFBundleDisplayName</key>
-	<string>ColorFlow</string>
+	<string>Gouache</string>
 
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>

@@ -10,6 +10,9 @@
 	<key>CFBundleDisplayName</key>
 	<string>Gouache</string>
 
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 

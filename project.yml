@@ -34,13 +34,11 @@ targets:
         excludes:
           - "Package.swift"
           - "Scripts/**"
-          - "Assets.xcassets/**"   # bundled via resources below
           - "Resources/**"         # bundled via resources below
           - ".build/**"            # stray SwiftPM cache — never belongs in the app target
 
     # ── Bundle resources ─────────────────────────────────────────────────────
     resources:
-      - path: ColorFlow/Assets.xcassets
       - path: ColorFlow/Resources/templates.json
       - path: ColorFlow/Resources/Palettes/palettes.json
       - path: ColorFlow/Resources/Fonts
@@ -73,14 +71,14 @@ targets:
     # ── Build settings ───────────────────────────────────────────────────────
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.duckywucky.sable
+        PRODUCT_BUNDLE_IDENTIFIER: com.duckuwucky.sable
         GENERATE_INFOPLIST_FILE: "NO"
         INFOPLIST_FILE: ColorFlow/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "2"
 
         # Code signing
-        DEVELOPMENT_TEAM: Y4QMMY38ZN
+        DEVELOPMENT_TEAM: 4JRB53LG5C
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "Apple Development"
         CODE_SIGN_ENTITLEMENTS: ColorFlow/ColorFlow.entitlements
@@ -113,7 +111,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.prateekranka.colorflow.tests
         GENERATE_INFOPLIST_FILE: "YES"
         TARGETED_DEVICE_FAMILY: "2"
-        DEVELOPMENT_TEAM: Y4QMMY38ZN
+        DEVELOPMENT_TEAM: 4JRB53LG5C
         CODE_SIGN_STYLE: Automatic
 
   ColorFlowUITests:
@@ -129,7 +127,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.prateekranka.colorflow.uitests
         GENERATE_INFOPLIST_FILE: "YES"
         TARGETED_DEVICE_FAMILY: "2"
-        DEVELOPMENT_TEAM: Y4QMMY38ZN
+        DEVELOPMENT_TEAM: 4JRB53LG5C
         CODE_SIGN_STYLE: Automatic
         TEST_TARGET_NAME: ColorFlow
         SWIFT_STRICT_CONCURRENCY: minimal

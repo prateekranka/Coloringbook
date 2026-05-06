@@ -27,7 +27,7 @@ final class TabSwitcherTests: XCTestCase {
     
     @MainActor
     func test_rapidTabSwitching() throws {
-        let tabLabels = ["Home", "Library", "My Work"]
+        let tabLabels = ["Home", "Gallery", "My Work"]
         
         for i in 0..<30 {
             let tab = tabLabels[i % tabLabels.count]
@@ -56,7 +56,7 @@ final class TabSwitcherTests: XCTestCase {
         
         let tree = try harness.describeUI()
         XCTAssertTrue(tree.contains("Home"), "Home tab should be present after rotation")
-        XCTAssertTrue(tree.contains("Library"), "Library tab should be present after rotation")
+        XCTAssertTrue(tree.contains("Gallery"), "Gallery tab should be present after rotation")
         XCTAssertTrue(tree.contains("My Work"), "My Work tab should be present after rotation")
         
         let projectsData = try harness.projectsJSONData()

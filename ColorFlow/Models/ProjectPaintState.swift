@@ -8,6 +8,4 @@ struct ProjectPaintState: Codable {
 
     /// PencilKit freehand drawing data (PKDrawing serialized)
     var freehandDrawingData: Data?
-
-    
 }

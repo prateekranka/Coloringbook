@@ -29,6 +29,44 @@ class StorageService {
         queue.sync { _loadAllProjects() }
     }
 
+    func loadProject(id: UUID) -> Project? {
+        queue.sync {
+            _loadAllProjects().first { $0.id == id }
+        }
+    }
+
+    func latestProject(forTemplateID templateID: UUID) -> Project? {
+        queue.sync {
+            _loadAllProjects()
+                .filter { $0.templateId == templateID }
+                .sorted { $0.modifiedAt > $1.modifiedAt }
+                .first
+        }
+    }
+
+    func openOrCreateProject(for template: Template) -> Project {
+        queue.sync {
+            let projects = _loadAllProjects()
+            if let existing = projects
+                .filter({ $0.templateId == template.id })
+                .sorted(by: { $0.modifiedAt > $1.modifiedAt })
+                .first {
+                return existing
+            }
+
+            createSubdirectories()
+
+            let project = Project(template: template)
+            let drawingURL = Self.documentsURL.appendingPathComponent(project.drawingDataPath)
+            try? PKDrawing().dataRepresentation().write(to: drawingURL, options: .atomic)
+
+            var updatedProjects = projects
+            updatedProjects.append(project)
+            saveProjectIndex(updatedProjects)
+            return project
+        }
+    }
+
     private func _loadAllProjects() -> [Project] {
         guard let data = try? Data(contentsOf: projectsURL),
               let projects = try? JSONDecoder().decode([Project].self, from: data) else {
@@ -54,7 +92,9 @@ class StorageService {
         let snapshot = project
         let drawingData = drawing.dataRepresentation()
         let fillData = fillLayer?.pngData()
-        let drawingImage = drawing.image(from: drawing.bounds, scale: 2.0)
+        let drawingImage = drawing.bounds.isNull || drawing.bounds.isEmpty
+            ? nil
+            : drawing.image(from: drawing.bounds, scale: 2.0)
         let thumbnailData = Self.composeThumbnail(
             template: templateImage,
             fill: fillLayer,
@@ -136,6 +176,26 @@ class StorageService {
         }
     }
 
+    func loadPaintState(for project: Project) -> ProjectPaintState {
+        queue.sync {
+            let url = Self.documentsURL.appendingPathComponent(paintStatePath(for: project))
+            guard let data = try? Data(contentsOf: url),
+                  let state = try? JSONDecoder().decode(ProjectPaintState.self, from: data) else {
+                return ProjectPaintState()
+            }
+            return state
+        }
+    }
+
+    func savePaintState(_ state: ProjectPaintState, for project: Project) {
+        queue.sync {
+            createSubdirectories()
+            let url = Self.documentsURL.appendingPathComponent(paintStatePath(for: project))
+            guard let data = try? JSONEncoder().encode(state) else { return }
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+
     // MARK: - Delete
 
     func delete(project: Project) {
@@ -143,6 +203,7 @@ class StorageService {
             let docs = Self.documentsURL
             try? FileManager.default.removeItem(at: docs.appendingPathComponent(project.drawingDataPath))
             try? FileManager.default.removeItem(at: docs.appendingPathComponent(project.fillLayerPath))
+            try? FileManager.default.removeItem(at: docs.appendingPathComponent(paintStatePath(for: project)))
             try? FileManager.default.removeItem(at: docs.appendingPathComponent(project.thumbnailPath))
 
             var projects = _loadAllProjects()
@@ -159,6 +220,10 @@ class StorageService {
         for sub in ["drawings", "fills", "thumbnails"] {
             try? fm.createDirectory(at: docs.appendingPathComponent(sub), withIntermediateDirectories: true)
         }
+    }
+
+    private func paintStatePath(for project: Project) -> String {
+        "fills/\(project.id.uuidString).json"
     }
 
     // MARK: - User Template Persistence

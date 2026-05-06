@@ -9,13 +9,7 @@ final class CanvasStayInTheLinesTests: XCTestCase {
     private var geometry: TemplateGeometry!
 
     override func setUpWithError() throws {
-        let expectation = expectation(description: "load template")
-        Task {
-            let vm = try await CanvasTestFixture.makeLoadedViewModel()
-            geometry = vm.templateGeometry
-            expectation.fulfill()
-        }
-        waitForExpectations(timeout: 10)
+        geometry = try CanvasTestFixture.makeGeometry()
     }
 
     override func tearDownWithError() throws {

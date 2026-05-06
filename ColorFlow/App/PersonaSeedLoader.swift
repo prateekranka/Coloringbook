@@ -7,6 +7,18 @@ import UIKit
 enum PersonaSeedLoader {
     static func seedIfNeeded() {
         let args = ProcessInfo.processInfo.arguments
+        guard args.contains("-personaRun") || args.contains("-sableUITestSeed") || args.contains("-resetSableProjects") else {
+            return
+        }
+
+        if args.contains("-resetSableProjects") {
+            resetProjects()
+        }
+
+        if args.contains("-sableUITestSeed") {
+            seedContinueProject()
+        }
+
         guard args.contains("-personaRun") else { return }
 
         var seedName: String?
@@ -25,22 +37,25 @@ enum PersonaSeedLoader {
         AppLog.trace(AppLog.app, "PersonaSeedLoader: seeding for \(name)")
 
         if name == "deep-colorist" {
-            seedDeepColorist()
+            seedContinueProject()
         }
     }
 
-    private static func seedDeepColorist() {
-        let template = Template(
-            id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
-            name: "Sunflower Mandala",
-            category: .mandalas,
-            difficulty: .easy,
-            svgFilename: "sunflower_mandala.svg",
-            thumbnailFilename: "thumb_sunflower_mandala.png"
-        )
-
-        let project = Project(template: template)
+    private static func resetProjects() {
         let service = StorageService()
+        for project in service.loadAllProjects() {
+            service.delete(project: project)
+        }
+    }
+
+    private static func seedContinueProject() {
+        guard let template = Template.loadAll().first(where: { $0.svgFilename == "sunflower_mandala.svg" })
+                ?? Template.loadAll().first else {
+            return
+        }
+
+        let service = StorageService()
+        var project = service.openOrCreateProject(for: template)
 
         let stroke = makePencilStroke(
             from: CGPoint(x: 200, y: 200),
@@ -49,8 +64,30 @@ enum PersonaSeedLoader {
         )
         let drawing = PKDrawing(strokes: [stroke])
 
-        var mutableProject = project
-        service.save(project: &mutableProject, drawing: drawing, fillLayer: nil, templateImage: nil)
+        var paintState = ProjectPaintState()
+        var fillLayer: UIImage?
+        var lineArt: UIImage?
+
+        if let svgURL = template.svgURL,
+           case .success(let geometry) = SVGParser.parse(url: svgURL),
+           let firstRegion = geometry.regions.first {
+            paintState.regionFills[firstRegion.id] = MoodCategory.playful.accentHex
+            service.savePaintState(paintState, for: project)
+            fillLayer = TemplateRenderer.renderFillLayer(
+                geometry: geometry,
+                fills: paintState.regionFills,
+                size: geometry.viewBox.size
+            )
+            lineArt = TemplateRenderer.renderLineArt(geometry: geometry, size: geometry.viewBox.size)
+            project.updateCompletion(
+                filledRegionCount: paintState.regionFills.count,
+                totalRegionCount: geometry.regions.count
+            )
+        } else {
+            project.updateCompletion(filledRegionCount: 1, totalRegionCount: 10)
+        }
+
+        service.save(project: &project, drawing: drawing, fillLayer: fillLayer, templateImage: lineArt)
     }
 
     private static func makePencilStroke(from start: CGPoint, to end: CGPoint, color: UIColor) -> PKStroke {

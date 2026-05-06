@@ -36,8 +36,8 @@ struct UserTemplate: Identifiable, Codable, Hashable {
 
     // MARK: - Conversion to catalog Template
 
-    /// Produce a transient `Template` so the existing `CanvasViewModel` can
-    /// load this user template without any changes to the canvas path.
+    /// Produce a transient `Template` for service-level rendering and parsing
+    /// paths that still consume catalog-style template metadata.
     func asTemplate() -> Template {
         Template(
             id: id,

@@ -107,8 +107,8 @@ Do not change these without an explicit discussion in the PR description.
 - **Bundle ID and signing team in `project.yml` are baked.** Override
   locally for your device; do not commit changes to
   `PRODUCT_BUNDLE_IDENTIFIER` or `DEVELOPMENT_TEAM`.
-- **Tool limitations.** `xcrun simctl` logs and Apple log CLIs are blocked
-  by the FlowDeck guard hook. Use `./dev` or FlowDeck (if licensed).
+- **Tool limitations.** Use `./dev` for build, test, simulator selection,
+  and project-regeneration workflows.
 
 ---
 
@@ -165,10 +165,8 @@ Before handing a change off to a human reviewer:
 - **`templates.json` has a fallback.** If the bundled JSON fails to load,
   `Template.bundledTemplates` (a hardcoded array) is used. Keep them in
   sync when adding templates, or accept the JSON as canonical.
-- **`xcodebuild` may be wrapped by a FlowDeck guard hook.** If you see
-  `BLOCKED: use flowdeck`, the machine has FlowDeck installed but this
-  script is calling `xcodebuild` directly. Either license FlowDeck or run
-  `./dev` from a shell where the hook isn't active.
+- **Prefer `./dev` over raw build commands.** If a direct command behaves
+  differently from `./dev`, debug the wrapper first.
 
 ---
 

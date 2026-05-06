@@ -1,94 +1,184 @@
-// AccessibilityUITests.swift
-//
-// Minimum-viable UI-level accessibility coverage for the primary tabs and
-// canvas. Assertions are deliberately terse: presence of accessibility
-// identifiers and labels we've committed to in the source. Behavior is
-// covered by unit tests; this file guards against accidental label removal.
-//
-// Requires a `ColorFlowUITests` target in project.yml — not wired today (F-05).
-
 import XCTest
 
 final class AccessibilityUITests: XCTestCase {
-
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
-    // MARK: - Tab bar
-
-    /// iPadOS 26.4+ renders TabView as a top segmented control instead of a bottom
-    /// tab bar. This helper finds the tab element across all possible layouts.
-    private func tabElement(_ app: XCUIApplication, _ label: String) -> XCUIElement {
-        // SwiftUI TabView doesn't honor accessibility identifiers on tab
-        // buttons (iOS 18+ framework limitation), so we query by label. Scope
-        // to the tab bar first to avoid collisions with section headers that
-        // may share the same text (e.g., "Home" tab + "Home" screen title).
-        let tabBar = app.tabBars.firstMatch
-        if tabBar.exists, tabBar.buttons[label].exists { return tabBar.buttons[label] }
-        // iPadOS 26.4+ top-segmented-control variant exposes tabs as
-        // descendants of the first otherElement whose buttons include all
-        // three tab labels. Fall back to boundBy to avoid ambiguity.
-        let buttons = app.buttons.matching(NSPredicate(format: "label == %@", label))
-        if buttons.count == 1 { return buttons.firstMatch }
-        if buttons.count > 1 { return buttons.element(boundBy: 0) }
-        // Sidebar/outline variant
-        if app.cells[label].exists { return app.cells[label] }
-        return app.buttons[label]
-    }
-
-    func test_tabBar_itemsAreReachable() throws {
+    private func launchSeededApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += ["-skipOnboarding"]
+        app.launchArguments += ["-resetSableProjects", "-sableUITestSeed"]
         app.launch()
-
-        XCTAssertTrue(tabElement(app, "Home").waitForExistence(timeout: 3),
-                      "Home tab item must be reachable by accessibility label.")
-        XCTAssertTrue(tabElement(app, "Library").exists,
-                      "Library tab item must be reachable by accessibility label.")
-        XCTAssertTrue(tabElement(app, "My Work").exists,
-                      "My Work tab item must be reachable by accessibility label.")
+        return app
     }
 
-    // MARK: - Home
-
-    func test_home_primaryActions_haveAccessibilityIdentifiers() throws {
-        let app = XCUIApplication()
-        app.launchArguments += ["-skipOnboarding"]
-        app.launch()
-        _ = tabElement(app, "Home").waitForExistence(timeout: 3)
-        tabElement(app, "Home").tap()
-
-        let plus = app.buttons["home.plus"]
-        XCTAssertTrue(plus.waitForExistence(timeout: 2),
-                      "Home '+' toolbar button missing identifier 'home.plus'.")
-        XCTAssertFalse(plus.label.isEmpty,
-                       "Home '+' button must have a non-empty accessibility label.")
-
-        let browse = app.buttons["home.browseTemplates"]
-        XCTAssertTrue(browse.waitForExistence(timeout: 2),
-                      "Home 'Browse Templates' CTA missing identifier.")
+    private func canvasSurface(in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)["canvas.surface"]
     }
 
-    // MARK: - Library
+    func test_customTabBar_itemsAreReachable() throws {
+        let app = launchSeededApp()
 
-    func test_library_categoryBar_isReachable() throws {
-        let app = XCUIApplication()
-        app.launchArguments += ["-skipOnboarding"]
-        app.launch()
-        let libraryTab = tabElement(app, "Library")
-        _ = libraryTab.waitForExistence(timeout: 3)
-        libraryTab.firstMatch.tap()
-
-        XCTAssertTrue(app.buttons["library.category.All"].waitForExistence(timeout: 2),
-                      "Library 'All' category tab missing identifier.")
+        XCTAssertTrue(app.buttons["tab.home"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["tab.explore"].exists)
+        XCTAssertTrue(app.buttons["tab.library"].exists)
     }
 
-    // MARK: - Canvas (exercises toolbar labels when a template is opened)
-    // NOTE: This test requires a seeded template + project and is scaffolded
-    // but left `skipIf` until the UI test host can seed one deterministically.
+    func test_home_sectionsAndRealCards_areReachable() throws {
+        let app = launchSeededApp()
 
-    func test_canvas_toolbar_hasLabeledActions() throws {
-        throw XCTSkip("Requires seeded template fixture in the UI test host — tracked with A3 test-target wiring.")
+        XCTAssertTrue(app.staticTexts["CONTINUE"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["home.continue.sunflower-mandala"].exists)
+        XCTAssertTrue(app.buttons["home.collection.koi-serenity"].exists)
+        XCTAssertTrue(app.buttons["home.mood.calm"].exists)
+    }
+
+    func test_placeholderTabs_switchFromFixedTabBar() throws {
+        let app = launchSeededApp()
+
+        app.buttons["tab.explore"].tap()
+        XCTAssertTrue(app.staticTexts["Explore"].waitForExistence(timeout: 2))
+
+        app.buttons["tab.library"].tap()
+        XCTAssertTrue(app.staticTexts["My Library"].waitForExistence(timeout: 2))
+    }
+
+    func test_myLibrary_showsSavedProjectAndOpensCanvas() throws {
+        let app = launchSeededApp()
+
+        app.buttons["tab.library"].tap()
+        XCTAssertTrue(app.staticTexts["My Library"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts.matching(identifier: "library.savedCount").firstMatch.exists)
+
+        let savedProject = app.buttons["library.project.sunflower-mandala"]
+        XCTAssertTrue(savedProject.waitForExistence(timeout: 3))
+        savedProject.tap()
+
+        XCTAssertTrue(canvasSurface(in: app).waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Sunflower Mandala"].exists)
+    }
+
+    func test_continueCard_opensSavedColoringCanvas() throws {
+        let app = launchSeededApp()
+
+        app.buttons["home.continue.sunflower-mandala"].tap()
+
+        XCTAssertTrue(canvasSurface(in: app).waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Sunflower Mandala"].exists)
+        XCTAssertTrue(app.staticTexts.matching(identifier: "canvas.progress").firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(identifier: "canvas.zoom").firstMatch.exists)
+        XCTAssertTrue(app.buttons["canvas.resetView"].exists)
+        XCTAssertTrue(app.buttons["canvas.save"].exists)
+    }
+
+    func test_canvasViewport_allowsPinchPanAndReset() throws {
+        let app = launchSeededApp()
+
+        app.buttons["home.continue.sunflower-mandala"].tap()
+        let canvas = canvasSurface(in: app)
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
+
+        canvas.pinch(withScale: 1.8, velocity: 1.0)
+        canvas.swipeLeft()
+        app.buttons["canvas.resetView"].tap()
+
+        XCTAssertTrue(canvas.exists)
+        XCTAssertTrue(app.staticTexts.matching(identifier: "canvas.zoom").firstMatch.exists)
+    }
+
+    func test_collectionTemplate_opensCanvas() throws {
+        let app = launchSeededApp()
+
+        app.buttons["home.collection.botanical-bold"].tap()
+        XCTAssertTrue(app.staticTexts["Botanical Bold"].waitForExistence(timeout: 3))
+
+        app.buttons["template.rose-bouquet"].tap()
+        XCTAssertTrue(canvasSurface(in: app).waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Rose Bouquet"].exists)
+    }
+
+    func test_moodTemplate_opensCanvas() throws {
+        let app = launchSeededApp()
+
+        app.buttons["home.mood.calm"].tap()
+        XCTAssertTrue(app.staticTexts["CALM"].waitForExistence(timeout: 3))
+
+        app.buttons["template.lotus-mandala"].tap()
+        XCTAssertTrue(canvasSurface(in: app).waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Lotus Mandala"].exists)
+    }
+
+    func test_browseFillSaveReturnAndReopenRestoresProgress() throws {
+        let app = launchSeededApp()
+
+        app.buttons["home.collection.botanical-bold"].tap()
+        XCTAssertTrue(app.staticTexts["Botanical Bold"].waitForExistence(timeout: 3))
+
+        app.buttons["template.rose-bouquet"].tap()
+        let canvas = canvasSurface(in: app)
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
+
+        app.buttons["canvas.color.ff2d78"].tap()
+        tapCanvasUntilProgressChanges(canvas: canvas, app: app)
+        let savedProgress = progressLabel(in: app)
+        XCTAssertNotEqual(savedProgress, "0%")
+
+        canvas.pinch(withScale: 1.5, velocity: 1.0)
+        canvas.swipeLeft()
+        app.buttons["canvas.resetView"].tap()
+        app.buttons["canvas.save"].tap()
+
+        tapBack(in: app)
+        tapBack(in: app)
+
+        let continueCard = app.buttons["home.continue.rose-bouquet"]
+        XCTAssertTrue(continueCard.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["home.continue.rose-bouquet.thumbnail"].exists)
+
+        continueCard.tap()
+        XCTAssertTrue(canvasSurface(in: app).waitForExistence(timeout: 5))
+        XCTAssertEqual(progressLabel(in: app), savedProgress)
+    }
+
+    private func tapCanvasUntilProgressChanges(canvas: XCUIElement, app: XCUIApplication) {
+        let offsets: [CGVector] = [
+            CGVector(dx: 0.5, dy: 0.5),
+            CGVector(dx: 0.42, dy: 0.42),
+            CGVector(dx: 0.58, dy: 0.42),
+            CGVector(dx: 0.42, dy: 0.58),
+            CGVector(dx: 0.58, dy: 0.58),
+            CGVector(dx: 0.35, dy: 0.5),
+            CGVector(dx: 0.65, dy: 0.5)
+        ]
+
+        for offset in offsets {
+            canvas.coordinate(withNormalizedOffset: offset).tap()
+            if waitForProgressChange(in: app) {
+                return
+            }
+        }
+
+        XCTFail("Expected at least one canvas tap to fill a region.")
+    }
+
+    private func progressLabel(in app: XCUIApplication) -> String {
+        app.staticTexts.matching(identifier: "canvas.progress").firstMatch.label
+    }
+
+    private func waitForProgressChange(in app: XCUIApplication) -> Bool {
+        let deadline = Date().addingTimeInterval(1.5)
+        while Date() < deadline {
+            if progressLabel(in: app) != "0%" {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
+    }
+
+    private func tapBack(in app: XCUIApplication) {
+        let backButton = app.navigationBars.buttons.element(boundBy: 0)
+        XCTAssertTrue(backButton.waitForExistence(timeout: 3))
+        backButton.tap()
     }
 }

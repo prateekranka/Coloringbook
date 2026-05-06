@@ -4,9 +4,8 @@ import CoreGraphics
 
 /// Shared fixture for Canvas unit tests.
 ///
-/// Loads a known-good SVG from the test-host bundle, constructs a `Project` +
-/// `Template` pair, builds a fully-initialized `CanvasViewModel`, and awaits
-/// `loadTemplate()` so geometry + rendered layers are ready to query.
+/// Loads a known-good SVG from the test-host bundle and returns parsed
+/// geometry for lower-level clipping and rendering tests.
 ///
 /// The SVG resolution mirrors `SVGCatalogParityTests` — under xctest, the host
 /// app bundle is where the preBuildScript has copied `Templates/*.svg`.
@@ -16,29 +15,30 @@ enum CanvasTestFixture {
     /// well-separated centroids — good for hit-testing tests.
     static let defaultTemplateName = "sunflower_mandala"
 
-    /// Build a `CanvasViewModel` loaded with the given template. Returns nil
-    /// if the SVG cannot be resolved or parsing fails.
+    /// Parse a bundled SVG into geometry, throwing if the SVG cannot be
+    /// resolved or parsed.
     ///
     /// - Parameter templateName: filename stem (no `.svg`) to load from the
     ///   test-host bundle. Defaults to `sunflower_mandala`.
-    @MainActor
-    static func makeLoadedViewModel(
+    static func makeGeometry(
         templateName: String = defaultTemplateName
-    ) async throws -> CanvasViewModel {
-        let template = try makeTemplate(name: templateName)
-        let project = Project(template: template)
-        let viewModel = CanvasViewModel(project: project, template: template)
-        await viewModel.loadTemplate()
-
-        guard viewModel.templateGeometry != nil else {
-            throw FixtureError.templateNotLoaded(templateName)
+    ) throws -> TemplateGeometry {
+        let filename = "\(templateName).svg"
+        guard let url = resolveBundledSVGURL(filename: filename) else {
+            throw FixtureError.svgNotInBundle(filename)
         }
-        return viewModel
+
+        switch SVGParser.parse(url: url) {
+        case .success(let geometry):
+            return geometry
+        case .failure(let error):
+            throw FixtureError.parseFailed(templateName, error)
+        }
     }
 
     /// Build a `Template` pointing at a bundled SVG. The `svgFilename` is the
     /// basename with `.svg`; the rest of the metadata is dummy data sufficient
-    /// for the viewmodel to load and render.
+    /// for service-level tests.
     static func makeTemplate(name: String = defaultTemplateName) throws -> Template {
         let filename = "\(name).svg"
         guard resolveBundledSVGURL(filename: filename) != nil else {
@@ -75,15 +75,15 @@ enum CanvasTestFixture {
 
     enum FixtureError: Error, CustomStringConvertible {
         case svgNotInBundle(String)
-        case templateNotLoaded(String)
+        case parseFailed(String, Error)
 
         var description: String {
             switch self {
             case .svgNotInBundle(let filename):
                 return "SVG '\(filename)' not found in test-host bundle. " +
                        "Verify the preBuildScript in project.yml is copying Templates/*.svg."
-            case .templateNotLoaded(let name):
-                return "CanvasViewModel.loadTemplate did not produce geometry for '\(name)'."
+            case .parseFailed(let name, let error):
+                return "SVGParser failed to parse '\(name)': \(error)"
             }
         }
     }

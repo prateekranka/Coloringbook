@@ -8,6 +8,7 @@ protocol HomeRepositoryProtocol {
 }
 
 protocol ColoringFlowRepositoryProtocol {
+    func fetchExploreTemplates() async -> [Template]
     func fetchTemplates(for collection: PageCollection) async -> [Template]
     func fetchTemplates(for mood: MoodCategory) async -> [Template]
     func openOrCreateProject(for template: Template) async -> Project
@@ -51,6 +52,10 @@ struct SableHomeRepository: HomeRepositoryProtocol, ColoringFlowRepositoryProtoc
 
     func fetchMoodCategories() async -> [MoodCategory] {
         MoodCategory.allCases
+    }
+
+    func fetchExploreTemplates() async -> [Template] {
+        templates.sorted { $0.name < $1.name }
     }
 
     func fetchTemplates(for collection: PageCollection) async -> [Template] {
@@ -161,6 +166,10 @@ struct MockHomeRepository: HomeRepositoryProtocol {
 }
 
 extension MockHomeRepository: ColoringFlowRepositoryProtocol {
+    func fetchExploreTemplates() async -> [Template] {
+        Template.loadAll().sorted { $0.name < $1.name }
+    }
+
     func fetchTemplates(for collection: PageCollection) async -> [Template] {
         Template.loadAll()
             .filter { $0.category == collection.category }

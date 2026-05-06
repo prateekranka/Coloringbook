@@ -65,6 +65,9 @@ targets:
           if [ -f "${SRCROOT}/ColorFlow/Resources/Palettes/palettes.json" ]; then
             cp -f "${SRCROOT}/ColorFlow/Resources/Palettes/palettes.json" "${DEST}/"
           fi
+          if [ -f "${SRCROOT}/ColorFlow/Resources/Fonts/Fraunces.ttf" ]; then
+            cp -f "${SRCROOT}/ColorFlow/Resources/Fonts/Fraunces.ttf" "${DEST}/"
+          fi
         shell: /bin/sh
         basedOnDependencyAnalysis: false
 

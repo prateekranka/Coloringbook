@@ -33,11 +33,12 @@ final class AccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["home.mood.calm"].exists)
     }
 
-    func test_placeholderTabs_switchFromFixedTabBar() throws {
+    func test_exploreAndLibraryTabs_showRealSurfaces() throws {
         let app = launchSeededApp()
 
         app.buttons["tab.explore"].tap()
         XCTAssertTrue(app.staticTexts["Explore"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["template.sunflower-mandala"].waitForExistence(timeout: 3))
 
         app.buttons["tab.library"].tap()
         XCTAssertTrue(app.staticTexts["My Library"].waitForExistence(timeout: 2))

@@ -32,7 +32,11 @@ struct NavigationShell: View {
         case .home:
             HomeView(repository: repository, navigate: navigate)
         case .explore:
-            PlaceholderTabScreen(tab: .explore)
+            TemplateListView(
+                source: .explore,
+                repository: repository,
+                navigate: navigate
+            )
         case .library:
             MyLibraryView(repository: repository, navigate: navigate)
         }
@@ -108,32 +112,10 @@ private struct SableTabBar: View {
     }
 }
 
-private struct PlaceholderTabScreen: View {
-    let tab: SableTab
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: tab.systemImageName)
-                .font(.system(size: 54, weight: .bold))
-                .foregroundStyle(SableTheme.crimson)
-
-            Text(tab.title)
-                .font(.system(size: 36, weight: .black))
-                .foregroundStyle(SableTheme.ink)
-
-            Text("Coming soon")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(SableTheme.mutedInk)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(SableTheme.cream)
-    }
-}
-
 #Preview("Navigation Shell") {
     NavigationShell()
 }
 
 #Preview("Explore Tab") {
-    PlaceholderTabScreen(tab: .explore)
+    TemplateListView(source: .explore)
 }

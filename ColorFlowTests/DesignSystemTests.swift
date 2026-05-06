@@ -37,6 +37,10 @@ final class DesignSystemTests: XCTestCase {
 
         let moods = await repository.fetchMoodCategories()
         XCTAssertEqual(moods, [.calm, .bold, .playful, .dreamy, .wild, .noir])
+
+        let exploreTemplates = await repository.fetchExploreTemplates()
+        XCTAssertFalse(exploreTemplates.isEmpty)
+        XCTAssertEqual(exploreTemplates, exploreTemplates.sorted { $0.name < $1.name })
     }
 
     func test_homeViewModel_loadsDataThroughRepository() async {
@@ -95,8 +99,10 @@ final class DesignSystemTests: XCTestCase {
         let collections = await repository.fetchCollections()
         let botanicals = try XCTUnwrap(collections.first { $0.name == "Botanical Bold" })
         let botanicalTemplates = await repository.fetchTemplates(for: botanicals)
+        let exploreTemplates = await repository.fetchExploreTemplates()
 
         XCTAssertEqual(botanicals.pageCount, 1)
         XCTAssertEqual(botanicalTemplates.map(\.name), ["Leaf Study"])
+        XCTAssertEqual(exploreTemplates.map(\.name), ["Leaf Study", "Stone House"])
     }
 }

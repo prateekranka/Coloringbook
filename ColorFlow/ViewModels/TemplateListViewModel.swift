@@ -4,11 +4,14 @@ import Observation
 @Observable
 final class TemplateListViewModel {
     enum Source: Hashable {
+        case explore
         case collection(PageCollection)
         case mood(MoodCategory)
 
         var title: String {
             switch self {
+            case .explore:
+                return "Explore"
             case .collection(let collection):
                 return collection.name
             case .mood(let mood):
@@ -18,6 +21,8 @@ final class TemplateListViewModel {
 
         var subtitle: String {
             switch self {
+            case .explore:
+                return "ALL TEMPLATES"
             case .collection(let collection):
                 return collection.pageCountLabel
             case .mood:
@@ -50,6 +55,8 @@ final class TemplateListViewModel {
     func load() async {
         isLoading = true
         switch source {
+        case .explore:
+            templates = await repository.fetchExploreTemplates()
         case .collection(let collection):
             templates = await repository.fetchTemplates(for: collection)
         case .mood(let mood):

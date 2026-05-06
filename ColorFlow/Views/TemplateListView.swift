@@ -192,3 +192,12 @@ private extension TemplateCategory {
         )
     }
 }
+
+#Preview("Explore Templates") {
+    NavigationStack {
+        TemplateListView(
+            source: .explore,
+            repository: MockHomeRepository()
+        )
+    }
+}

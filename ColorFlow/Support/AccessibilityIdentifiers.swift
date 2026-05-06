@@ -8,8 +8,6 @@ public enum A11y {
     }
 
     public enum Home {
-        public static let search = "home.search"
-        public static let profile = "home.profile"
         public static func continuePage(_ slug: String) -> String { "home.continue.\(slug)" }
         public static func collection(_ slug: String) -> String { "home.collection.\(slug)" }
         public static func mood(_ rawValue: String) -> String { "home.mood.\(rawValue)" }

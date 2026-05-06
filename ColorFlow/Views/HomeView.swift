@@ -92,12 +92,6 @@ private struct HeroBanner: View {
                 .frame(width: 340, alignment: .leading)
 
                 Spacer()
-
-                HStack(spacing: 16) {
-                    CircleIconButton(systemImage: "magnifyingglass", identifier: "home.search")
-                    CircleIconButton(systemImage: "person.crop.circle.fill", identifier: "home.profile")
-                }
-                .padding(.top, 8)
             }
         }
         .frame(height: 230)
@@ -371,27 +365,6 @@ private struct LoadingHomeContent: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 360)
-    }
-}
-
-private struct CircleIconButton: View {
-    let systemImage: String
-    let identifier: String
-
-    var body: some View {
-        Button {} label: {
-            Image(systemName: systemImage)
-                .font(.system(size: 25, weight: .bold))
-                .foregroundStyle(SableTheme.ink)
-                .frame(width: 58, height: 58)
-                .background(.white.opacity(0.76), in: Circle())
-                .overlay {
-                    Circle().stroke(SableTheme.hairline, lineWidth: 1)
-                }
-                .shadow(color: Color.black.opacity(0.14), radius: 8, x: 0, y: 3)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(identifier)
     }
 }
 

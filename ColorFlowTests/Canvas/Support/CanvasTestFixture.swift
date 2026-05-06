@@ -64,11 +64,37 @@ enum CanvasTestFixture {
         CGPoint(x: region.bounds.midX, y: region.bounds.midY)
     }
 
+    static func representativeFillPoint(in geometry: TemplateGeometry) -> CGPoint? {
+        for region in geometry.regions {
+            if let point = representativePoint(in: region),
+               geometry.region(at: point) != nil {
+                return point
+            }
+        }
+        return nil
+    }
+
     /// A doc-space point guaranteed to be outside every region in the
     /// default fixture. `sunflower_mandala` has viewBox 800×800 with its
     /// outermost region bbox ending at y=740; (10,10) is in blank whitespace.
     static var pointOutsideAllRegions: CGPoint {
         CGPoint(x: 10, y: 10)
+    }
+
+    private static func representativePoint(in region: RegionGeometry) -> CGPoint? {
+        let fractions: [CGFloat] = [0.5, 0.35, 0.65, 0.2, 0.8]
+        for yFraction in fractions {
+            for xFraction in fractions {
+                let point = CGPoint(
+                    x: region.bounds.minX + region.bounds.width * xFraction,
+                    y: region.bounds.minY + region.bounds.height * yFraction
+                )
+                if region.path.contains(point, using: region.fillRule) {
+                    return point
+                }
+            }
+        }
+        return nil
     }
 
     // MARK: - Errors

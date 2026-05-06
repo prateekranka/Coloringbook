@@ -85,7 +85,7 @@ extension Template {
 
     // Mirrors Resources/templates.json — guarantees templates are always
     // available even when the resource file is absent from the bundle.
-    private static let bundledTemplates: [Template] = [
+    static let bundledTemplates: [Template] = [
         Template(id: UUID(uuidString: "33333333-0000-0000-0000-000000000001")!,
                  name: "Lotus Mandala",
                  category: .mandalas,

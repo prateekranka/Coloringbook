@@ -14,14 +14,45 @@ final class ColoringSessionViewModel {
         case failed(String)
     }
 
+    enum SaveState: Equatable {
+        case saved
+        case dirty
+        case saving
+
+        var label: String {
+            switch self {
+            case .saved:
+                return "Saved"
+            case .dirty:
+                return "Unsaved changes"
+            case .saving:
+                return "Saving..."
+            }
+        }
+
+        var systemImageName: String {
+            switch self {
+            case .saved:
+                return "checkmark.circle.fill"
+            case .dirty:
+                return "circle.dashed"
+            case .saving:
+                return "arrow.triangle.2.circlepath"
+            }
+        }
+    }
+
     var state: LoadState = .idle
     var project: Project?
     var template: Template?
     var lineArtImage: UIImage?
     var fillLayerImage: UIImage?
     var selectedColorHex = SableTheme.progressPinkHex
+    var selectedPaletteID = ColoringSessionViewModel.essentialsPalette.id
     var canvasDocumentSize = CGSize(width: 800, height: 800)
-    var isSaving = false
+    var saveState: SaveState = .saved
+    var canUndo = false
+    var canRedo = false
 
     @ObservationIgnored private let repository: any ColoringFlowRepositoryProtocol
     @ObservationIgnored private let storageService: StorageService
@@ -32,8 +63,12 @@ final class ColoringSessionViewModel {
     @ObservationIgnored private var geometry: TemplateGeometry?
     @ObservationIgnored private var paintState = ProjectPaintState()
     @ObservationIgnored private var hasLoaded = false
+    @ObservationIgnored private var lastSavedRegionFills: [String: String] = [:]
+    @ObservationIgnored private var undoStack: [FillAction] = []
+    @ObservationIgnored private var redoStack: [FillAction] = []
 
     let fallbackTitle: String
+    let palettes: [ColorPalette]
 
     init(
         project: Project,
@@ -47,6 +82,7 @@ final class ColoringSessionViewModel {
         self.fallbackTitle = template.name
         self.repository = SableHomeRepository(storageService: storageService, templates: [template])
         self.storageService = storageService
+        self.palettes = Self.makePalettes()
     }
 
     init(
@@ -63,6 +99,7 @@ final class ColoringSessionViewModel {
         self.fallbackTitle = fallbackTitle
         self.repository = repository
         self.storageService = storageService
+        self.palettes = Self.makePalettes()
     }
 
     var title: String {
@@ -81,17 +118,39 @@ final class ColoringSessionViewModel {
         paintState.regionFills.count
     }
 
-    var paletteHexes: [String] {
-        [
-            SableTheme.progressPinkHex,
-            SableTheme.crimsonHex,
-            MoodCategory.calm.accentHex,
-            MoodCategory.playful.accentHex,
-            MoodCategory.wild.accentHex,
-            MoodCategory.dreamy.accentHex,
-            MoodCategory.noir.accentHex,
-            "#111111"
-        ]
+    var isSaving: Bool {
+        saveState == .saving
+    }
+
+    var canSave: Bool {
+        saveState == .dirty
+    }
+
+    var hasArtwork: Bool {
+        !paintState.regionFills.isEmpty
+    }
+
+    var selectedPalette: ColorPalette {
+        palettes.first { $0.id == selectedPaletteID } ?? Self.essentialsPalette
+    }
+
+    var selectedSwatches: [ColorSwatch] {
+        selectedPalette.swatches
+    }
+
+    var selectedColorName: String {
+        palettes
+            .flatMap(\.swatches)
+            .first { $0.hex.caseInsensitiveCompare(selectedColorHex) == .orderedSame }?
+            .name ?? selectedColorHex
+    }
+
+    func selectPalette(_ palette: ColorPalette) {
+        selectedPaletteID = palette.id
+    }
+
+    func selectColor(hex: String) {
+        selectedColorHex = hex
     }
 
     func loadIfNeeded() async {
@@ -126,54 +185,77 @@ final class ColoringSessionViewModel {
             geometry = parsedGeometry
             canvasDocumentSize = parsedGeometry.viewBox.size
             paintState = storageService.loadPaintState(for: seed.project)
+            lastSavedRegionFills = paintState.regionFills
+            clearUndoHistory()
+            saveState = .saved
             await renderImages(geometry: parsedGeometry)
             hasLoaded = true
             state = .ready
         }
     }
 
-    func fill(atCanvasPoint point: CGPoint, canvasSize: CGSize) async {
-        guard let geometry else { return }
+    @discardableResult
+    func fill(atCanvasPoint point: CGPoint, canvasSize: CGSize) async -> Bool {
+        guard let geometry else { return false }
         let transform = TemplateRenderer.documentToViewTransform(
             viewBox: geometry.viewBox,
             viewSize: canvasSize
         )
         let documentPoint = point.applying(transform.inverted())
-        await fill(atDocumentPoint: documentPoint)
+        return await fill(atDocumentPoint: documentPoint)
     }
 
-    func fill(atDocumentPoint point: CGPoint) async {
+    @discardableResult
+    func fill(atDocumentPoint point: CGPoint) async -> Bool {
         guard let geometry,
-              let region = geometry.region(at: point),
-              var mutableProject = project else { return }
+              let region = geometry.region(at: point) else { return false }
 
         let previousHex = paintState.regionFills[region.id]
-        guard previousHex != selectedColorHex else { return }
+        guard previousHex != selectedColorHex else { return false }
 
-        paintState.regionFills[region.id] = selectedColorHex
-        mutableProject.updateCompletion(
-            filledRegionCount: paintState.regionFills.count,
-            totalRegionCount: geometry.regions.count
+        let action = FillAction(
+            regionID: region.id,
+            previousHex: previousHex,
+            newHex: selectedColorHex
         )
-        project = mutableProject
+        undoStack.append(action)
+        redoStack.removeAll()
+        syncUndoRedoState()
 
-        let fills = paintState.regionFills
-        let size = geometry.viewBox.size
-        fillLayerImage = await Task.detached(priority: .userInitiated) {
-            TemplateRenderer.renderFillLayer(
-                geometry: geometry,
-                fills: fills,
-                size: size
-            )
-        }.value
+        applyFill(regionID: region.id, hex: selectedColorHex)
+        await refreshArtworkAfterEdit()
 
-        save()
         HapticService.shared.impact(.light)
+        return true
+    }
+
+    func undoLastFill() async {
+        guard let action = undoStack.popLast() else { return }
+        redoStack.append(action)
+        syncUndoRedoState()
+        applyFill(regionID: action.regionID, hex: action.previousHex)
+        await refreshArtworkAfterEdit()
+    }
+
+    func redoFill() async {
+        guard let action = redoStack.popLast() else { return }
+        undoStack.append(action)
+        syncUndoRedoState()
+        applyFill(regionID: action.regionID, hex: action.newHex)
+        await refreshArtworkAfterEdit()
+    }
+
+    func clearArtwork() async {
+        guard !paintState.regionFills.isEmpty else { return }
+        paintState.regionFills.removeAll()
+        clearUndoHistory()
+        await refreshArtworkAfterEdit()
+        HapticService.shared.impact(.medium)
     }
 
     func save() {
         guard var mutableProject = project else { return }
-        isSaving = true
+        saveState = .saving
         storageService.savePaintState(paintState, for: mutableProject)
         storageService.save(
             project: &mutableProject,
@@ -183,7 +265,8 @@ final class ColoringSessionViewModel {
         )
         project = mutableProject
         ProjectThumbnailCache.shared.invalidate(id: mutableProject.id)
-        isSaving = false
+        lastSavedRegionFills = paintState.regionFills
+        saveState = .saved
     }
 
     private func resolveSeed() async -> (project: Project, template: Template)? {
@@ -211,4 +294,81 @@ final class ColoringSessionViewModel {
             ? project.flatMap { storageService.loadFillLayer(for: $0) } ?? renderedFillLayer
             : renderedFillLayer
     }
+
+    private func applyFill(regionID: String, hex: String?) {
+        if let hex {
+            paintState.regionFills[regionID] = hex
+        } else {
+            paintState.regionFills.removeValue(forKey: regionID)
+        }
+    }
+
+    private func refreshArtworkAfterEdit() async {
+        updateProjectCompletion()
+        await renderCurrentFillLayer()
+        updateSaveStateForCurrentPaint()
+    }
+
+    private func updateProjectCompletion() {
+        guard let geometry, var mutableProject = project else { return }
+        mutableProject.updateCompletion(
+            filledRegionCount: paintState.regionFills.count,
+            totalRegionCount: geometry.regions.count
+        )
+        project = mutableProject
+    }
+
+    private func renderCurrentFillLayer() async {
+        guard let geometry else { return }
+        let fills = paintState.regionFills
+        let size = geometry.viewBox.size
+        fillLayerImage = await Task.detached(priority: .userInitiated) {
+            TemplateRenderer.renderFillLayer(
+                geometry: geometry,
+                fills: fills,
+                size: size
+            )
+        }.value
+    }
+
+    private func updateSaveStateForCurrentPaint() {
+        guard saveState != .saving else { return }
+        saveState = paintState.regionFills == lastSavedRegionFills ? .saved : .dirty
+    }
+
+    private func clearUndoHistory() {
+        undoStack.removeAll()
+        redoStack.removeAll()
+        syncUndoRedoState()
+    }
+
+    private func syncUndoRedoState() {
+        canUndo = !undoStack.isEmpty
+        canRedo = !redoStack.isEmpty
+    }
+
+    private static func makePalettes() -> [ColorPalette] {
+        [essentialsPalette] + ColorPalette.loadAll()
+    }
+
+    private static let essentialsPalette = ColorPalette(
+        id: UUID(uuidString: "11111111-0000-0000-0000-000000000100")!,
+        name: "Essentials",
+        swatches: [
+            ColorSwatch(id: UUID(uuidString: "22222222-0000-0000-0000-000000000100")!, name: "Signature Pink", hex: SableTheme.progressPinkHex),
+            ColorSwatch(id: UUID(uuidString: "22222222-0000-0000-0000-000000000101")!, name: "Crimson", hex: SableTheme.crimsonHex),
+            ColorSwatch(id: UUID(uuidString: "22222222-0000-0000-0000-000000000102")!, name: "Calm Teal", hex: MoodCategory.calm.accentHex),
+            ColorSwatch(id: UUID(uuidString: "22222222-0000-0000-0000-000000000103")!, name: "Playful Orange", hex: MoodCategory.playful.accentHex),
+            ColorSwatch(id: UUID(uuidString: "22222222-0000-0000-0000-000000000104")!, name: "Wild Amber", hex: MoodCategory.wild.accentHex),
+            ColorSwatch(id: UUID(uuidString: "22222222-0000-0000-0000-000000000105")!, name: "Dreamy Violet", hex: MoodCategory.dreamy.accentHex),
+            ColorSwatch(id: UUID(uuidString: "22222222-0000-0000-0000-000000000106")!, name: "Noir Blue", hex: MoodCategory.noir.accentHex),
+            ColorSwatch(id: UUID(uuidString: "22222222-0000-0000-0000-000000000107")!, name: "Ink", hex: "#111111")
+        ]
+    )
+}
+
+private struct FillAction {
+    let regionID: String
+    let previousHex: String?
+    let newHex: String
 }

@@ -7,6 +7,8 @@ struct ColoringCanvasView: View {
     @State private var viewport = CanvasViewport()
     @State private var gestureStartScale = CanvasViewport.minimumScale
     @State private var gestureStartOffset = CGSize.zero
+    @State private var showClearArtworkConfirmation = false
+    @State private var fillFeedbackID: UUID?
 
     init(
         projectId: UUID?,
@@ -52,6 +54,16 @@ struct ColoringCanvasView: View {
                 toolbarActions
             }
         }
+        .alert("Clear artwork?", isPresented: $showClearArtworkConfirmation) {
+            Button("Clear Artwork", role: .destructive) {
+                Task {
+                    await viewModel.clearArtwork()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes every filled region from \(viewModel.title). Save afterward to keep the reset artwork.")
+        }
         .task {
             await viewModel.loadIfNeeded()
         }
@@ -82,6 +94,10 @@ struct ColoringCanvasView: View {
                             .scaledToFit()
                             .blendMode(.multiply)
                     }
+
+                    if fillFeedbackID != nil {
+                        fillFeedback
+                    }
                 }
                 .frame(width: canvasSize.width, height: canvasSize.height)
                 .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
@@ -101,10 +117,10 @@ struct ColoringCanvasView: View {
                 .simultaneousGesture(
                     zoomGesture(canvasSize: canvasSize, viewportSize: availableSize)
                 )
-                .accessibilityElement(children: .ignore)
+                .accessibilityElement(children: .contain)
                 .accessibilityAddTraits(.isImage)
                 .accessibilityLabel(viewModel.title)
-                .accessibilityIdentifier("canvas.surface")
+                .accessibilityIdentifier(A11y.Canvas.surface)
             }
 
             colorDock
@@ -122,6 +138,19 @@ struct ColoringCanvasView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
 
+            if fillFeedbackID != nil {
+                Label("Filled", systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(SableTheme.cardBlack, in: Capsule())
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Filled")
+                    .accessibilityIdentifier(A11y.Canvas.fillFeedback)
+            }
+
             Spacer()
 
             Text(viewModel.progressLabel)
@@ -130,7 +159,19 @@ struct ColoringCanvasView: View {
                 .padding(.horizontal, 15)
                 .padding(.vertical, 8)
                 .background(SableTheme.cardBlack, in: Capsule())
-                .accessibilityIdentifier("canvas.progress")
+                .accessibilityIdentifier(A11y.Canvas.progress)
+
+            Label(viewModel.saveState.label, systemImage: viewModel.saveState.systemImageName)
+                .font(.system(size: 14, weight: .black))
+                .foregroundStyle(viewModel.saveState == .dirty ? SableTheme.crimson : SableTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(.white.opacity(0.78), in: Capsule())
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(viewModel.saveState.label)
+                .accessibilityIdentifier(A11y.Canvas.saveState)
 
             Text("\(Int((viewport.scale * 100).rounded()))%")
                 .font(.system(size: 16, weight: .black))
@@ -139,54 +180,176 @@ struct ColoringCanvasView: View {
                 .padding(.vertical, 8)
                 .background(.white.opacity(0.78), in: Capsule())
                 .accessibilityLabel("Zoom \(Int((viewport.scale * 100).rounded())) percent")
-                .accessibilityIdentifier("canvas.zoom")
+                .accessibilityIdentifier(A11y.Canvas.zoom)
         }
     }
 
     private var toolbarActions: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
+            Button("Undo", systemImage: "arrow.uturn.backward") {
+                Task {
+                    await viewModel.undoLastFill()
+                }
+            }
+            .labelStyle(.iconOnly)
+            .disabled(!viewModel.canUndo)
+            .accessibilityIdentifier(A11y.Canvas.undo)
+
+            Button("Redo", systemImage: "arrow.uturn.forward") {
+                Task {
+                    await viewModel.redoFill()
+                }
+            }
+            .labelStyle(.iconOnly)
+            .disabled(!viewModel.canRedo)
+            .accessibilityIdentifier(A11y.Canvas.redo)
+
+            Button("Clear Artwork", systemImage: "trash") {
+                showClearArtworkConfirmation = true
+            }
+            .labelStyle(.iconOnly)
+            .disabled(!viewModel.hasArtwork)
+            .accessibilityIdentifier(A11y.Canvas.clearArtwork)
+
             Button("Reset View", systemImage: "arrow.counterclockwise", action: resetViewport)
                 .labelStyle(.iconOnly)
-                .accessibilityIdentifier("canvas.resetView")
+                .accessibilityIdentifier(A11y.Canvas.resetView)
 
-            Button("Save", systemImage: viewModel.isSaving ? "checkmark.circle.fill" : "square.and.arrow.down") {
+            Button(
+                viewModel.canSave ? "Save" : viewModel.saveState.label,
+                systemImage: viewModel.canSave ? "square.and.arrow.down" : viewModel.saveState.systemImageName
+            ) {
                 viewModel.save()
             }
             .labelStyle(.iconOnly)
-            .accessibilityIdentifier("canvas.save")
+            .disabled(!viewModel.canSave || viewModel.isSaving)
+            .accessibilityIdentifier(A11y.Canvas.save)
         }
         .font(.system(size: 18, weight: .bold))
         .tint(SableTheme.progressPink)
     }
 
     private var colorDock: some View {
-        HStack(spacing: 13) {
-            ForEach(viewModel.paletteHexes, id: \.self) { hex in
-                Button {
-                    viewModel.selectedColorHex = hex
-                } label: {
-                    Circle()
-                        .fill(Color(hex: hex))
-                        .frame(width: 44, height: 44)
-                        .overlay {
-                            Circle()
-                                .stroke(
-                                    viewModel.selectedColorHex == hex ? SableTheme.cardBlack : .white,
-                                    lineWidth: viewModel.selectedColorHex == hex ? 4 : 2
-                                )
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                Label(viewModel.selectedColorName, systemImage: "paintpalette.fill")
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundStyle(SableTheme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .frame(minWidth: 150, alignment: .leading)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(viewModel.palettes) { palette in
+                            Button {
+                                viewModel.selectPalette(palette)
+                            } label: {
+                                Text(palette.name)
+                                    .font(.system(size: 13, weight: .black))
+                                    .foregroundStyle(viewModel.selectedPaletteID == palette.id ? .white : SableTheme.ink)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        viewModel.selectedPaletteID == palette.id ? SableTheme.cardBlack : Color.white.opacity(0.7),
+                                        in: Capsule()
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier(A11y.Canvas.palette(palette.name))
                         }
-                        .shadow(color: Color.black.opacity(0.16), radius: 5, x: 0, y: 3)
+                    }
+                    .padding(.vertical, 1)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(hex)
-                .accessibilityIdentifier("canvas.color.\(hex.normalizedColorIdentifier)")
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(viewModel.selectedSwatches) { swatch in
+                        colorSwatchButton(swatch)
+                    }
+                }
+                .padding(.vertical, 3)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial, in: Capsule())
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
         .overlay {
-            Capsule().stroke(SableTheme.hairline, lineWidth: 1)
+            RoundedRectangle(cornerRadius: SableTheme.Radius.card)
+                .stroke(SableTheme.hairline, lineWidth: 1)
+        }
+    }
+
+    private func colorSwatchButton(_ swatch: ColorSwatch) -> some View {
+        Button {
+            viewModel.selectColor(hex: swatch.hex)
+        } label: {
+            VStack(spacing: 5) {
+                Circle()
+                    .fill(Color(hex: swatch.hex))
+                    .frame(width: 46, height: 46)
+                    .overlay {
+                        Circle()
+                            .stroke(
+                                viewModel.selectedColorHex == swatch.hex ? SableTheme.cardBlack : .white,
+                                lineWidth: viewModel.selectedColorHex == swatch.hex ? 4 : 2
+                            )
+                    }
+                    .shadow(color: Color.black.opacity(0.16), radius: 5, x: 0, y: 3)
+
+                Text(swatch.name)
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundStyle(SableTheme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                    .frame(width: 72)
+            }
+            .frame(width: 76)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(swatch.name)
+        .accessibilityIdentifier(A11y.Canvas.color(swatch.hex))
+    }
+
+    private var fillFeedback: some View {
+        VStack {
+            HStack {
+                Spacer()
+                Label("Filled", systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(SableTheme.cardBlack.opacity(0.9), in: Capsule())
+                    .overlay {
+                        Capsule().stroke(Color(hex: viewModel.selectedColorHex), lineWidth: 2)
+                    }
+                    .padding(14)
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Filled")
+                    .accessibilityIdentifier(A11y.Canvas.fillFeedback)
+            }
+            Spacer()
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func showFillFeedback() {
+        let token = UUID()
+        fillFeedbackID = token
+        Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                if fillFeedbackID == token {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        fillFeedbackID = nil
+                    }
+                }
+            }
         }
     }
 
@@ -230,10 +393,15 @@ struct ColoringCanvasView: View {
         SpatialTapGesture()
             .onEnded { value in
                 Task {
-                    await viewModel.fill(
+                    let didFill = await viewModel.fill(
                         atCanvasPoint: value.location,
                         canvasSize: canvasSize
                     )
+                    if didFill {
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            showFillFeedback()
+                        }
+                    }
                 }
             }
     }
@@ -285,13 +453,6 @@ struct ColoringCanvasView: View {
         viewport.reset()
         gestureStartScale = viewport.scale
         gestureStartOffset = viewport.offset
-    }
-}
-
-private extension String {
-    var normalizedColorIdentifier: String {
-        trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-            .lowercased()
     }
 }
 

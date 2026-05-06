@@ -68,8 +68,13 @@ final class AccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Sunflower Mandala"].exists)
         XCTAssertTrue(app.staticTexts.matching(identifier: "canvas.progress").firstMatch.exists)
         XCTAssertTrue(app.staticTexts.matching(identifier: "canvas.zoom").firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["canvas.saveState"].exists)
+        XCTAssertTrue(app.buttons["canvas.undo"].exists)
+        XCTAssertTrue(app.buttons["canvas.redo"].exists)
+        XCTAssertTrue(app.buttons["canvas.clearArtwork"].exists)
         XCTAssertTrue(app.buttons["canvas.resetView"].exists)
         XCTAssertTrue(app.buttons["canvas.save"].exists)
+        XCTAssertTrue(app.buttons["canvas.palette.essentials"].exists)
     }
 
     func test_canvasViewport_allowsPinchPanAndReset() throws {
@@ -141,6 +146,42 @@ final class AccessibilityUITests: XCTestCase {
         XCTAssertEqual(progressLabel(in: app), savedProgress)
     }
 
+    func test_canvasFillUndoRedoSaveStateAndClearConfirmation() throws {
+        let app = launchSeededApp()
+
+        app.buttons["home.collection.botanical-bold"].tap()
+        XCTAssertTrue(app.staticTexts["Botanical Bold"].waitForExistence(timeout: 3))
+
+        app.buttons["template.rose-bouquet"].tap()
+        let canvas = canvasSurface(in: app)
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
+        XCTAssertEqual(progressLabel(in: app), "0%")
+        XCTAssertEqual(saveStateLabel(in: app), "Saved")
+
+        app.buttons["canvas.color.ff2d78"].tap()
+        tapCanvasUntilProgressChanges(canvas: canvas, app: app)
+        let filledProgress = progressLabel(in: app)
+        XCTAssertTrue(app.descendants(matching: .any)["canvas.fillFeedback"].waitForExistence(timeout: 1))
+        XCTAssertEqual(saveStateLabel(in: app), "Unsaved changes")
+
+        app.buttons["canvas.undo"].tap()
+        XCTAssertTrue(waitForProgress(in: app, toEqual: "0%"))
+        XCTAssertEqual(saveStateLabel(in: app), "Saved")
+
+        app.buttons["canvas.redo"].tap()
+        XCTAssertTrue(waitForProgress(in: app, toEqual: filledProgress))
+        XCTAssertEqual(saveStateLabel(in: app), "Unsaved changes")
+
+        app.buttons["canvas.save"].tap()
+        XCTAssertTrue(waitForSaveState(in: app, toEqual: "Saved"))
+
+        app.buttons["canvas.clearArtwork"].tap()
+        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 2))
+        app.alerts.buttons["Clear Artwork"].tap()
+        XCTAssertTrue(waitForProgress(in: app, toEqual: "0%"))
+        XCTAssertEqual(saveStateLabel(in: app), "Unsaved changes")
+    }
+
     private func tapCanvasUntilProgressChanges(canvas: XCUIElement, app: XCUIApplication) {
         let offsets: [CGVector] = [
             CGVector(dx: 0.5, dy: 0.5),
@@ -166,10 +207,36 @@ final class AccessibilityUITests: XCTestCase {
         app.staticTexts.matching(identifier: "canvas.progress").firstMatch.label
     }
 
+    private func saveStateLabel(in app: XCUIApplication) -> String {
+        app.descendants(matching: .any)["canvas.saveState"].firstMatch.label
+    }
+
     private func waitForProgressChange(in app: XCUIApplication) -> Bool {
         let deadline = Date().addingTimeInterval(1.5)
         while Date() < deadline {
             if progressLabel(in: app) != "0%" {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
+    }
+
+    private func waitForProgress(in app: XCUIApplication, toEqual expected: String) -> Bool {
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline {
+            if progressLabel(in: app) == expected {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
+    }
+
+    private func waitForSaveState(in app: XCUIApplication, toEqual expected: String) -> Bool {
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline {
+            if saveStateLabel(in: app) == expected {
                 return true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))

@@ -20,7 +20,22 @@ public enum A11y {
     public enum Canvas {
         public static let surface = "canvas.surface"
         public static let save = "canvas.save"
+        public static let undo = "canvas.undo"
+        public static let redo = "canvas.redo"
+        public static let clearArtwork = "canvas.clearArtwork"
+        public static let resetView = "canvas.resetView"
         public static let progress = "canvas.progress"
+        public static let zoom = "canvas.zoom"
+        public static let saveState = "canvas.saveState"
+        public static let fillFeedback = "canvas.fillFeedback"
+
+        public static func color(_ hex: String) -> String {
+            "canvas.color.\(hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted).lowercased())"
+        }
+
+        public static func palette(_ name: String) -> String {
+            "canvas.palette.\(name.normalizedIdentifier)"
+        }
     }
 }
 

@@ -11,6 +11,7 @@
 // As with the other A-phase test files, this requires the ColorFlowTests
 // target to be wired in project.yml (follow-up F-05 from the A1 audit).
 
+import UIKit
 import XCTest
 @testable import ColorFlow
 
@@ -92,19 +93,33 @@ final class SVGCatalogParityTests: XCTestCase {
         }
     }
 
+    func test_allBundledSVGs_haveAtLeastOneFillableRegion() throws {
+        let urls = allBundledSVGURLs()
+        XCTAssertFalse(urls.isEmpty)
+
+        for url in urls {
+            guard case .success(let geometry) = SVGParser.parse(url: url) else {
+                XCTFail("\(url.lastPathComponent) should parse before checking fillable regions.")
+                continue
+            }
+
+            XCTAssertFalse(
+                geometry.regions.isEmpty,
+                "\(url.lastPathComponent) must expose at least one fillable region."
+            )
+            XCTAssertNotNil(
+                CanvasTestFixture.representativeFillPoint(in: geometry),
+                "\(url.lastPathComponent) should have a hittable point inside a fillable region."
+            )
+        }
+    }
+
     // MARK: - Completeness check: templates.json ↔ bundle
 
     /// Every template referenced in templates.json must have a corresponding
     /// SVG file in the bundle. This prevents silent missing-asset failures.
     func test_templatesJSON_allSVGsPresent() throws {
-        guard let jsonURL = Bundle.main.url(forResource: "templates", withExtension: "json"),
-              let data = try? Data(contentsOf: jsonURL),
-              let templates = try? JSONDecoder().decode([TemplateJSONEntry].self, from: data)
-        else {
-            // templates.json absent → app falls back to bundledTemplates; not a test failure here.
-            // SVGCatalogParityTests still runs via allBundledSVGs test above.
-            throw XCTSkip("templates.json not found in bundle; fallback catalogue in use.")
-        }
+        let templates = try loadManifestEntries()
 
         let bundleRoot = Bundle.main.resourceURL ?? URL(fileURLWithPath: "/dev/null")
         let _ = Bundle.main.url(forResource: "Templates", withExtension: nil)
@@ -124,6 +139,45 @@ final class SVGCatalogParityTests: XCTestCase {
             XCTAssertTrue(
                 foundInSubdir || foundFlat || foundManual,
                 "templates.json references '\(filename)' but no matching SVG was found in the app bundle."
+            )
+        }
+    }
+
+    func test_templatesJSON_hasExactSVGParityWithBundle() throws {
+        let manifestFilenames = Set(try loadManifestEntries().map(\.svgFilename))
+        let bundledFilenames = Set(allBundledSVGURLs().map(\.lastPathComponent))
+
+        XCTAssertEqual(
+            manifestFilenames,
+            bundledFilenames,
+            "templates.json and bundled SVG resources must stay in one-to-one parity."
+        )
+    }
+
+    func test_templatesJSON_matchesEmbeddedFallbackCatalogue() throws {
+        let manifestEntries = Set(try loadManifestEntries().map(CatalogEntry.init))
+        let fallbackEntries = Set(Template.bundledTemplates.map(CatalogEntry.init))
+
+        XCTAssertEqual(
+            manifestEntries,
+            fallbackEntries,
+            "templates.json and Template.bundledTemplates must remain interchangeable."
+        )
+    }
+
+    func test_allBundledTemplateThumbnailsRenderNonBlankArtwork() async throws {
+        let templates = Template.loadAll()
+        XCTAssertFalse(templates.isEmpty)
+
+        for template in templates {
+            let image = await TemplateRenderer.thumbnail(for: template)
+            let thumbnail = try XCTUnwrap(image, "\(template.name) should render a thumbnail.")
+
+            XCTAssertEqual(thumbnail.size.width, 400, accuracy: 0.1)
+            XCTAssertEqual(thumbnail.size.height, 400, accuracy: 0.1)
+            XCTAssertTrue(
+                thumbnail.hasVisibleArtwork,
+                "\(template.name) thumbnail should contain visible line art, not just a blank background."
             )
         }
     }
@@ -162,6 +216,17 @@ final class SVGCatalogParityTests: XCTestCase {
             }
         }
     }
+
+    private func loadManifestEntries() throws -> [TemplateJSONEntry] {
+        guard let jsonURL = Bundle.main.url(forResource: "templates", withExtension: "json"),
+              let data = try? Data(contentsOf: jsonURL),
+              let templates = try? JSONDecoder().decode([TemplateJSONEntry].self, from: data)
+        else {
+            XCTFail("templates.json not found in bundle; manifest parity cannot be verified.")
+            return []
+        }
+        return templates
+    }
 }
 
 // MARK: - Minimal JSON decoding type (avoids coupling to the full Template model)
@@ -169,5 +234,81 @@ final class SVGCatalogParityTests: XCTestCase {
 private struct TemplateJSONEntry: Decodable {
     let id: String
     let name: String
+    let category: TemplateCategory
+    let difficulty: Difficulty
     let svgFilename: String
+    let thumbnailFilename: String
+}
+
+private struct CatalogEntry: Hashable {
+    let id: UUID
+    let name: String
+    let category: TemplateCategory
+    let difficulty: Difficulty
+    let svgFilename: String
+    let thumbnailFilename: String
+
+    init(_ entry: TemplateJSONEntry) {
+        id = UUID(uuidString: entry.id) ?? UUID()
+        name = entry.name
+        category = entry.category
+        difficulty = entry.difficulty
+        svgFilename = entry.svgFilename
+        thumbnailFilename = entry.thumbnailFilename
+    }
+
+    init(_ template: Template) {
+        id = template.id
+        name = template.name
+        category = template.category
+        difficulty = template.difficulty
+        svgFilename = template.svgFilename
+        thumbnailFilename = template.thumbnailFilename
+    }
+}
+
+private extension UIImage {
+    var hasVisibleArtwork: Bool {
+        let width = 24
+        let height = 24
+        var pixels = [UInt8](repeating: 255, count: width * height * 4)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+
+        return pixels.withUnsafeMutableBytes { buffer in
+            guard let baseAddress = buffer.baseAddress,
+                  let context = CGContext(
+                    data: baseAddress,
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: width * 4,
+                    space: colorSpace,
+                    bitmapInfo: bitmapInfo
+                  ) else {
+                return false
+            }
+
+            context.setFillColor(UIColor.white.cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+
+            UIGraphicsPushContext(context)
+            draw(in: CGRect(x: 0, y: 0, width: width, height: height))
+            UIGraphicsPopContext()
+
+            let bytes = buffer.bindMemory(to: UInt8.self)
+            let background = (r: bytes[0], g: bytes[1], b: bytes[2])
+
+            for index in stride(from: 0, to: bytes.count, by: 4) {
+                let delta = abs(Int(bytes[index]) - Int(background.r))
+                    + abs(Int(bytes[index + 1]) - Int(background.g))
+                    + abs(Int(bytes[index + 2]) - Int(background.b))
+                if delta > 24 {
+                    return true
+                }
+            }
+
+            return false
+        }
+    }
 }

@@ -116,17 +116,24 @@ struct TemplateRenderer {
         fills: [String: String] = [:],
         size: CGSize = CGSize(width: 400, height: 400)
     ) -> UIImage {
-        guard !fills.isEmpty else {
-            return renderLineArt(geometry: geometry, size: size)
-        }
-
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { context in
-            let fillLayer = renderFillLayer(geometry: geometry, fills: fills, size: size)
-            fillLayer.draw(in: CGRect(origin: .zero, size: size))
+            let bounds = CGRect(origin: .zero, size: size)
+
+            UIColor(hex: SableTheme.creamHex).setFill()
+            context.fill(bounds)
+
+            if !fills.isEmpty {
+                let fillLayer = renderFillLayer(geometry: geometry, fills: fills, size: size)
+                fillLayer.draw(in: bounds)
+            }
 
             let lineArt = renderLineArt(geometry: geometry, size: size)
-            lineArt.draw(in: CGRect(origin: .zero, size: size))
+            let cgContext = context.cgContext
+            cgContext.saveGState()
+            cgContext.setBlendMode(.multiply)
+            lineArt.draw(in: bounds)
+            cgContext.restoreGState()
         }
     }
 

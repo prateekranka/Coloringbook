@@ -23,10 +23,16 @@ jobs:
       APPLE_TEAM_ID: 4JRB53LG5C
       PROJECT: ColorFlow.xcodeproj
       SCHEME: ColorFlow
+      TESTFLIGHT_GROUPS: ${{ vars.TESTFLIGHT_GROUPS || secrets.TESTFLIGHT_GROUPS }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
 
       - name: Validate App Store Connect secrets
         run: |
@@ -53,14 +59,14 @@ jobs:
       - name: Run unit tests
         run: ./dev test
 
-      - name: Prepare upload export options
+      - name: Prepare export options
         run: |
           EXPORT_OPTIONS="$RUNNER_TEMP/ExportOptions.plist"
           cp ExportOptions.plist "$EXPORT_OPTIONS"
           /usr/libexec/PlistBuddy -c "Set :method app-store-connect" "$EXPORT_OPTIONS" 2>/dev/null || \
           /usr/libexec/PlistBuddy -c "Add :method string app-store-connect" "$EXPORT_OPTIONS"
-          /usr/libexec/PlistBuddy -c "Set :destination upload" "$EXPORT_OPTIONS" 2>/dev/null || \
-          /usr/libexec/PlistBuddy -c "Add :destination string upload" "$EXPORT_OPTIONS"
+          /usr/libexec/PlistBuddy -c "Set :destination export" "$EXPORT_OPTIONS" 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Add :destination string export" "$EXPORT_OPTIONS"
           /usr/libexec/PlistBuddy -c "Set :signingStyle automatic" "$EXPORT_OPTIONS" 2>/dev/null || \
           /usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" "$EXPORT_OPTIONS"
           /usr/libexec/PlistBuddy -c "Set :teamID $APPLE_TEAM_ID" "$EXPORT_OPTIONS" 2>/dev/null || \
@@ -83,7 +89,7 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
-      - name: Upload to TestFlight
+      - name: Export IPA
         run: |
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/ColorFlow.xcarchive" \
@@ -93,3 +99,20 @@ jobs:
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          IPA_PATH="$(find "$RUNNER_TEMP/export" -maxdepth 1 -name '*.ipa' -print -quit)"
+          test -n "$IPA_PATH"
+          echo "IPA_PATH=$IPA_PATH" >> "$GITHUB_ENV"
+
+      - name: Prepare TestFlight changelog
+        run: |
+          {
+            echo "TESTFLIGHT_CHANGELOG<<EOF"
+            git log -1 --pretty=%B
+            echo
+            echo "Commit: ${GITHUB_SHA::7}"
+            echo "Run: $GITHUB_RUN_NUMBER"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Upload and distribute with Fastlane
+        run: bundle exec fastlane ios testflight

@@ -5,6 +5,9 @@ enum SableTheme {
     static let charcoalHex = "#171615"
     static let crimsonHex = "#D4213D"
     static let progressPinkHex = "#FF2D78"
+    static let gouachePaperHex = "#F6EFE3"
+    static let gouacheInkHex = "#2C2A27"
+    static let gouacheNightHex = "#101211"
 
     static let cream = Color(hex: creamHex)
     static let crimson = Color(hex: crimsonHex)
@@ -68,5 +71,33 @@ enum SableTheme {
 
     static func hairline(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark ? Color.white.opacity(0.14) : hairline
+    }
+
+    static func gouacheBackground(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: gouacheNightHex) : Color(hex: gouachePaperHex)
+    }
+
+    static func gouachePrimaryText(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#EFE3D2") : Color(hex: gouacheInkHex)
+    }
+
+    static func gouacheSecondaryText(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#B5AA9A") : Color(hex: "#6D655E")
+    }
+
+    static func gouachePanel(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#191A18") : Color(hex: "#FFF9EF")
+    }
+
+    static func gouacheHairline(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.13) : Color.black.opacity(0.12)
+    }
+
+    static func gouacheCardShadow(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.black.opacity(0.42) : Color.black.opacity(0.12)
+    }
+
+    static func fraunces(_ size: CGFloat, weight: SwiftUI.Font.Weight = .regular) -> SwiftUI.Font {
+        SwiftUI.Font.custom("Fraunces", size: size).weight(weight)
     }
 }

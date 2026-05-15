@@ -44,7 +44,11 @@ struct NavigationShell: View {
     private var selectedContent: some View {
         switch selectedTab {
         case .home:
-            HomeView(repository: repository, navigate: navigate)
+            HomeView(
+                repository: repository,
+                navigate: navigate,
+                openProfile: openProfile
+            )
         case .library:
             TemplateListView(
                 source: .explore,
@@ -85,11 +89,22 @@ struct NavigationShell: View {
                 fallbackTitle: route.title,
                 repository: repository
             )
+        case .search(let query):
+            TemplateListView(
+                source: .search(query),
+                repository: repository,
+                navigate: navigate
+            )
         }
     }
 
     private func navigate(to route: AppRoute) {
         path.append(route)
+    }
+
+    private func openProfile() {
+        path.removeAll()
+        selectedTab = .profile
     }
 }
 

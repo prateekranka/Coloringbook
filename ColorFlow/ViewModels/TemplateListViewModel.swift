@@ -7,6 +7,7 @@ final class TemplateListViewModel {
         case explore
         case collection(PageCollection)
         case mood(MoodCategory)
+        case search(String)
 
         var title: String {
             switch self {
@@ -16,6 +17,8 @@ final class TemplateListViewModel {
                 return collection.name
             case .mood(let mood):
                 return mood.title
+            case .search:
+                return "Search"
             }
         }
 
@@ -27,6 +30,8 @@ final class TemplateListViewModel {
                 return collection.pageCountLabel
             case .mood:
                 return "MOOD COLLECTION"
+            case .search(let query):
+                return query.isEmpty ? "ALL RESULTS" : "RESULTS FOR \(query.uppercased())"
             }
         }
     }
@@ -48,6 +53,9 @@ final class TemplateListViewModel {
     ) {
         self.source = source
         self.repository = repository
+        if case .search(let query) = source {
+            self.searchText = query
+        }
     }
 
     func loadIfNeeded() async {
@@ -64,6 +72,8 @@ final class TemplateListViewModel {
             templates = await repository.fetchTemplates(for: collection)
         case .mood(let mood):
             templates = await repository.fetchTemplates(for: mood)
+        case .search:
+            templates = await repository.fetchExploreTemplates()
         }
         isLoading = false
         hasLoaded = true

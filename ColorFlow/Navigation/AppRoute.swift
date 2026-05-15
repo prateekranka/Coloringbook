@@ -11,6 +11,7 @@ enum AppRoute: Hashable {
     case collection(PageCollection)
     case mood(MoodCategory)
     case canvas(CanvasRoute)
+    case search(String)
 
     var title: String {
         switch self {
@@ -22,6 +23,8 @@ enum AppRoute: Hashable {
             return mood.title
         case .canvas(let route):
             return route.title
+        case .search(let query):
+            return query
         }
     }
 
@@ -35,6 +38,8 @@ enum AppRoute: Hashable {
             return "Mood collection"
         case .canvas:
             return "Coloring canvas"
+        case .search:
+            return "Search results"
         }
     }
 }

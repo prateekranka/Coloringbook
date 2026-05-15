@@ -68,7 +68,8 @@ struct TemplateRenderer {
     static func renderLineArt(
         geometry: TemplateGeometry,
         size: CGSize,
-        strokeColor: UIColor = .black
+        strokeColor: UIColor = .black,
+        strokeWidthPixels: CGFloat = 5
     ) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { context in
@@ -77,7 +78,7 @@ struct TemplateRenderer {
             cgContext.concatenate(transform)
 
             let scale = min(size.width / geometry.viewBox.width, size.height / geometry.viewBox.height)
-            let strokeWidth = 5.0 / scale
+            let strokeWidth = strokeWidthPixels / scale
 
             cgContext.setStrokeColor(strokeColor.cgColor)
             cgContext.setLineWidth(strokeWidth)
@@ -102,37 +103,100 @@ struct TemplateRenderer {
     static func thumbnail(
         for template: Template,
         fills: [String: String] = [:],
-        size: CGSize = CGSize(width: 400, height: 400)
+        size: CGSize = CGSize(width: 400, height: 400),
+        strokeWidthPixels: CGFloat = 2.4
     ) async -> UIImage? {
         guard let url = template.svgURL else { return nil }
         return await Task.detached(priority: .userInitiated) {
             guard case .success(let geo) = SVGParser.parse(url: url) else { return nil }
-            return renderThumbnail(geometry: geo, fills: fills, size: size)
+            return renderThumbnail(
+                geometry: geo,
+                fills: fills,
+                size: size,
+                strokeWidthPixels: strokeWidthPixels
+            )
+        }.value
+    }
+
+    static func thumbnail(
+        for template: Template,
+        fillLayer: UIImage?,
+        size: CGSize = CGSize(width: 400, height: 400),
+        strokeWidthPixels: CGFloat = 2.4
+    ) async -> UIImage? {
+        guard let url = template.svgURL else { return nil }
+        return await Task.detached(priority: .userInitiated) {
+            guard case .success(let geo) = SVGParser.parse(url: url) else { return nil }
+            return renderThumbnail(
+                geometry: geo,
+                fillLayer: fillLayer,
+                size: size,
+                strokeWidthPixels: strokeWidthPixels
+            )
         }.value
     }
 
     static func renderThumbnail(
         geometry: TemplateGeometry,
         fills: [String: String] = [:],
-        size: CGSize = CGSize(width: 400, height: 400)
+        size: CGSize = CGSize(width: 400, height: 400),
+        strokeWidthPixels: CGFloat = 2.4
     ) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { context in
             let bounds = CGRect(origin: .zero, size: size)
+            let inset = min(size.width, size.height) * 0.04
+            let artBounds = bounds.insetBy(dx: inset, dy: inset)
+            let artSize = artBounds.size
 
             UIColor(hex: SableTheme.creamHex).setFill()
             context.fill(bounds)
 
             if !fills.isEmpty {
-                let fillLayer = renderFillLayer(geometry: geometry, fills: fills, size: size)
-                fillLayer.draw(in: bounds)
+                let fillLayer = renderFillLayer(geometry: geometry, fills: fills, size: artSize)
+                fillLayer.draw(in: artBounds)
             }
 
-            let lineArt = renderLineArt(geometry: geometry, size: size)
+            let lineArt = renderLineArt(
+                geometry: geometry,
+                size: artSize,
+                strokeWidthPixels: strokeWidthPixels
+            )
             let cgContext = context.cgContext
             cgContext.saveGState()
             cgContext.setBlendMode(.multiply)
-            lineArt.draw(in: bounds)
+            lineArt.draw(in: artBounds)
+            cgContext.restoreGState()
+        }
+    }
+
+    static func renderThumbnail(
+        geometry: TemplateGeometry,
+        fillLayer: UIImage?,
+        size: CGSize = CGSize(width: 400, height: 400),
+        strokeWidthPixels: CGFloat = 2.4
+    ) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { context in
+            let bounds = CGRect(origin: .zero, size: size)
+            let inset = min(size.width, size.height) * 0.04
+            let artBounds = bounds.insetBy(dx: inset, dy: inset)
+            let artSize = artBounds.size
+
+            UIColor(hex: SableTheme.creamHex).setFill()
+            context.fill(bounds)
+
+            fillLayer?.draw(in: artBounds)
+
+            let lineArt = renderLineArt(
+                geometry: geometry,
+                size: artSize,
+                strokeWidthPixels: strokeWidthPixels
+            )
+            let cgContext = context.cgContext
+            cgContext.saveGState()
+            cgContext.setBlendMode(.multiply)
+            lineArt.draw(in: artBounds)
             cgContext.restoreGState()
         }
     }

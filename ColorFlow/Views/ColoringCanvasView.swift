@@ -3,12 +3,19 @@ import UIKit
 
 @MainActor
 struct ColoringCanvasView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(RenderTuningStore.self) private var renderTuning
     @State private var viewModel: ColoringSessionViewModel
     @State private var viewport = CanvasViewport()
     @State private var gestureStartScale = CanvasViewport.minimumScale
     @State private var gestureStartOffset = CGSize.zero
     @State private var showClearArtworkConfirmation = false
     @State private var fillFeedbackID: UUID?
+    @State private var isUIHidden = false
+    @State private var liveStrokePoints: [CGPoint] = []
+    #if DEBUG
+    @State private var showRenderTuning = false
+    #endif
 
     init(
         projectId: UUID?,
@@ -50,6 +57,12 @@ struct ColoringCanvasView: View {
         .navigationTitle(viewModel.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            #if DEBUG
+            ToolbarItem(placement: .topBarTrailing) {
+                renderTuningButton
+            }
+            #endif
+
             ToolbarItem(placement: .topBarTrailing) {
                 toolbarActions
             }
@@ -67,11 +80,21 @@ struct ColoringCanvasView: View {
         .task {
             await viewModel.loadIfNeeded()
         }
+        .onDisappear {
+            viewModel.saveNow()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active {
+                viewModel.saveNow()
+            }
+        }
     }
 
     private var readyBody: some View {
         VStack(spacing: 16) {
-            canvasHeader
+            if !isUIHidden {
+                canvasHeader
+            }
 
             GeometryReader { proxy in
                 let availableSize = proxy.size
@@ -98,6 +121,10 @@ struct ColoringCanvasView: View {
                     if fillFeedbackID != nil {
                         fillFeedback
                     }
+
+                    if !liveStrokePoints.isEmpty {
+                        LiveStrokePreview(points: liveStrokePoints, colorHex: viewModel.selectedColorHex, settings: viewModel.selectedToolSettings)
+                    }
                 }
                 .frame(width: canvasSize.width, height: canvasSize.height)
                 .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
@@ -117,17 +144,26 @@ struct ColoringCanvasView: View {
                 .simultaneousGesture(
                     zoomGesture(canvasSize: canvasSize, viewportSize: availableSize)
                 )
+                .simultaneousGesture(
+                    drawGesture(canvasSize: canvasSize)
+                )
                 .accessibilityElement(children: .contain)
                 .accessibilityAddTraits(.isImage)
                 .accessibilityLabel(viewModel.title)
                 .accessibilityIdentifier(A11y.Canvas.surface)
             }
 
-            colorDock
+            if !isUIHidden {
+                toolDock
+                colorDock
+            }
         }
         .padding(.horizontal, 28)
         .padding(.top, 18)
         .padding(.bottom, 22)
+        .task(id: renderTuning.canvasStrokeWidth) {
+            await viewModel.updateCanvasStrokeWidth(renderTuning.canvasStrokeWidth)
+        }
     }
 
     private var canvasHeader: some View {
@@ -152,6 +188,18 @@ struct ColoringCanvasView: View {
             }
 
             Spacer()
+
+            Picker("Coloring mode", selection: Binding(
+                get: { viewModel.coloringMode },
+                set: { viewModel.selectColoringMode($0) }
+            )) {
+                ForEach(CanvasColoringMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 170)
+            .accessibilityIdentifier("canvas.cleanFreeToggle")
 
             Text(viewModel.progressLabel)
                 .font(.system(size: 18, weight: .black))
@@ -181,6 +229,19 @@ struct ColoringCanvasView: View {
                 .background(.white.opacity(0.78), in: Capsule())
                 .accessibilityLabel("Zoom \(Int((viewport.scale * 100).rounded())) percent")
                 .accessibilityIdentifier(A11y.Canvas.zoom)
+
+            Button(isUIHidden ? "Show UI" : "Hide UI", systemImage: isUIHidden ? "eye" : "eye.slash") {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isUIHidden.toggle()
+                }
+            }
+            .labelStyle(.iconOnly)
+            .font(.system(size: 17, weight: .bold))
+            .foregroundStyle(SableTheme.ink)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.white.opacity(0.78), in: Capsule())
+            .accessibilityIdentifier("canvas.hideUI")
         }
     }
 
@@ -229,6 +290,35 @@ struct ColoringCanvasView: View {
         .tint(SableTheme.progressPink)
     }
 
+    #if DEBUG
+    private var renderTuningButton: some View {
+        Button {
+            showRenderTuning.toggle()
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 13, weight: .black))
+
+                Text("Render")
+                    .font(.system(size: 14, weight: .black))
+            }
+                .font(.system(size: 14, weight: .black))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(SableTheme.cardBlack, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .popover(isPresented: $showRenderTuning, arrowEdge: .top) {
+            CanvasRenderTuningPopover(tuning: renderTuning)
+                .presentationCompactAdaptation(.popover)
+        }
+        .accessibilityLabel("Render")
+        .accessibilityIdentifier("canvas.render.tuning.button")
+    }
+    #endif
+
     private var colorDock: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 14) {
@@ -266,9 +356,9 @@ struct ColoringCanvasView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(viewModel.selectedSwatches) { swatch in
-                        colorSwatchButton(swatch)
-                    }
+                        ForEach(viewModel.selectedSwatches) { swatch in
+                            colorSwatchButton(swatch)
+                        }
                 }
                 .padding(.vertical, 3)
             }
@@ -282,22 +372,64 @@ struct ColoringCanvasView: View {
         }
     }
 
+    private var toolDock: some View {
+        FloatingPanel {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(ToolType.allCases) { tool in
+                        Button {
+                            viewModel.selectTool(tool)
+                        } label: {
+                            VStack(spacing: 5) {
+                                Image(systemName: tool.systemImageName)
+                                    .font(.system(size: 18, weight: .bold))
+                                Text(tool.rawValue)
+                                    .font(.system(size: 9, weight: .black))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
+                            }
+                            .foregroundStyle(viewModel.selectedTool == tool ? .white : SableTheme.ink)
+                            .frame(width: 74, height: 56)
+                            .background(viewModel.selectedTool == tool ? SableTheme.cardBlack : Color.white.opacity(0.65), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("canvas.tool.\(tool.rawValue.normalizedIdentifier)")
+                    }
+
+                    Divider()
+                        .frame(height: 96)
+
+                    ToolAdjustmentPanel(
+                        tool: viewModel.selectedTool,
+                        size: Binding(
+                            get: { viewModel.selectedToolSettings.size },
+                            set: { viewModel.updateSelectedToolSize($0) }
+                        ),
+                        opacity: Binding(
+                            get: { viewModel.selectedToolSettings.opacity },
+                            set: { viewModel.updateSelectedToolOpacity($0) }
+                        ),
+                        textureAmount: viewModel.selectedToolSettings.textureAmount
+                    )
+                }
+            }
+        }
+    }
+
     private func colorSwatchButton(_ swatch: ColorSwatch) -> some View {
         Button {
             viewModel.selectColor(hex: swatch.hex)
         } label: {
             VStack(spacing: 5) {
                 Circle()
-                    .fill(Color(hex: swatch.hex))
-                    .frame(width: 46, height: 46)
+                    .fill(.clear)
                     .overlay {
-                        Circle()
-                            .stroke(
-                                viewModel.selectedColorHex == swatch.hex ? SableTheme.cardBlack : .white,
-                                lineWidth: viewModel.selectedColorHex == swatch.hex ? 4 : 2
-                            )
+                        PaintDab(
+                            color: Color(hex: swatch.hex),
+                            isSelected: viewModel.selectedColorHex == swatch.hex
+                        )
                     }
-                    .shadow(color: Color.black.opacity(0.16), radius: 5, x: 0, y: 3)
+                    .frame(width: 54, height: 54)
 
                 Text(swatch.name)
                     .font(.system(size: 10, weight: .black))
@@ -392,6 +524,7 @@ struct ColoringCanvasView: View {
     private func tapToFillGesture(canvasSize: CGSize) -> some Gesture {
         SpatialTapGesture()
             .onEnded { value in
+                guard viewModel.selectedTool == .fillBucket else { return }
                 Task {
                     let didFill = await viewModel.fill(
                         atCanvasPoint: value.location,
@@ -427,6 +560,26 @@ struct ColoringCanvasView: View {
             }
     }
 
+    private func drawGesture(canvasSize: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 2)
+            .onChanged { value in
+                guard viewModel.selectedTool != .fillBucket else { return }
+                if liveStrokePoints.isEmpty {
+                    liveStrokePoints = [value.startLocation]
+                }
+                liveStrokePoints.append(value.location)
+            }
+            .onEnded { value in
+                guard viewModel.selectedTool != .fillBucket else { return }
+                liveStrokePoints.append(value.location)
+                let points = liveStrokePoints
+                liveStrokePoints = []
+                Task {
+                    _ = await viewModel.drawStroke(canvasPoints: points, canvasSize: canvasSize)
+                }
+            }
+    }
+
     private func zoomGesture(canvasSize: CGSize, viewportSize: CGSize) -> some Gesture {
         MagnificationGesture()
             .onChanged { magnification in
@@ -456,6 +609,253 @@ struct ColoringCanvasView: View {
     }
 }
 
+#if DEBUG
+private struct CanvasRenderTuningPopover: View {
+    let tuning: RenderTuningStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Render Weight")
+                .font(.system(size: 18, weight: .black))
+                .foregroundStyle(SableTheme.ink)
+
+            CanvasRenderTuningSlider(
+                title: "Thumbnails",
+                value: Binding(
+                    get: { tuning.thumbnailStrokeWidth },
+                    set: { tuning.thumbnailStrokeWidth = $0 }
+                ),
+                range: RenderTuningStore.thumbnailStrokeWidthRange
+            )
+
+            CanvasRenderTuningSlider(
+                title: "Canvas",
+                value: Binding(
+                    get: { tuning.canvasStrokeWidth },
+                    set: { tuning.canvasStrokeWidth = $0 }
+                ),
+                range: RenderTuningStore.canvasStrokeWidthRange
+            )
+
+            Button("Reset") {
+                tuning.reset()
+            }
+            .font(.system(size: 13, weight: .black))
+            .foregroundStyle(SableTheme.progressPink)
+        }
+        .padding(18)
+        .frame(width: 300)
+        .background(SableTheme.cream)
+    }
+}
+
+private struct CanvasRenderTuningSlider: View {
+    let title: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundStyle(SableTheme.ink)
+
+                Spacer()
+
+                Text(value, format: .number.precision(.fractionLength(2)))
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundStyle(SableTheme.progressPink)
+            }
+
+            Slider(value: $value, in: range, step: 0.05)
+                .tint(SableTheme.progressPink)
+        }
+    }
+}
+#endif
+
+private struct LiveStrokePreview: View {
+    let points: [CGPoint]
+    let colorHex: String
+    let settings: ToolSettings
+
+    var body: some View {
+        Canvas { context, _ in
+            guard points.count > 1 else { return }
+            var path = Path()
+            path.move(to: points[0])
+            for point in points.dropFirst() {
+                path.addLine(to: point)
+            }
+            context.stroke(
+                path,
+                with: .color(settings.tool == .eraser ? .white.opacity(0.55) : Color(hex: colorHex).opacity(settings.opacity)),
+                style: StrokeStyle(lineWidth: settings.size, lineCap: .round, lineJoin: .round)
+            )
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct ToolAdjustmentPanel: View {
+    let tool: ToolType
+    @Binding var size: CGFloat
+    @Binding var opacity: Double
+    let textureAmount: Double
+
+    var body: some View {
+        HStack(spacing: 14) {
+            if tool.supportsSizeControl {
+                BrushSizeScrubber(size: $size)
+            }
+
+            VStack(alignment: .leading, spacing: 9) {
+                Label(tool.rawValue, systemImage: tool.systemImageName)
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(SableTheme.ink)
+                    .lineLimit(1)
+
+                Text(tool.supportsSizeControl ? "\(Int(size.rounded())) pt" : "Tap to fill")
+                    .font(.system(size: 18, weight: .black))
+                    .foregroundStyle(SableTheme.ink)
+                    .monospacedDigit()
+
+                if tool.supportsOpacityControl {
+                    OpacityScrubber(opacity: $opacity)
+                } else {
+                    Text("Texture \(Int((textureAmount * 100).rounded()))%")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(SableTheme.mutedInk)
+                }
+            }
+            .frame(width: 148, alignment: .leading)
+        }
+        .frame(height: 108)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("canvas.tool.adjustments")
+    }
+}
+
+private struct BrushSizeScrubber: View {
+    @Binding var size: CGFloat
+
+    private let trackHeight: CGFloat = 96
+    private let trackWidth: CGFloat = 14
+    private let thumbDisplayRange: ClosedRange<CGFloat> = 4...24
+
+    @State private var isDragging = false
+
+    var body: some View {
+        let fraction = normalize(size, in: ToolSettings.sizeRange)
+
+        ZStack(alignment: .bottom) {
+            Capsule()
+                .fill(.regularMaterial)
+                .frame(width: trackWidth, height: trackHeight)
+                .overlay {
+                    Capsule().stroke(Color.white.opacity(0.36), lineWidth: 1)
+                }
+
+            Capsule()
+                .fill(SableTheme.progressPink.opacity(0.76))
+                .frame(width: trackWidth, height: max(trackWidth, trackHeight * fraction))
+
+            Circle()
+                .fill(Color.white)
+                .frame(width: displayDiameter(for: size), height: displayDiameter(for: size))
+                .overlay {
+                    Circle().stroke(Color.black.opacity(0.16), lineWidth: 1)
+                }
+                .shadow(color: Color.black.opacity(0.24), radius: 4, y: 2)
+                .offset(y: -trackHeight * fraction + trackWidth / 2)
+                .overlay(alignment: .trailing) {
+                    if isDragging {
+                        Text("\(Int(size.rounded())) pt")
+                            .font(.system(size: 11, weight: .black))
+                            .foregroundStyle(SableTheme.ink)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.92), in: Capsule())
+                            .offset(x: 48, y: -trackHeight * fraction + trackWidth / 2)
+                            .transition(.opacity)
+                    }
+                }
+        }
+        .frame(width: 40, height: trackHeight)
+        .contentShape(Rectangle().inset(by: -14))
+        .gesture(dragGesture)
+        .sensoryFeedback(.selection, trigger: Int(size.rounded()))
+        .accessibilityLabel("Brush size")
+        .accessibilityValue("\(Int(size.rounded())) points")
+        .accessibilityIdentifier("canvas.brush.size")
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                let clampedY = min(max(0, trackHeight - value.location.y), trackHeight)
+                let fraction = Double(clampedY / trackHeight)
+                let nextSize = apply(fraction: fraction, to: ToolSettings.sizeRange)
+                if !isDragging {
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        isDragging = true
+                    }
+                }
+                size = nextSize
+            }
+            .onEnded { _ in
+                withAnimation(.easeOut(duration: 0.12)) {
+                    isDragging = false
+                }
+            }
+    }
+
+    private func apply(fraction: Double, to range: ClosedRange<CGFloat>) -> CGFloat {
+        let shaped = fraction * fraction
+        let lower = Double(range.lowerBound)
+        let upper = Double(range.upperBound)
+        return CGFloat(lower + (upper - lower) * shaped)
+    }
+
+    private func normalize(_ value: CGFloat, in range: ClosedRange<CGFloat>) -> CGFloat {
+        guard range.upperBound > range.lowerBound else { return 0 }
+        let linear = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+        return CGFloat(sqrt(max(0, Double(linear))))
+    }
+
+    private func displayDiameter(for size: CGFloat) -> CGFloat {
+        let range = ToolSettings.sizeRange
+        let fraction = (size - range.lowerBound) / (range.upperBound - range.lowerBound)
+        return thumbDisplayRange.lowerBound + (thumbDisplayRange.upperBound - thumbDisplayRange.lowerBound) * fraction
+    }
+}
+
+private struct OpacityScrubber: View {
+    @Binding var opacity: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text("Opacity")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(SableTheme.mutedInk)
+                Text("\(Int((opacity * 100).rounded()))%")
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundStyle(SableTheme.ink)
+                    .monospacedDigit()
+            }
+
+            Slider(value: $opacity, in: ToolSettings.opacityRange)
+                .tint(SableTheme.progressPink)
+                .frame(width: 126)
+                .accessibilityLabel("Opacity")
+                .accessibilityValue("\(Int((opacity * 100).rounded())) percent")
+                .accessibilityIdentifier("canvas.opacity")
+        }
+    }
+}
+
 #Preview("Canvas") {
     NavigationStack {
         if let template = Template.loadAll().first {
@@ -469,4 +869,5 @@ struct ColoringCanvasView: View {
             Text("No templates")
         }
     }
+    .environment(RenderTuningStore())
 }

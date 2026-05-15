@@ -1,0 +1,33 @@
+{
+  "devices": [
+    {
+      "name": "iPad Pro 12.9-inch",
+      "simulatorName": "iPad Pro (12.9-inch) (6th generation)",
+      "outputDir": "iPadPro12_9",
+      "resolutions": {
+        "portrait": "2048x2732",
+        "landscape": "2732x2048"
+      }
+    },
+    {
+      "name": "iPad 11-inch",
+      "simulatorName": "iPad Pro (11-inch) (M4)",
+      "outputDir": "iPad11",
+      "resolutions": {
+        "portrait": "1668x2388",
+        "landscape": "2388x1668"
+      }
+    }
+  ],
+  "orientations": [
+    { "name": "Portrait", "simctlValue": "portrait" },
+    { "name": "Landscape", "simctlValue": "landscapeRight" }
+  ],
+  "screens": [
+    { "name": "01_Home", "testMethod": "test_captureHome" },
+    { "name": "02_Explore", "testMethod": "test_captureExplore" },
+    { "name": "03_Canvas", "testMethod": "test_captureCanvas" },
+    { "name": "04_Library", "testMethod": "test_captureLibrary" },
+    { "name": "05_Collection", "testMethod": "test_captureCollection" }
+  ]
+}

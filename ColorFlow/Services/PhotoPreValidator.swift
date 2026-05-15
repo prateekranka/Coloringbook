@@ -3,11 +3,12 @@ import CoreImage
 
 // MARK: - Validation Result
 
-enum PhotoValidationResult {
+enum PhotoValidationResult: Equatable {
     case valid
+    case invalidImage
     case tooSmall(shortEdge: Int, minimum: Int)
     case lowContrast    // flat histogram — warning, not a hard rejection
-    case blurry         // high Laplacian variance — warning, not a hard rejection
+    case blurry         // low Laplacian variance — warning, not a hard rejection
 }
 
 // MARK: - PhotoPreValidator
@@ -15,11 +16,12 @@ enum PhotoValidationResult {
 /// Validates a user-provided photo before it enters the pipeline.
 ///
 /// Hard rejections (returns non-valid result the UI must show and block):
+///   - Image data cannot be read
 ///   - Image smaller than 640px on the short edge
 ///
 /// Soft warnings (UI shows a message but lets the user proceed):
 ///   - Flat histogram (nearly-blank / very low contrast)
-///   - Laplacian blur metric too high (blurry image)
+///   - Laplacian blur metric too low (blurry image)
 struct PhotoPreValidator {
 
     /// Minimum pixels on the short edge.
@@ -34,10 +36,11 @@ struct PhotoPreValidator {
     /// Returns the first issue found, or `.valid` if the image passes all checks.
     /// Hard failures come before soft warnings so callers see the blocker first.
     static func validate(_ image: UIImage) -> PhotoValidationResult {
-        guard let cgImage = image.cgImage else { return .valid }
-        let width  = cgImage.width
-        let height = cgImage.height
-        let shortEdge = min(width, height)
+        guard let pixelSize = pixelSize(of: image) else {
+            return .invalidImage
+        }
+
+        let shortEdge = Int(floor(min(pixelSize.width, pixelSize.height)))
 
         if shortEdge < minimumShortEdge {
             return .tooSmall(shortEdge: shortEdge, minimum: minimumShortEdge)
@@ -135,5 +138,36 @@ struct PhotoPreValidator {
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: newSize))
         }
+    }
+
+    private static func pixelSize(of image: UIImage) -> CGSize? {
+        if let cgImage = image.cgImage {
+            return CGSize(width: cgImage.width, height: cgImage.height)
+        }
+
+        if let ciImage = image.ciImage {
+            let extent = ciImage.extent
+            guard extent.isUsablePixelExtent else { return nil }
+            return extent.size
+        }
+
+        let scaledSize = CGSize(
+            width: image.size.width * image.scale,
+            height: image.size.height * image.scale
+        )
+        guard scaledSize.isUsablePixelSize else { return nil }
+        return scaledSize
+    }
+}
+
+private extension CGSize {
+    var isUsablePixelSize: Bool {
+        width.isFinite && height.isFinite && width > 0 && height > 0
+    }
+}
+
+private extension CGRect {
+    var isUsablePixelExtent: Bool {
+        !isNull && !isInfinite && size.isUsablePixelSize
     }
 }

@@ -27,13 +27,13 @@ final class DesignSystemTests: XCTestCase {
         let repository = MockHomeRepository()
 
         let pages = await repository.fetchContinuePages()
-        XCTAssertEqual(pages.map(\.title), ["Majestic Tiger", "Ocean Explorer", "Secret Garden"])
+        XCTAssertEqual(pages.map(\.title), ["Rainy Library", "Lemon Balcony", "Wildflowers"])
         XCTAssertEqual(pages.map { Int(($0.progress * 100).rounded()) }, [72, 48, 31])
 
         let collections = await repository.fetchCollections()
-        XCTAssertEqual(collections.map(\.name), ["Koi Serenity", "Botanical Bold", "Wanderlust", "Architectural Beauty"])
-        XCTAssertEqual(collections.map(\.pageCount), [32, 45, 28, 36])
-        XCTAssertEqual(collections.map(\.category), [.animals, .botanicals, .lifestyle, .architecture])
+        XCTAssertEqual(collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Canopy Color"])
+        XCTAssertEqual(collections.map(\.pageCount), [3, 1, 5, 1])
+        XCTAssertEqual(collections.map(\.category), [.botanicals, .architecture, .lifestyle, .animals])
 
         let moods = await repository.fetchMoodCategories()
         XCTAssertEqual(moods, [.calm, .bold, .playful, .dreamy, .wild, .noir])
@@ -62,16 +62,16 @@ final class DesignSystemTests: XCTestCase {
         let canvasRoute = CanvasRoute(
             projectId: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
             templateId: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
-            title: "Lotus Mandala"
+            title: "Wildflowers"
         )
 
-        XCTAssertEqual(AppRoute.coloringPage(page).title, "Majestic Tiger")
+        XCTAssertEqual(AppRoute.coloringPage(page).title, "Rainy Library")
         XCTAssertEqual(AppRoute.coloringPage(page).subtitle, "72% complete")
-        XCTAssertEqual(AppRoute.collection(collection).title, "Koi Serenity")
-        XCTAssertEqual(AppRoute.collection(collection).subtitle, "32 PAGES")
+        XCTAssertEqual(AppRoute.collection(collection).title, "Fresh Botanicals")
+        XCTAssertEqual(AppRoute.collection(collection).subtitle, "3 PAGES")
         XCTAssertEqual(AppRoute.mood(.noir).title, "NOIR")
         XCTAssertEqual(AppRoute.mood(.noir).subtitle, "Mood collection")
-        XCTAssertEqual(AppRoute.canvas(canvasRoute).title, "Lotus Mandala")
+        XCTAssertEqual(AppRoute.canvas(canvasRoute).title, "Wildflowers")
         XCTAssertEqual(AppRoute.canvas(canvasRoute).subtitle, "Coloring canvas")
     }
 
@@ -79,30 +79,30 @@ final class DesignSystemTests: XCTestCase {
         let templates = [
             Template(
                 id: UUID(uuidString: "33333333-0000-0000-0000-000000000101")!,
-                name: "Leaf Study",
+                name: "Lemon Branch",
                 category: .botanicals,
                 difficulty: .easy,
-                svgFilename: "tropical_leaves.svg",
-                thumbnailFilename: "thumb_tropical_leaves.png"
+                svgFilename: "lemon-branch.svg",
+                thumbnailFilename: "thumb-lemon-branch.png"
             ),
             Template(
                 id: UUID(uuidString: "33333333-0000-0000-0000-000000000102")!,
-                name: "Stone House",
-                category: .architecture,
-                difficulty: .hard,
-                svgFilename: "victorian_house.svg",
-                thumbnailFilename: "thumb_victorian_house.png"
+                name: "Sunday Light",
+                category: .lifestyle,
+                difficulty: .medium,
+                svgFilename: "sunday-light.svg",
+                thumbnailFilename: "thumb-sunday-light.png"
             )
         ]
         let repository = SableHomeRepository(templates: templates)
 
         let collections = await repository.fetchCollections()
-        let botanicals = try XCTUnwrap(collections.first { $0.name == "Botanical Bold" })
+        let botanicals = try XCTUnwrap(collections.first { $0.name == "Fresh Botanicals" })
         let botanicalTemplates = await repository.fetchTemplates(for: botanicals)
         let exploreTemplates = await repository.fetchExploreTemplates()
 
         XCTAssertEqual(botanicals.pageCount, 1)
-        XCTAssertEqual(botanicalTemplates.map(\.name), ["Leaf Study"])
-        XCTAssertEqual(exploreTemplates.map(\.name), ["Leaf Study", "Stone House"])
+        XCTAssertEqual(botanicalTemplates.map(\.name), ["Lemon Branch"])
+        XCTAssertEqual(exploreTemplates.map(\.name), ["Lemon Branch", "Sunday Light"])
     }
 }

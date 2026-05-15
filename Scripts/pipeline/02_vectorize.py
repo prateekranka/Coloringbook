@@ -14,7 +14,7 @@ Usage:
         [--vtracer PATH_TO_VTRACER_BINARY] \
         [--filter-speckle N]    # drop paths with area < N px² (default 4)
         [--color-precision N]   # color quantization levels 1–8 (default 6)
-        [--layer-difference N]  # stacking threshold 0–255 (default 16)
+        [--layer-difference N]  # gradient step / stacking threshold (default 16)
         [--path-precision N]    # decimal places for SVG coords (default 8)
 
 Prerequisites:
@@ -23,12 +23,12 @@ Prerequisites:
     - PIL: pip install Pillow
 
 VTracer settings used:
-    --colormode binary          → black-and-white output (line-art only)
+    --colormode bw              → black-and-white output (line-art only)
     --mode spline               → cubic Bézier paths (no arc commands)
     --hierarchical stacked      → paths stacked by z-order; each closed region
                                   is a separate <path> element
-    --filter-speckle N          → removes small noise blobs
-    --path-precision N          → keeps file size reasonable
+    --filter_speckle N          → removes small noise blobs
+    --path_precision N          → keeps file size reasonable
 
 Output per image:
     - One SVG file in --output matching the input filename stem.
@@ -144,13 +144,13 @@ def vectorize_one(
         vtracer,
         "--input",  str(input_path),
         "--output", str(output_path),
-        "--colormode",       "binary",
+        "--colormode",       "bw",
         "--mode",            "spline",
         "--hierarchical",    "stacked",
-        "--filter-speckle",  str(filter_speckle),
-        "--color-precision", str(color_precision),
-        "--layer-difference",str(layer_difference),
-        "--path-precision",  str(path_precision),
+        "--filter_speckle",  str(filter_speckle),
+        "--color_precision", str(color_precision),
+        "--gradient_step",   str(layer_difference),
+        "--path_precision",  str(path_precision),
     ]
 
     start = time.monotonic()

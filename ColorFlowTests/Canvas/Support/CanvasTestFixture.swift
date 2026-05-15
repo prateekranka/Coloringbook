@@ -11,15 +11,14 @@ import CoreGraphics
 /// app bundle is where the preBuildScript has copied `Templates/*.svg`.
 enum CanvasTestFixture {
 
-    /// Default fixture template: sunflower_mandala has 27 regions with
-    /// well-separated centroids — good for hit-testing tests.
-    static let defaultTemplateName = "sunflower_mandala"
+    /// Default fixture template with well-separated regions for hit-testing.
+    static let defaultTemplateName = "wildflowers"
 
     /// Parse a bundled SVG into geometry, throwing if the SVG cannot be
     /// resolved or parsed.
     ///
     /// - Parameter templateName: filename stem (no `.svg`) to load from the
-    ///   test-host bundle. Defaults to `sunflower_mandala`.
+    ///   test-host bundle. Defaults to `wildflowers`.
     static func makeGeometry(
         templateName: String = defaultTemplateName
     ) throws -> TemplateGeometry {
@@ -36,6 +35,28 @@ enum CanvasTestFixture {
         }
     }
 
+    /// Geometry fixture for stroke clipping tests. These tests care about
+    /// boundary behavior, so they use simple non-overlapping regions instead
+    /// of depending on the first region produced by generated catalog art.
+    static func makeClippingGeometry() -> TemplateGeometry {
+        TemplateGeometry(
+            viewBox: CGRect(x: 0, y: 0, width: 200, height: 200),
+            regions: [
+                makeRectRegion(
+                    id: "clip-region-a",
+                    rect: CGRect(x: 40, y: 40, width: 80, height: 80),
+                    zIndex: 0
+                ),
+                makeRectRegion(
+                    id: "clip-region-b",
+                    rect: CGRect(x: 150, y: 40, width: 40, height: 40),
+                    zIndex: 1
+                )
+            ],
+            decorativePaths: []
+        )
+    }
+
     /// Build a `Template` pointing at a bundled SVG. The `svgFilename` is the
     /// basename with `.svg`; the rest of the metadata is dummy data sufficient
     /// for service-level tests.
@@ -48,7 +69,7 @@ enum CanvasTestFixture {
         return Template(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             name: name,
-            category: .mandalas,
+            category: .botanicals,
             difficulty: .easy,
             svgFilename: filename,
             thumbnailFilename: "thumb_\(name).png",
@@ -56,10 +77,8 @@ enum CanvasTestFixture {
         )
     }
 
-    /// Pick a doc-space point guaranteed to be inside the given region by
-    /// returning the centroid of its bounding box. Adequate for all the
-    /// regions in `sunflower_mandala` because their bboxes are convex enough
-    /// that the centroid falls inside the path itself.
+    /// Pick a doc-space point inside the given region by returning the
+    /// centroid of its bounding box.
     static func interiorPoint(of region: RegionGeometry) -> CGPoint {
         CGPoint(x: region.bounds.midX, y: region.bounds.midY)
     }
@@ -75,10 +94,9 @@ enum CanvasTestFixture {
     }
 
     /// A doc-space point guaranteed to be outside every region in the
-    /// default fixture. `sunflower_mandala` has viewBox 800×800 with its
-    /// outermost region bbox ending at y=740; (10,10) is in blank whitespace.
+    /// default fixture.
     static var pointOutsideAllRegions: CGPoint {
-        CGPoint(x: 10, y: 10)
+        CGPoint(x: -10, y: -10)
     }
 
     private static func representativePoint(in region: RegionGeometry) -> CGPoint? {
@@ -95,6 +113,27 @@ enum CanvasTestFixture {
             }
         }
         return nil
+    }
+
+    private static func makeRectRegion(
+        id: String,
+        rect: CGRect,
+        zIndex: Int
+    ) -> RegionGeometry {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+
+        return RegionGeometry(
+            id: id,
+            path: path,
+            bounds: path.boundingBoxOfPath,
+            fillRule: .winding,
+            zIndex: zIndex
+        )
     }
 
     // MARK: - Errors

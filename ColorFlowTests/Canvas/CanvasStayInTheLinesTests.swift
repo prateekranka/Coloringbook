@@ -9,7 +9,7 @@ final class CanvasStayInTheLinesTests: XCTestCase {
     private var geometry: TemplateGeometry!
 
     override func setUpWithError() throws {
-        geometry = try CanvasTestFixture.makeGeometry()
+        geometry = CanvasTestFixture.makeClippingGeometry()
     }
 
     override func tearDownWithError() throws {
@@ -95,8 +95,15 @@ final class CanvasStayInTheLinesTests: XCTestCase {
         let result = StrokeClipper.clipStroke(stroke, using: geometry)
         XCTAssertEqual(result.count, 1, "Stroke starting inside and exiting should emit one inside-run")
         let kept = result[0]
-        XCTAssertTrue(kept.path.count < stroke.path.count,
-                       "Kept stroke should have fewer points than original")
+        let originalLastPoint = try XCTUnwrap(Array(stroke.path).last)
+        XCTAssertFalse(
+            region.path.contains(originalLastPoint.location, using: region.fillRule),
+            "Original stroke endpoint should be outside the starting region"
+        )
+        XCTAssertTrue(
+            Array(kept.path).allSatisfy { region.path.contains($0.location, using: region.fillRule) },
+            "Kept stroke should only contain samples inside the starting region"
+        )
     }
 
     func test_strokeExitsAndReenters_emitsMultipleStrokes() throws {

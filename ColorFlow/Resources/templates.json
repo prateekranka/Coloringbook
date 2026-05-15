@@ -1,202 +1,82 @@
 [
   {
-    "id": "33333333-0000-0000-0000-000000000001",
-    "name": "Lotus Mandala",
-    "category": "Mandalas",
-    "difficulty": "Medium",
-    "svgFilename": "lotus_mandala.svg",
-    "thumbnailFilename": "thumb_lotus_mandala.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000006",
-    "name": "Owl Portrait",
-    "category": "Animals",
-    "difficulty": "Medium",
-    "svgFilename": "owl_portrait.svg",
-    "thumbnailFilename": "thumb_owl_portrait.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000009",
-    "name": "Butterfly Garden",
-    "category": "Animals",
-    "difficulty": "Easy",
-    "svgFilename": "butterfly_garden.svg",
-    "thumbnailFilename": "thumb_butterfly_garden.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000021",
-    "name": "Rose Bouquet",
+    "id": "33333333-0000-0000-0000-000000000101",
+    "name": "Wildflowers",
     "category": "Botanicals",
-    "difficulty": "Medium",
-    "svgFilename": "rose_bouquet.svg",
-    "thumbnailFilename": "thumb_rose_bouquet.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000017",
-    "name": "Wave Pattern",
-    "category": "Abstract",
-    "difficulty": "Medium",
-    "svgFilename": "wave_pattern.svg",
-    "thumbnailFilename": "thumb_wave_pattern.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000016",
-    "name": "Hexagon Grid",
-    "category": "Abstract",
     "difficulty": "Easy",
-    "svgFilename": "hexagon_grid.svg",
-    "thumbnailFilename": "thumb_hexagon_grid.png"
+    "svgFilename": "wildflowers.svg",
+    "thumbnailFilename": "thumb-wildflowers.png"
   },
   {
-    "id": "33333333-0000-0000-0000-000000000030",
-    "name": "Coffee Morning",
-    "category": "Lifestyle",
-    "difficulty": "Medium",
-    "svgFilename": "coffee_morning.svg",
-    "thumbnailFilename": "thumb_coffee_morning.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000031",
-    "name": "Sleeping Cats",
-    "category": "Animals",
-    "difficulty": "Medium",
-    "svgFilename": "sleeping_cats.svg",
-    "thumbnailFilename": "thumb_sleeping_cats.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000032",
-    "name": "Cloud Sofa",
-    "category": "Lifestyle",
+    "id": "33333333-0000-0000-0000-000000000102",
+    "name": "Lemon Branch",
+    "category": "Botanicals",
     "difficulty": "Easy",
-    "svgFilename": "cloud_sofa.svg",
-    "thumbnailFilename": "thumb_cloud_sofa.png"
+    "svgFilename": "lemon-branch.svg",
+    "thumbnailFilename": "thumb-lemon-branch.png"
   },
   {
-    "id": "33333333-0000-0000-0000-000000000033",
-    "name": "Cat Fish Dinner",
-    "category": "Animals",
-    "difficulty": "Medium",
-    "svgFilename": "cat_fish_dinner.svg",
-    "thumbnailFilename": "thumb_cat_fish_dinner.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000034",
-    "name": "Kitchen Morning",
-    "category": "Lifestyle",
-    "difficulty": "Hard",
-    "svgFilename": "kitchen_morning.svg",
-    "thumbnailFilename": "thumb_kitchen_morning.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000040",
-    "name": "Afternoon Tea",
+    "id": "33333333-0000-0000-0000-000000000103",
+    "name": "Sunday Light",
     "category": "Lifestyle",
     "difficulty": "Medium",
-    "svgFilename": "afternoon_tea.svg",
-    "thumbnailFilename": "thumb_afternoon_tea.png"
+    "svgFilename": "sunday-light.svg",
+    "thumbnailFilename": "thumb-sunday-light.png"
   },
   {
-    "id": "33333333-0000-0000-0000-000000000041",
-    "name": "Camping Night",
-    "category": "Lifestyle",
-    "difficulty": "Medium",
-    "svgFilename": "camping_night.svg",
-    "thumbnailFilename": "thumb_camping_night.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000042",
-    "name": "Fish Scales",
-    "category": "Abstract",
-    "difficulty": "Easy",
-    "svgFilename": "fish_scales.svg",
-    "thumbnailFilename": "thumb_fish_scales.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000043",
-    "name": "Fox Portrait",
-    "category": "Animals",
-    "difficulty": "Medium",
-    "svgFilename": "fox_portrait.svg",
-    "thumbnailFilename": "thumb_fox_portrait.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000044",
-    "name": "Geometric Star Mandala",
-    "category": "Mandalas",
-    "difficulty": "Hard",
-    "svgFilename": "geometric_star_mandala.svg",
-    "thumbnailFilename": "thumb_geometric_star_mandala.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000045",
-    "name": "Lighthouse",
+    "id": "33333333-0000-0000-0000-000000000104",
+    "name": "Amalfi Afternoon",
     "category": "Architecture",
     "difficulty": "Medium",
-    "svgFilename": "lighthouse.svg",
-    "thumbnailFilename": "thumb_lighthouse.png"
+    "svgFilename": "amalfi-afternoon.svg",
+    "thumbnailFilename": "thumb-amalfi-afternoon.png"
   },
   {
-    "id": "33333333-0000-0000-0000-000000000046",
-    "name": "Lion Portrait",
-    "category": "Animals",
-    "difficulty": "Hard",
-    "svgFilename": "lion_portrait.svg",
-    "thumbnailFilename": "thumb_lion_portrait.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000047",
-    "name": "Sea Turtle",
+    "id": "33333333-0000-0000-0000-000000000105",
+    "name": "Toucan Canopy",
     "category": "Animals",
     "difficulty": "Medium",
-    "svgFilename": "sea_turtle.svg",
-    "thumbnailFilename": "thumb_sea_turtle.png"
+    "svgFilename": "toucan-canopy.svg",
+    "thumbnailFilename": "thumb-toucan-canopy.png"
   },
   {
-    "id": "33333333-0000-0000-0000-000000000048",
-    "name": "Snowflake Mandala",
-    "category": "Mandalas",
+    "id": "33333333-0000-0000-0000-000000000106",
+    "name": "Lemon Balcony",
+    "category": "Lifestyle",
     "difficulty": "Medium",
-    "svgFilename": "snowflake_mandala.svg",
-    "thumbnailFilename": "thumb_snowflake_mandala.png"
+    "svgFilename": "lemon-balcony.svg",
+    "thumbnailFilename": "thumb-lemon-balcony.png"
   },
   {
-    "id": "33333333-0000-0000-0000-000000000049",
-    "name": "Stained Glass Abstract",
-    "category": "Abstract",
-    "difficulty": "Medium",
-    "svgFilename": "stained_glass_abstract.svg",
-    "thumbnailFilename": "thumb_stained_glass_abstract.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000050",
-    "name": "Sunflower Mandala",
-    "category": "Mandalas",
+    "id": "33333333-0000-0000-0000-000000000107",
+    "name": "Quiet Balcony Room",
+    "category": "Lifestyle",
     "difficulty": "Easy",
-    "svgFilename": "sunflower_mandala.svg",
-    "thumbnailFilename": "thumb_sunflower_mandala.png"
+    "svgFilename": "quiet-balcony-room.svg",
+    "thumbnailFilename": "thumb-quiet-balcony-room.png"
   },
   {
-    "id": "33333333-0000-0000-0000-000000000051",
-    "name": "Tropical Leaves",
+    "id": "33333333-0000-0000-0000-000000000108",
+    "name": "Rainy Library",
+    "category": "Lifestyle",
+    "difficulty": "Medium",
+    "svgFilename": "rainy-library.svg",
+    "thumbnailFilename": "thumb-rainy-library.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000109",
+    "name": "Mediterranean Kitchen Window",
+    "category": "Lifestyle",
+    "difficulty": "Medium",
+    "svgFilename": "mediterranean-kitchen-window.svg",
+    "thumbnailFilename": "thumb-mediterranean-kitchen-window.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000110",
+    "name": "Florist Window",
     "category": "Botanicals",
-    "difficulty": "Easy",
-    "svgFilename": "tropical_leaves.svg",
-    "thumbnailFilename": "thumb_tropical_leaves.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000052",
-    "name": "Victorian House",
-    "category": "Architecture",
     "difficulty": "Hard",
-    "svgFilename": "victorian_house.svg",
-    "thumbnailFilename": "thumb_victorian_house.png"
-  },
-  {
-    "id": "33333333-0000-0000-0000-000000000053",
-    "name": "Wildflower Meadow",
-    "category": "Botanicals",
-    "difficulty": "Medium",
-    "svgFilename": "wildflower_meadow.svg",
-    "thumbnailFilename": "thumb_wildflower_meadow.png"
+    "svgFilename": "florist-window.svg",
+    "thumbnailFilename": "thumb-florist-window.png"
   }
 ]

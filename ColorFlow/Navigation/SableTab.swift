@@ -2,8 +2,8 @@ import SwiftUI
 
 enum SableTab: String, CaseIterable, Identifiable {
     case home
-    case explore
     case library
+    case profile
 
     var id: Self { self }
 
@@ -11,10 +11,21 @@ enum SableTab: String, CaseIterable, Identifiable {
         switch self {
         case .home:
             return "Home"
-        case .explore:
-            return "Explore"
         case .library:
-            return "My Library"
+            return "Library"
+        case .profile:
+            return "Profile"
+        }
+    }
+
+    var accessibilityTitle: String {
+        switch self {
+        case .home:
+            return "Home"
+        case .library:
+            return "Library"
+        case .profile:
+            return "My Work"
         }
     }
 
@@ -22,10 +33,10 @@ enum SableTab: String, CaseIterable, Identifiable {
         switch self {
         case .home:
             return "house.fill"
-        case .explore:
-            return "safari"
         case .library:
-            return "books.vertical"
+            return "rectangle.grid.2x2"
+        case .profile:
+            return "person.crop.circle"
         }
     }
 }

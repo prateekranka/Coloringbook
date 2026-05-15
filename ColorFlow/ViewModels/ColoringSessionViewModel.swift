@@ -49,6 +49,10 @@ final class ColoringSessionViewModel {
     var fillLayerImage: UIImage?
     var selectedColorHex = SableTheme.progressPinkHex
     var selectedPaletteID = ColoringSessionViewModel.essentialsPalette.id
+    var selectedTool: ToolType = .crayon
+    var selectedToolSettings = ToolType.crayon.defaultSettings
+    var coloringMode: CanvasColoringMode = .clean
+    var recentColorHexes: [String] = [SableTheme.progressPinkHex]
     var canvasDocumentSize = CGSize(width: 800, height: 800)
     var saveState: SaveState = .saved
     var canUndo = false
@@ -64,8 +68,13 @@ final class ColoringSessionViewModel {
     @ObservationIgnored private var paintState = ProjectPaintState()
     @ObservationIgnored private var hasLoaded = false
     @ObservationIgnored private var lastSavedRegionFills: [String: String] = [:]
-    @ObservationIgnored private var undoStack: [FillAction] = []
-    @ObservationIgnored private var redoStack: [FillAction] = []
+    @ObservationIgnored private var lastSavedStrokeActions: [StrokeAction] = []
+    @ObservationIgnored private var undoStack: [CanvasEditAction] = []
+    @ObservationIgnored private var redoStack: [CanvasEditAction] = []
+    @ObservationIgnored private var autosaveTask: Task<Void, Never>?
+    @ObservationIgnored private var toolSettingsCache: [ToolType: ToolSettings] = Dictionary(
+        uniqueKeysWithValues: ToolType.allCases.map { ($0, $0.defaultSettings) }
+    )
 
     let fallbackTitle: String
     let palettes: [ColorPalette]
@@ -127,7 +136,7 @@ final class ColoringSessionViewModel {
     }
 
     var hasArtwork: Bool {
-        !paintState.regionFills.isEmpty
+        !paintState.regionFills.isEmpty || !paintState.strokeActions.isEmpty
     }
 
     var selectedPalette: ColorPalette {
@@ -151,6 +160,34 @@ final class ColoringSessionViewModel {
 
     func selectColor(hex: String) {
         selectedColorHex = hex
+        recentColorHexes.removeAll { $0.caseInsensitiveCompare(hex) == .orderedSame }
+        recentColorHexes.insert(hex, at: 0)
+        recentColorHexes = Array(recentColorHexes.prefix(8))
+    }
+
+    func selectTool(_ tool: ToolType) {
+        selectedTool = tool
+        selectedToolSettings = toolSettingsCache[tool] ?? tool.defaultSettings
+        paintState.canvasState.selectedTool = tool
+        markCanvasStateDirty()
+    }
+
+    func updateSelectedToolSize(_ size: CGFloat) {
+        guard selectedTool.supportsSizeControl else { return }
+        selectedToolSettings.size = min(max(size, ToolSettings.sizeRange.lowerBound), ToolSettings.sizeRange.upperBound)
+        toolSettingsCache[selectedTool] = selectedToolSettings
+    }
+
+    func updateSelectedToolOpacity(_ opacity: Double) {
+        guard selectedTool.supportsOpacityControl else { return }
+        selectedToolSettings.opacity = min(max(opacity, ToolSettings.opacityRange.lowerBound), ToolSettings.opacityRange.upperBound)
+        toolSettingsCache[selectedTool] = selectedToolSettings
+    }
+
+    func selectColoringMode(_ mode: CanvasColoringMode) {
+        coloringMode = mode
+        paintState.canvasState.coloringMode = mode
+        markCanvasStateDirty()
     }
 
     func loadIfNeeded() async {
@@ -185,13 +222,25 @@ final class ColoringSessionViewModel {
             geometry = parsedGeometry
             canvasDocumentSize = parsedGeometry.viewBox.size
             paintState = storageService.loadPaintState(for: seed.project)
+            selectedTool = paintState.canvasState.selectedTool
+            selectedToolSettings = toolSettingsCache[selectedTool] ?? selectedTool.defaultSettings
+            coloringMode = paintState.canvasState.coloringMode
             lastSavedRegionFills = paintState.regionFills
+            lastSavedStrokeActions = paintState.strokeActions
             clearUndoHistory()
             saveState = .saved
             await renderImages(geometry: parsedGeometry)
             hasLoaded = true
             state = .ready
         }
+    }
+
+    func updateCanvasStrokeWidth(_ strokeWidthPixels: Double) async {
+        guard let geometry else { return }
+        lineArtImage = await renderLineArtImage(
+            geometry: geometry,
+            strokeWidthPixels: CGFloat(strokeWidthPixels)
+        )
     }
 
     @discardableResult
@@ -218,7 +267,7 @@ final class ColoringSessionViewModel {
             previousHex: previousHex,
             newHex: selectedColorHex
         )
-        undoStack.append(action)
+        undoStack.append(.fill(action))
         redoStack.removeAll()
         syncUndoRedoState()
 
@@ -233,7 +282,7 @@ final class ColoringSessionViewModel {
         guard let action = undoStack.popLast() else { return }
         redoStack.append(action)
         syncUndoRedoState()
-        applyFill(regionID: action.regionID, hex: action.previousHex)
+        applyUndo(action)
         await refreshArtworkAfterEdit()
     }
 
@@ -241,13 +290,14 @@ final class ColoringSessionViewModel {
         guard let action = redoStack.popLast() else { return }
         undoStack.append(action)
         syncUndoRedoState()
-        applyFill(regionID: action.regionID, hex: action.newHex)
+        applyRedo(action)
         await refreshArtworkAfterEdit()
     }
 
     func clearArtwork() async {
-        guard !paintState.regionFills.isEmpty else { return }
+        guard !paintState.regionFills.isEmpty || !paintState.strokeActions.isEmpty else { return }
         paintState.regionFills.removeAll()
+        paintState.strokeActions.removeAll()
         clearUndoHistory()
         await refreshArtworkAfterEdit()
         HapticService.shared.impact(.medium)
@@ -255,6 +305,9 @@ final class ColoringSessionViewModel {
 
     func save() {
         guard var mutableProject = project else { return }
+        autosaveTask?.cancel()
+        paintState.canvasState.selectedTool = selectedTool
+        paintState.canvasState.coloringMode = coloringMode
         saveState = .saving
         storageService.savePaintState(paintState, for: mutableProject)
         storageService.save(
@@ -266,7 +319,52 @@ final class ColoringSessionViewModel {
         project = mutableProject
         ProjectThumbnailCache.shared.invalidate(id: mutableProject.id)
         lastSavedRegionFills = paintState.regionFills
+        lastSavedStrokeActions = paintState.strokeActions
         saveState = .saved
+    }
+
+    func saveNow() {
+        guard saveState == .dirty else { return }
+        save()
+    }
+
+    @discardableResult
+    func drawStroke(canvasPoints: [CGPoint], canvasSize: CGSize) async -> Bool {
+        guard let geometry, !canvasPoints.isEmpty else { return false }
+
+        if selectedTool == .fillBucket, let firstPoint = canvasPoints.first {
+            return await fill(atCanvasPoint: firstPoint, canvasSize: canvasSize)
+        }
+
+        let transform = TemplateRenderer.documentToViewTransform(
+            viewBox: geometry.viewBox,
+            viewSize: canvasSize
+        ).inverted()
+        let documentPoints = canvasPoints.map { $0.applying(transform) }
+        let clippedRegionID = coloringMode == .clean
+            ? documentPoints.first.flatMap { geometry.region(at: $0)?.id }
+            : nil
+
+        if coloringMode == .clean, clippedRegionID == nil {
+            return false
+        }
+
+        let action = StrokeAction(
+            tool: selectedTool,
+            colorHex: selectedColorHex,
+            points: documentPoints.map { CodablePoint(x: $0.x, y: $0.y) },
+            clippedRegionID: clippedRegionID,
+            size: selectedToolSettings.size,
+            opacity: selectedToolSettings.opacity
+        )
+
+        paintState.strokeActions.append(action)
+        undoStack.append(.stroke(action))
+        redoStack.removeAll()
+        syncUndoRedoState()
+        await refreshArtworkAfterEdit()
+        HapticService.shared.impact(.light)
+        return true
     }
 
     private func resolveSeed() async -> (project: Project, template: Template)? {
@@ -281,7 +379,11 @@ final class ColoringSessionViewModel {
         let size = geometry.viewBox.size
 
         async let lineArtTask = Task.detached(priority: .userInitiated) {
-            TemplateRenderer.renderLineArt(geometry: geometry, size: size)
+            TemplateRenderer.renderLineArt(
+                geometry: geometry,
+                size: size,
+                strokeWidthPixels: CGFloat(RenderTuningStore.defaultCanvasStrokeWidth)
+            )
         }.value
 
         async let fillLayerTask = Task.detached(priority: .userInitiated) {
@@ -290,9 +392,24 @@ final class ColoringSessionViewModel {
 
         let (lineArt, renderedFillLayer) = await (lineArtTask, fillLayerTask)
         lineArtImage = lineArt
-        fillLayerImage = fills.isEmpty
+        let baseLayer = fills.isEmpty && paintState.strokeActions.isEmpty
             ? project.flatMap { storageService.loadFillLayer(for: $0) } ?? renderedFillLayer
             : renderedFillLayer
+        fillLayerImage = renderStrokeActions(on: baseLayer, geometry: geometry)
+    }
+
+    private func renderLineArtImage(
+        geometry: TemplateGeometry,
+        strokeWidthPixels: CGFloat
+    ) async -> UIImage {
+        let size = geometry.viewBox.size
+        return await Task.detached(priority: .userInitiated) {
+            TemplateRenderer.renderLineArt(
+                geometry: geometry,
+                size: size,
+                strokeWidthPixels: strokeWidthPixels
+            )
+        }.value
     }
 
     private func applyFill(regionID: String, hex: String?) {
@@ -322,18 +439,29 @@ final class ColoringSessionViewModel {
         guard let geometry else { return }
         let fills = paintState.regionFills
         let size = geometry.viewBox.size
-        fillLayerImage = await Task.detached(priority: .userInitiated) {
+        let renderedFillLayer = await Task.detached(priority: .userInitiated) {
             TemplateRenderer.renderFillLayer(
                 geometry: geometry,
                 fills: fills,
                 size: size
             )
         }.value
+        fillLayerImage = renderStrokeActions(on: renderedFillLayer, geometry: geometry)
     }
 
     private func updateSaveStateForCurrentPaint() {
         guard saveState != .saving else { return }
-        saveState = paintState.regionFills == lastSavedRegionFills ? .saved : .dirty
+        saveState = paintState.regionFills == lastSavedRegionFills
+            && paintState.strokeActions == lastSavedStrokeActions ? .saved : .dirty
+        if saveState == .dirty {
+            scheduleAutosave()
+        }
+    }
+
+    private func markCanvasStateDirty() {
+        guard hasLoaded else { return }
+        saveState = .dirty
+        scheduleAutosave()
     }
 
     private func clearUndoHistory() {
@@ -345,6 +473,82 @@ final class ColoringSessionViewModel {
     private func syncUndoRedoState() {
         canUndo = !undoStack.isEmpty
         canRedo = !redoStack.isEmpty
+    }
+
+    private func scheduleAutosave() {
+        autosaveTask?.cancel()
+        autosaveTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_100_000_000)
+            guard !Task.isCancelled else { return }
+            self?.saveNow()
+        }
+    }
+
+    private func applyUndo(_ action: CanvasEditAction) {
+        switch action {
+        case .fill(let fillAction):
+            applyFill(regionID: fillAction.regionID, hex: fillAction.previousHex)
+        case .stroke(let strokeAction):
+            paintState.strokeActions.removeAll { $0.id == strokeAction.id }
+        case .clear(let previousFills, let previousStrokes):
+            paintState.regionFills = previousFills
+            paintState.strokeActions = previousStrokes
+        }
+    }
+
+    private func applyRedo(_ action: CanvasEditAction) {
+        switch action {
+        case .fill(let fillAction):
+            applyFill(regionID: fillAction.regionID, hex: fillAction.newHex)
+        case .stroke(let strokeAction):
+            paintState.strokeActions.append(strokeAction)
+        case .clear:
+            paintState.regionFills.removeAll()
+            paintState.strokeActions.removeAll()
+        }
+    }
+
+    private func renderStrokeActions(on baseImage: UIImage, geometry: TemplateGeometry) -> UIImage {
+        guard !paintState.strokeActions.isEmpty else { return baseImage }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = baseImage.scale
+        let renderer = UIGraphicsImageRenderer(size: baseImage.size, format: format)
+        return renderer.image { context in
+            baseImage.draw(in: CGRect(origin: .zero, size: baseImage.size))
+            let cgContext = context.cgContext
+            for action in paintState.strokeActions {
+                draw(action: action, geometry: geometry, in: cgContext)
+            }
+        }
+    }
+
+    private func draw(action: StrokeAction, geometry: TemplateGeometry, in context: CGContext) {
+        guard action.points.count > 1 else { return }
+        context.saveGState()
+        if let regionID = action.clippedRegionID,
+           let region = geometry.regions.first(where: { $0.id == regionID }) {
+            context.addPath(region.path)
+            context.clip(using: region.fillRule == .evenOdd ? .evenOdd : .winding)
+        }
+
+        if action.tool == .eraser {
+            context.setBlendMode(.clear)
+            context.setStrokeColor(UIColor.clear.cgColor)
+        } else {
+            context.setBlendMode(action.tool == .marker ? .multiply : .normal)
+            context.setStrokeColor(UIColor(Color(hex: action.colorHex)).withAlphaComponent(action.opacity).cgColor)
+        }
+
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        context.setLineWidth(action.size)
+        context.beginPath()
+        context.move(to: action.points[0].cgPoint)
+        for point in action.points.dropFirst() {
+            context.addLine(to: point.cgPoint)
+        }
+        context.strokePath()
+        context.restoreGState()
     }
 
     private static func makePalettes() -> [ColorPalette] {
@@ -371,4 +575,10 @@ private struct FillAction {
     let regionID: String
     let previousHex: String?
     let newHex: String
+}
+
+private enum CanvasEditAction {
+    case fill(FillAction)
+    case stroke(StrokeAction)
+    case clear(previousFills: [String: String], previousStrokes: [StrokeAction])
 }

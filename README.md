@@ -1,4 +1,4 @@
-# ColorFlow — iPad Coloring Book App
+# Gouache — iPad Coloring Book App
 
 A premium, distraction-free coloring book app for iPad with Apple Pencil support.
 
@@ -55,3 +55,4 @@ TemplateLibraryView ← TemplateLibraryViewModel
 - [x] Phase 4: Save/load system, gallery, export
 - [x] Phase 5: Polish — layers, ambient sounds, haptics, onboarding
 - [ ] Phase 6: App Store prep — icon, screenshots, TestFlight
+ icon, screenshots, TestFlight

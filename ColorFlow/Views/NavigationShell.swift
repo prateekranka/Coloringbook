@@ -2,8 +2,11 @@ import SwiftUI
 
 @MainActor
 struct NavigationShell: View {
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedTab: SableTab = .home
     @State private var path: [AppRoute] = []
+    @State private var renderTuning = RenderTuningStore()
+    @State private var appThemeStore = AppThemeStore()
     private let repository = SableHomeRepository()
 
     var body: some View {
@@ -17,13 +20,24 @@ struct NavigationShell: View {
                     .padding(.horizontal, 32)
                     .padding(.bottom, 18)
             }
-            .background(SableTheme.cream.ignoresSafeArea())
+            .background(SableTheme.appBackground(for: colorScheme).ignoresSafeArea())
+            #if DEBUG
+            .overlay(alignment: .topTrailing) {
+                if path.isEmpty {
+                    RenderTuningPanel(tuning: renderTuning)
+                        .padding(.trailing, 32)
+                        .padding(.top, 18)
+                }
+            }
+            #endif
             .toolbar(path.isEmpty ? .hidden : .visible, for: .navigationBar)
             .navigationDestination(for: AppRoute.self) { route in
                 destination(for: route)
             }
         }
-        .preferredColorScheme(.dark)
+        .environment(renderTuning)
+        .environment(appThemeStore)
+        .preferredColorScheme(appThemeStore.selectedTheme.preferredColorScheme)
     }
 
     @ViewBuilder
@@ -31,14 +45,14 @@ struct NavigationShell: View {
         switch selectedTab {
         case .home:
             HomeView(repository: repository, navigate: navigate)
-        case .explore:
+        case .library:
             TemplateListView(
                 source: .explore,
                 repository: repository,
                 navigate: navigate
             )
-        case .library:
-            MyLibraryView(repository: repository, navigate: navigate)
+        case .profile:
+            ProfileView(repository: repository, navigate: navigate)
         }
     }
 
@@ -79,7 +93,107 @@ struct NavigationShell: View {
     }
 }
 
+#if DEBUG
+private struct RenderTuningPanel: View {
+    let tuning: RenderTuningStore
+    @State private var isExpanded = false
+    @State private var savedValue: Double?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                Label("Render", systemImage: "slider.horizontal.3")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(SableTheme.cardBlack, in: Capsule())
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 14) {
+                    RenderTuningSlider(
+                        title: "Thumbnails",
+                        value: Binding(
+                            get: { tuning.thumbnailStrokeWidth },
+                            set: { tuning.thumbnailStrokeWidth = $0 }
+                        ),
+                        range: RenderTuningStore.thumbnailStrokeWidthRange
+                    )
+
+                    RenderTuningSlider(
+                        title: "Canvas",
+                        value: Binding(
+                            get: { tuning.canvasStrokeWidth },
+                            set: { tuning.canvasStrokeWidth = $0 }
+                        ),
+                        range: RenderTuningStore.canvasStrokeWidthRange
+                    )
+
+                    HStack(spacing: 12) {
+                        Button("Save") {
+                            savedValue = tuning.thumbnailStrokeWidth
+                        }
+
+                        Button("Reset") {
+                            tuning.reset()
+                        }
+                    }
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(SableTheme.progressPink)
+
+                    if let savedValue {
+                        Text("Saved thumbnail line width: \(savedValue, format: .number.precision(.fractionLength(2)))")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(SableTheme.ink.opacity(0.72))
+                    }
+                }
+                .padding(14)
+                .frame(width: 270)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
+                .overlay {
+                    RoundedRectangle(cornerRadius: SableTheme.Radius.card)
+                        .stroke(SableTheme.hairline, lineWidth: 1)
+                }
+            }
+        }
+        .accessibilityIdentifier("render.tuning.panel")
+    }
+}
+
+private struct RenderTuningSlider: View {
+    let title: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(SableTheme.ink)
+
+                Spacer()
+
+                Text(value, format: .number.precision(.fractionLength(2)))
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(SableTheme.progressPink)
+            }
+
+            Slider(value: $value, in: range, step: 0.05)
+                .tint(SableTheme.progressPink)
+        }
+    }
+}
+#endif
+
 private struct SableTabBar: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var selectedTab: SableTab
 
     var body: some View {
@@ -88,25 +202,25 @@ private struct SableTabBar: View {
                 Button {
                     selectedTab = tab
                 } label: {
-                    HStack(spacing: 10) {
+                    VStack(spacing: 5) {
                         Image(systemName: tab.systemImageName)
-                            .font(.system(size: 24, weight: .semibold))
+                            .font(.system(size: 25, weight: .semibold))
 
                         Text(tab.title)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 14, weight: .regular))
                     }
-                    .foregroundStyle(selectedTab == tab ? SableTheme.progressPink : SableTheme.ink)
-                    .frame(maxWidth: .infinity, minHeight: 58)
+                    .foregroundStyle(selectedTab == tab ? SableTheme.progressPink : SableTheme.primaryText(for: colorScheme))
+                    .frame(maxWidth: .infinity, minHeight: 76)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("tab.\(tab.rawValue)")
             }
         }
-        .frame(maxWidth: 820)
-        .background(.ultraThinMaterial, in: Capsule())
+        .frame(maxWidth: 900)
+        .background(SableTheme.elevatedSurface(for: colorScheme), in: Capsule())
         .overlay {
-            Capsule().stroke(SableTheme.hairline, lineWidth: 1)
+            Capsule().stroke(SableTheme.hairline(for: colorScheme), lineWidth: 1)
         }
         .shadow(color: Color.black.opacity(0.18), radius: 14, x: 0, y: 6)
     }

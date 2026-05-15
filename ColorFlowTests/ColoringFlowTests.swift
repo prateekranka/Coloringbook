@@ -59,7 +59,7 @@ final class ColoringFlowTests: XCTestCase {
     }
 
     func test_coloringSession_fillPersistsPaintStateAndProjectProgress() async throws {
-        let template = try CanvasTestFixture.makeTemplate(name: "sunflower_mandala")
+        let template = try CanvasTestFixture.makeTemplate()
         var project = Project(template: template)
         storage.save(project: &project, drawing: PKDrawing(), fillLayer: nil, templateImage: nil)
         projectsToDelete.append(project)
@@ -71,9 +71,7 @@ final class ColoringFlowTests: XCTestCase {
         )
         await viewModel.load()
 
-        let geometry = try CanvasTestFixture.makeGeometry(templateName: "sunflower_mandala")
-        let firstRegion = try XCTUnwrap(geometry.regions.first)
-        await viewModel.fill(atDocumentPoint: CanvasTestFixture.interiorPoint(of: firstRegion))
+        await viewModel.fill(atDocumentPoint: try representativeFillPoint())
 
         XCTAssertEqual(viewModel.filledRegionCount, 1)
         XCTAssertNotNil(viewModel.fillLayerImage)
@@ -89,7 +87,7 @@ final class ColoringFlowTests: XCTestCase {
     }
 
     func test_coloringSession_reopeningProjectRestoresSavedFills() async throws {
-        let template = try CanvasTestFixture.makeTemplate(name: "sunflower_mandala")
+        let template = try CanvasTestFixture.makeTemplate()
         var project = Project(template: template)
         storage.save(project: &project, drawing: PKDrawing(), fillLayer: nil, templateImage: nil)
         projectsToDelete.append(project)
@@ -101,9 +99,7 @@ final class ColoringFlowTests: XCTestCase {
         )
         await firstSession.load()
 
-        let geometry = try CanvasTestFixture.makeGeometry(templateName: "sunflower_mandala")
-        let firstRegion = try XCTUnwrap(geometry.regions.first)
-        await firstSession.fill(atDocumentPoint: CanvasTestFixture.interiorPoint(of: firstRegion))
+        await firstSession.fill(atDocumentPoint: try representativeFillPoint())
         firstSession.save()
 
         let savedProject = try XCTUnwrap(storage.loadProject(id: project.id))
@@ -124,7 +120,7 @@ final class ColoringFlowTests: XCTestCase {
     }
 
     func test_coloringSession_undoRedoRestoresTapFillsAndDirtyState() async throws {
-        let template = try CanvasTestFixture.makeTemplate(name: "sunflower_mandala")
+        let template = try CanvasTestFixture.makeTemplate()
         var project = Project(template: template)
         storage.save(project: &project, drawing: PKDrawing(), fillLayer: nil, templateImage: nil)
         projectsToDelete.append(project)
@@ -136,9 +132,7 @@ final class ColoringFlowTests: XCTestCase {
         )
         await viewModel.load()
 
-        let geometry = try CanvasTestFixture.makeGeometry(templateName: "sunflower_mandala")
-        let firstRegion = try XCTUnwrap(geometry.regions.first)
-        let point = CanvasTestFixture.interiorPoint(of: firstRegion)
+        let point = try representativeFillPoint()
 
         let didFill = await viewModel.fill(atDocumentPoint: point)
         XCTAssertTrue(didFill)
@@ -168,7 +162,7 @@ final class ColoringFlowTests: XCTestCase {
     }
 
     func test_coloringSession_clearArtworkResetsProgressAfterConfirmationPathAndSavesBlankState() async throws {
-        let template = try CanvasTestFixture.makeTemplate(name: "sunflower_mandala")
+        let template = try CanvasTestFixture.makeTemplate()
         var project = Project(template: template)
         storage.save(project: &project, drawing: PKDrawing(), fillLayer: nil, templateImage: nil)
         projectsToDelete.append(project)
@@ -180,10 +174,7 @@ final class ColoringFlowTests: XCTestCase {
         )
         await viewModel.load()
 
-        let geometry = try CanvasTestFixture.makeGeometry(templateName: "sunflower_mandala")
-        let firstRegion = try XCTUnwrap(geometry.regions.first)
-
-        let didFill = await viewModel.fill(atDocumentPoint: CanvasTestFixture.interiorPoint(of: firstRegion))
+        let didFill = await viewModel.fill(atDocumentPoint: try representativeFillPoint())
         XCTAssertTrue(didFill)
         viewModel.save()
         let savedProject = try XCTUnwrap(storage.loadProject(id: project.id))
@@ -206,7 +197,7 @@ final class ColoringFlowTests: XCTestCase {
     }
 
     func test_coloringSession_essentialPaletteKeepsFastSwatchesReachable() throws {
-        let template = try CanvasTestFixture.makeTemplate(name: "sunflower_mandala")
+        let template = try CanvasTestFixture.makeTemplate()
         let viewModel = ColoringSessionViewModel(
             project: Project(template: template),
             template: template,
@@ -251,8 +242,13 @@ final class ColoringFlowTests: XCTestCase {
         }
     }
 
+    private func representativeFillPoint() throws -> CGPoint {
+        let geometry = try CanvasTestFixture.makeGeometry()
+        return try XCTUnwrap(CanvasTestFixture.representativeFillPoint(in: geometry))
+    }
+
     private func uniqueTemplate() throws -> Template {
-        let base = try CanvasTestFixture.makeTemplate(name: "sunflower_mandala")
+        let base = try CanvasTestFixture.makeTemplate()
         return Template(
             id: UUID(),
             name: "Sunflower \(UUID().uuidString.prefix(8))",

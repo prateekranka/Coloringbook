@@ -2,6 +2,7 @@ import SwiftUI
 
 enum SableTheme {
     static let creamHex = "#F5F0EB"
+    static let charcoalHex = "#171615"
     static let crimsonHex = "#D4213D"
     static let progressPinkHex = "#FF2D78"
 
@@ -13,6 +14,12 @@ enum SableTheme {
     static let mutedInk = Color(hex: "#6F6660")
     static let cardBlack = Color(hex: "#090909")
     static let paper = Color(hex: "#FFFDF8")
+    static let peach = Color(hex: "#F5B177")
+    static let blush = Color(hex: "#F4A39A")
+    static let sage = Color(hex: "#DCE5D2")
+    static let butter = Color(hex: "#F6CF85")
+    static let lavender = Color(hex: "#D8CAD9")
+    static let mist = Color(hex: "#C9D1D4")
     static let hairline = Color.black.opacity(0.14)
 
     enum Radius {
@@ -22,18 +29,44 @@ enum SableTheme {
     }
 
     enum Spacing {
-        static let pageInset: CGFloat = 28
-        static let section: CGFloat = 18
-        static let cardGap: CGFloat = 12
+        static let pageInset: CGFloat = 40
+        static let section: CGFloat = 12
+        static let cardGap: CGFloat = 18
     }
 
     enum Font {
-        static let hero = SwiftUI.Font.system(size: 86, weight: .black)
-        static let heroSubtitle = SwiftUI.Font.system(size: 23, weight: .black)
-        static let badge = SwiftUI.Font.system(size: 18, weight: .black)
-        static let cardTitle = SwiftUI.Font.system(size: 16, weight: .bold)
-        static let pill = SwiftUI.Font.system(size: 12, weight: .black)
+        static let brand = SwiftUI.Font.custom("Fraunces", size: 38).weight(.black)
+        static let hero = SwiftUI.Font.custom("Fraunces", size: 88).weight(.black)
+        static let sectionTitle = SwiftUI.Font.custom("Fraunces", size: 27).weight(.black)
+        static let cardSerif = SwiftUI.Font.custom("Fraunces", size: 20).weight(.semibold)
+        static let badge = SwiftUI.Font.system(size: 14, weight: .semibold)
+        static let cardTitle = SwiftUI.Font.system(size: 16, weight: .medium)
+        static let pill = SwiftUI.Font.system(size: 12, weight: .semibold)
     }
 
-    static let cardShadow = Color.black.opacity(0.24)
+    static let cardShadow = Color.black.opacity(0.12)
+
+    static func appBackground(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: charcoalHex) : cream
+    }
+
+    static func surface(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#24211F") : Color.white.opacity(0.82)
+    }
+
+    static func elevatedSurface(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#302B28") : Color.white.opacity(0.9)
+    }
+
+    static func primaryText(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#FFF8F0") : ink
+    }
+
+    static func secondaryText(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#C8BDB2") : mutedInk
+    }
+
+    static func hairline(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.14) : hairline
+    }
 }

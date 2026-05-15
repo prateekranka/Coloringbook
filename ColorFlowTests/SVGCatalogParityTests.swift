@@ -184,21 +184,20 @@ final class SVGCatalogParityTests: XCTestCase {
 
     // MARK: - UUID stability (guards against accidental re-generation)
 
-    func test_existing11Templates_haveStableUUIDs() throws {
-        // These UUIDs are load-bearing: changing them would corrupt any user
-        // project created before the change. Never regenerate them.
+    func test_currentBundledTemplates_haveStableUUIDs() throws {
+        // These UUIDs are load-bearing for projects created against the
+        // current bundled catalog. Never regenerate them casually.
         let stableIDs: [(uuid: String, name: String)] = [
-            ("33333333-0000-0000-0000-000000000001", "Lotus Mandala"),
-            ("33333333-0000-0000-0000-000000000006", "Owl Portrait"),
-            ("33333333-0000-0000-0000-000000000009", "Butterfly Garden"),
-            ("33333333-0000-0000-0000-000000000021", "Rose Bouquet"),
-            ("33333333-0000-0000-0000-000000000017", "Wave Pattern"),
-            ("33333333-0000-0000-0000-000000000016", "Hexagon Grid"),
-            ("33333333-0000-0000-0000-000000000030", "Coffee Morning"),
-            ("33333333-0000-0000-0000-000000000031", "Sleeping Cats"),
-            ("33333333-0000-0000-0000-000000000032", "Cloud Sofa"),
-            ("33333333-0000-0000-0000-000000000033", "Cat Fish Dinner"),
-            ("33333333-0000-0000-0000-000000000034", "Kitchen Morning"),
+            ("33333333-0000-0000-0000-000000000101", "Wildflowers"),
+            ("33333333-0000-0000-0000-000000000102", "Lemon Branch"),
+            ("33333333-0000-0000-0000-000000000103", "Sunday Light"),
+            ("33333333-0000-0000-0000-000000000104", "Amalfi Afternoon"),
+            ("33333333-0000-0000-0000-000000000105", "Toucan Canopy"),
+            ("33333333-0000-0000-0000-000000000106", "Lemon Balcony"),
+            ("33333333-0000-0000-0000-000000000107", "Quiet Balcony Room"),
+            ("33333333-0000-0000-0000-000000000108", "Rainy Library"),
+            ("33333333-0000-0000-0000-000000000109", "Mediterranean Kitchen Window"),
+            ("33333333-0000-0000-0000-000000000110", "Florist Window"),
         ]
 
         let allTemplates = Template.loadAll()

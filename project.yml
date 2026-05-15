@@ -1,4 +1,4 @@
-# XcodeGen project spec for ColorFlow
+# XcodeGen project spec for Gouache (formerly ColorFlow)
 # Install: brew install xcodegen
 # Usage:   xcodegen generate   (run from repo root)
 # Then:    open ColorFlow.xcodeproj
@@ -41,6 +41,8 @@ targets:
     resources:
       - path: ColorFlow/Resources/templates.json
       - path: ColorFlow/Resources/Palettes/palettes.json
+      - path: ColorFlow/Resources/Artwork
+      - path: ColorFlow/Resources/TemplateLineArt
       - path: ColorFlow/Resources/Fonts
       - path: ColorFlow/PrivacyInfo.xcprivacy        # Required for App Store submission
       # CoreML model directory (populated after running Scripts/coreml/convert_informative_drawings.py)
@@ -56,8 +58,16 @@ targets:
           set -e
           DEST="${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}"
           mkdir -p "${DEST}"
+          find "${DEST}" -maxdepth 1 -type f -name "*.svg" -delete
           for SVG in "${SRCROOT}/ColorFlow/Resources/Templates/"*.svg; do
+            [ -e "${SVG}" ] || continue
             cp -f "${SVG}" "${DEST}/"
+          done
+          mkdir -p "${DEST}/TemplateLineArt"
+          find "${DEST}/TemplateLineArt" -type f -name "*.png" -delete
+          for PNG in "${SRCROOT}/ColorFlow/Resources/TemplateLineArt/"*.png; do
+            [ -e "${PNG}" ] || continue
+            cp -f "${PNG}" "${DEST}/TemplateLineArt/"
           done
           if [ -f "${SRCROOT}/ColorFlow/Resources/templates.json" ]; then
             cp -f "${SRCROOT}/ColorFlow/Resources/templates.json" "${DEST}/"
@@ -67,6 +77,9 @@ targets:
           fi
           if [ -f "${SRCROOT}/ColorFlow/Resources/Fonts/Fraunces.ttf" ]; then
             cp -f "${SRCROOT}/ColorFlow/Resources/Fonts/Fraunces.ttf" "${DEST}/"
+          fi
+          if [ -f "${SRCROOT}/ColorFlow/Resources/Artwork/poppy-hero.png" ]; then
+            cp -f "${SRCROOT}/ColorFlow/Resources/Artwork/poppy-hero.png" "${DEST}/"
           fi
         shell: /bin/sh
         basedOnDependencyAnalysis: false

@@ -36,6 +36,7 @@ enum PhotoStylePreset: String, CaseIterable, Identifiable {
 enum PhotoPipelineError: Error, LocalizedError {
     case imageTooSmall(shortEdge: Int, minimum: Int)
     case emptyContent
+    case insufficientTemplateDetail(String)
     case metalUnavailable
     case modelUnavailable(fallbackPreset: PhotoStylePreset)
     case processingFailed(String)
@@ -47,6 +48,8 @@ enum PhotoPipelineError: Error, LocalizedError {
             return "Image is too small (\(actual)px on the short edge). Please use an image at least \(minimum)px on each side."
         case .emptyContent:
             return "The image doesn't have enough contrast or detail to create a coloring template. Try a photo with clearer subjects."
+        case .insufficientTemplateDetail(let detail):
+            return "The photo did not produce enough clean coloring regions. \(detail) Try a clearer photo or the Simple preset."
         case .metalUnavailable:
             return "GPU processing is not available on this device. Try a simpler preset."
         case .modelUnavailable(let fallback):
@@ -110,5 +113,4 @@ protocol PhotoPipelineService: AnyObject, Sendable {
     /// Cancel any in-flight pipeline operation.
     func cancel()
 }
-
 

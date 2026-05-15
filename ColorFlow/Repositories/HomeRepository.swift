@@ -28,11 +28,17 @@ struct SableHomeRepository: HomeRepositoryProtocol, ColoringFlowRepositoryProtoc
     }
 
     func fetchContinuePages() async -> [ColoringPage] {
-        storageService.loadAllProjects()
+        let pages = storageService.loadAllProjects()
             .filter { $0.status != .completed }
             .sorted { $0.modifiedAt > $1.modifiedAt }
             .prefix(6)
             .map(coloringPage)
+
+        if !pages.isEmpty {
+            return pages
+        }
+
+        return starterContinuePages()
     }
 
     func fetchLibraryPages() async -> [ColoringPage] {
@@ -43,10 +49,10 @@ struct SableHomeRepository: HomeRepositoryProtocol, ColoringFlowRepositoryProtoc
 
     func fetchCollections() async -> [PageCollection] {
         [
-            makeCollection(name: "Koi Serenity", category: .animals),
-            makeCollection(name: "Botanical Bold", category: .botanicals),
-            makeCollection(name: "Wanderlust", category: .lifestyle),
-            makeCollection(name: "Architectural Beauty", category: .architecture)
+            makeCollection(name: "Fresh Botanicals", category: .botanicals),
+            makeCollection(name: "Sunlit Places", category: .architecture),
+            makeCollection(name: "Quiet Rooms", category: .lifestyle),
+            makeCollection(name: "Canopy Color", category: .animals)
         ]
     }
 
@@ -59,9 +65,10 @@ struct SableHomeRepository: HomeRepositoryProtocol, ColoringFlowRepositoryProtoc
     }
 
     func fetchTemplates(for collection: PageCollection) async -> [Template] {
-        templates
-            .filter { $0.category == collection.category }
-            .sorted { $0.name < $1.name }
+        collectionTemplates(
+            category: collection.category,
+            templateFilenames: collection.templateFilenames
+        )
     }
 
     func fetchTemplates(for mood: MoodCategory) async -> [Template] {
@@ -90,12 +97,57 @@ struct SableHomeRepository: HomeRepositoryProtocol, ColoringFlowRepositoryProtoc
         return nil
     }
 
-    private func makeCollection(name: String, category: TemplateCategory) -> PageCollection {
-        PageCollection(
+    private func makeCollection(
+        name: String,
+        category: TemplateCategory,
+        templateFilenames: [String] = []
+    ) -> PageCollection {
+        let collectionTemplates = collectionTemplates(
+            category: category,
+            templateFilenames: templateFilenames
+        )
+
+        return PageCollection(
             name: name,
             category: category,
-            pageCount: templates.filter { $0.category == category }.count
+            pageCount: collectionTemplates.count,
+            templateFilenames: templateFilenames,
+            previewTemplates: Array(collectionTemplates.prefix(3))
         )
+    }
+
+    private func starterContinuePages() -> [ColoringPage] {
+        let picks = [
+            ("Wildflowers", "Wildflowers", 0.62, "#F4A39A"),
+            ("Lemon Branch", "Lemon Branch", 0.48, "#F6A651"),
+            ("Rainy Library", "Rainy Library", 0.71, "#E85D75")
+        ]
+
+        return picks.compactMap { sourceName, title, progress, color in
+            guard let template = templates.first(where: { $0.name == sourceName }) else { return nil }
+            return ColoringPage(
+                id: template.id,
+                templateId: template.id,
+                title: title,
+                progress: progress,
+                thumbnailColorHex: color
+            )
+        }
+    }
+
+    private func collectionTemplates(
+        category: TemplateCategory,
+        templateFilenames: [String]
+    ) -> [Template] {
+        if !templateFilenames.isEmpty {
+            return templateFilenames.compactMap { filename in
+                templates.first { $0.svgFilename == filename }
+            }
+        }
+
+        return templates
+            .filter { $0.category == category }
+            .sorted { $0.name < $1.name }
     }
 
     private func accentHex(for category: TemplateCategory?) -> String {
@@ -123,27 +175,43 @@ struct SableHomeRepository: HomeRepositoryProtocol, ColoringFlowRepositoryProtoc
             id: project.id,
             projectId: project.id,
             templateId: project.templateId,
-            title: project.templateName,
-            progress: project.completionPercentage,
+            title: template?.name ?? project.templateName,
+            progress: completionProgress(for: project, template: template),
             thumbnailColorHex: accentHex(for: template?.category),
             thumbnailPath: project.thumbnailPath,
             fillLayerPath: project.fillLayerPath
         )
     }
+
+    private func completionProgress(for project: Project, template: Template?) -> Double {
+        let storedProgress = project.completionPercentage
+        let paintState = storageService.loadPaintState(for: project)
+        guard !paintState.regionFills.isEmpty,
+              let template,
+              let url = template.svgURL,
+              case .success(let geometry) = SVGParser.parse(url: url),
+              !geometry.regions.isEmpty else {
+            return storedProgress
+        }
+
+        let paintStateProgress = Double(paintState.regionFills.count) / Double(geometry.regions.count)
+        return min(max(max(storedProgress, paintStateProgress), 0), 1)
+    }
+
 }
 
 struct MockHomeRepository: HomeRepositoryProtocol {
     static let continuePages = [
-        ColoringPage(title: "Majestic Tiger", progress: 0.72, thumbnailColorHex: "#E8611A"),
-        ColoringPage(title: "Ocean Explorer", progress: 0.48, thumbnailColorHex: "#2BBCB3"),
-        ColoringPage(title: "Secret Garden", progress: 0.31, thumbnailColorHex: "#E91E84")
+        ColoringPage(title: "Rainy Library", progress: 0.72, thumbnailColorHex: "#E8611A"),
+        ColoringPage(title: "Lemon Balcony", progress: 0.48, thumbnailColorHex: "#2BBCB3"),
+        ColoringPage(title: "Wildflowers", progress: 0.31, thumbnailColorHex: "#E91E84")
     ]
 
     static let collections = [
-        PageCollection(name: "Koi Serenity", category: .animals, pageCount: 32),
-        PageCollection(name: "Botanical Bold", category: .botanicals, pageCount: 45),
-        PageCollection(name: "Wanderlust", category: .lifestyle, pageCount: 28),
-        PageCollection(name: "Architectural Beauty", category: .architecture, pageCount: 36)
+        PageCollection(name: "Fresh Botanicals", category: .botanicals, pageCount: 3),
+        PageCollection(name: "Sunlit Places", category: .architecture, pageCount: 1),
+        PageCollection(name: "Quiet Rooms", category: .lifestyle, pageCount: 5),
+        PageCollection(name: "Canopy Color", category: .animals, pageCount: 1)
     ]
 
     static let moodCategories = MoodCategory.allCases

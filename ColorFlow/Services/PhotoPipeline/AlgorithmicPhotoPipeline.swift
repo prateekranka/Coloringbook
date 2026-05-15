@@ -64,6 +64,15 @@ final class AlgorithmicPhotoPipeline: PhotoPipelineService, @unchecked Sendable 
         setCancelled(false)
         let params = pipelineParams(for: preset)
 
+        switch PhotoPreValidator.validate(image) {
+        case .valid, .lowContrast, .blurry:
+            break
+        case .invalidImage:
+            return .failure(.processingFailed("Image data could not be read."))
+        case .tooSmall(let shortEdge, let minimum):
+            return .failure(.imageTooSmall(shortEdge: shortEdge, minimum: minimum))
+        }
+
         return await Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return .failure(.processingFailed("Pipeline deallocated")) }
 
@@ -114,6 +123,9 @@ final class AlgorithmicPhotoPipeline: PhotoPipelineService, @unchecked Sendable 
             guard !vectorResult.regionPaths.isEmpty else {
                 return .failure(.emptyContent)
             }
+            if let validationError = PhotoPipelineTemplateValidator.validate(vectorResult) {
+                return .failure(validationError)
+            }
 
             // Stage 4: Building template
             await MainActor.run { progressHandler(.buildingTemplate) }
@@ -145,6 +157,9 @@ final class AlgorithmicPhotoPipeline: PhotoPipelineService, @unchecked Sendable 
                 geometry = g
             case .failure(let e):
                 return .failure(.svgAssemblyFailed("Produced SVG failed parser parity check: \(e.localizedDescription)"))
+            }
+            if let validationError = PhotoPipelineTemplateValidator.validate(geometry) {
+                return .failure(validationError)
             }
 
             // Persist and return the user template

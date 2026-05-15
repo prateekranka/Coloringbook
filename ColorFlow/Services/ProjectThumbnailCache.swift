@@ -28,6 +28,12 @@ final class ProjectThumbnailCache: @unchecked Sendable {
         return nil
     }
 
+    func loadFillLayer(path: String) -> UIImage? {
+        let fillURL = StorageService.documentsURL.appendingPathComponent(path)
+        guard let data = try? Data(contentsOf: fillURL) else { return nil }
+        return UIImage(data: data)
+    }
+
     func invalidate(id: UUID) {
         cache.removeObject(forKey: id as NSUUID)
     }

@@ -1,3 +1,4 @@
+import CoreImage
 import XCTest
 @testable import ColorFlow
 
@@ -47,6 +48,24 @@ final class PhotoPreValidatorTests: XCTestCase {
             return
         }
         XCTAssertEqual(actual, 300)
+    }
+
+    func test_emptyUIImage_failsAsInvalidImage() {
+        XCTAssertEqual(PhotoPreValidator.validate(UIImage()), .invalidImage)
+    }
+
+    func test_ciBackedImageBelowMinimumSize_failsWithTooSmall() {
+        let ciImage = CIImage(color: .white)
+            .cropped(to: CGRect(x: 0, y: 0, width: 320, height: 900))
+        let image = UIImage(ciImage: ciImage)
+
+        guard case .tooSmall(let actual, let minimum) = PhotoPreValidator.validate(image) else {
+            XCTFail("CI-backed images should still be size-checked before entering the pipeline")
+            return
+        }
+
+        XCTAssertEqual(actual, 320)
+        XCTAssertEqual(minimum, PhotoPreValidator.minimumShortEdge)
     }
 
     // MARK: - Contrast checks

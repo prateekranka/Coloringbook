@@ -92,7 +92,7 @@
 
 	<!-- Camera capture → coloring page (Phase C). Same early-ship rationale. -->
 	<key>NSCameraUsageDescription</key>
-	<string>ColorFlow can use your camera to turn a photo into a hand-drawn coloring page. The image stays on your device and is never uploaded.</string>
+	<string>Gouache can use your camera to turn a photo into a hand-drawn coloring page. The image stays on your device and is never uploaded.</string>
 
 	<!-- ── Base orientation key (required alongside ~ipad variant) ── -->
 	<!-- Mirrors ~ipad variant so Split View / Slide Over don't hit an empty-set edge case. -->

@@ -11,7 +11,7 @@ final class TemplateListViewModel {
         var title: String {
             switch self {
             case .explore:
-                return "Explore"
+                return "Library"
             case .collection(let collection):
                 return collection.name
             case .mood(let mood):
@@ -33,6 +33,9 @@ final class TemplateListViewModel {
 
     var isLoading = false
     var templates: [Template] = []
+    var searchText = ""
+    var selectedDifficulty: Difficulty?
+    var selectedMood: TemplateMood?
 
     let source: Source
 
@@ -75,5 +78,18 @@ final class TemplateListViewModel {
                 title: template.name
             )
         )
+    }
+
+    var filteredTemplates: [Template] {
+        templates.filter { template in
+            let matchesSearch = searchText.isEmpty
+                || template.name.localizedCaseInsensitiveContains(searchText)
+                || template.category.rawValue.localizedCaseInsensitiveContains(searchText)
+                || template.difficulty.displayTitle.localizedCaseInsensitiveContains(searchText)
+                || template.svgFilename.localizedCaseInsensitiveContains(searchText)
+            let matchesDifficulty = selectedDifficulty.map { template.difficulty == $0 } ?? true
+            let matchesMood = selectedMood.map { $0.includes(template: template) } ?? true
+            return matchesSearch && matchesDifficulty && matchesMood
+        }
     }
 }

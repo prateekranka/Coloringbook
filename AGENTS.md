@@ -1,7 +1,7 @@
 # AGENTS.md — Operating manual for AI coding agents
 
 This file is for AI coding agents (Claude Code, Cursor, Codex, etc.) working in
-the ColorFlow repo. Humans should read `CLAUDE.md` for the architectural
+the Gouache (formerly ColorFlow) repo. Humans should read `CLAUDE.md` for the architectural
 narrative; this file is the short, imperative "how to get things done" guide.
 
 If `CLAUDE.md` and this file disagree, **this file wins for workflow**;

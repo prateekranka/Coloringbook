@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-ColorFlow is an iPad-only SwiftUI coloring book app (iPadOS 17+, Swift 5.9). Apple Pencil + PencilKit for strokes, CoreGraphics flood fill for tap-to-fill, SVG templates as line art. App is dark-themed, three-tab (Home / Library / My Work), with a single full-screen `CanvasView` presented via `galleryViewModel.openedProject`.
+Gouache (formerly ColorFlow) is an iPad-only SwiftUI coloring book app (iPadOS 17+, Swift 5.9). Apple Pencil + PencilKit for strokes, CoreGraphics flood fill for tap-to-fill, SVG templates as line art. App is dark-themed, three-tab (Home / Library / My Work), with a single full-screen `CanvasView` presented via `galleryViewModel.openedProject`.
 
 Authoritative build target is `ColorFlow.xcodeproj` (generated from `project.yml` via XcodeGen). `Package.swift` exists only for reference/local SwiftPM experimentation — do not rely on it for the app build.
 

@@ -113,7 +113,6 @@ targets:
           SWIFT_OPTIMIZATION_LEVEL: "-O"
           VALIDATE_PRODUCT: "YES"
           ENABLE_TESTABILITY: "NO"
-          CODE_SIGN_IDENTITY: "Apple Distribution"
 
   ColorFlowTests:
     type: bundle.unit-test

@@ -58,6 +58,8 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :method string app-store-connect" "$EXPORT_OPTIONS"
           /usr/libexec/PlistBuddy -c "Set :destination upload" "$EXPORT_OPTIONS" 2>/dev/null || \
           /usr/libexec/PlistBuddy -c "Add :destination string upload" "$EXPORT_OPTIONS"
+          /usr/libexec/PlistBuddy -c "Set :signingStyle automatic" "$EXPORT_OPTIONS" 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" "$EXPORT_OPTIONS"
           /usr/libexec/PlistBuddy -c "Set :teamID $APPLE_TEAM_ID" "$EXPORT_OPTIONS" 2>/dev/null || \
           /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "$EXPORT_OPTIONS"
           echo "EXPORT_OPTIONS=$EXPORT_OPTIONS" >> "$GITHUB_ENV"

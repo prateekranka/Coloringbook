@@ -128,6 +128,7 @@ enum CanvasColoringMode: String, CaseIterable, Identifiable, Codable {
 struct GestureSettings: Codable, Equatable {
     var fingerPansCanvas = true
     var pencilColors = true
+    var fingerPaints = false
     var twoFingerTapUndo = true
     var threeFingerTapRedo = true
 }

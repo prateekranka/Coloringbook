@@ -9,6 +9,7 @@ struct ColoringCanvasView: View {
     @State private var showClearArtworkConfirmation = false
     @State private var fillFeedbackID: UUID?
     @State private var isUIHidden = false
+    @State private var fingerPaints = false
     @State private var liveStrokePoints: [CGPoint] = []
     #if DEBUG
     @State private var showRenderTuning = false
@@ -106,6 +107,7 @@ struct ColoringCanvasView: View {
 
                     CanvasInteractionOverlay(
                         selectedTool: viewModel.selectedTool,
+                        fingerPaints: fingerPaints,
                         canvasSize: canvasSize,
                         viewportSize: availableSize,
                         viewport: viewModel.viewport,
@@ -182,6 +184,19 @@ struct ColoringCanvasView: View {
             .pickerStyle(.segmented)
             .frame(width: 170)
             .accessibilityIdentifier("canvas.cleanFreeToggle")
+
+            Button {
+                fingerPaints.toggle()
+            } label: {
+                Image(systemName: fingerPaints ? "hand.draw.fill" : "hand.draw")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(fingerPaints ? Color.white : SableTheme.ink)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(fingerPaints ? SableTheme.cardBlack : Color.white.opacity(0.78), in: Capsule())
+            }
+            .accessibilityLabel(fingerPaints ? "Finger painting on" : "Finger painting off")
+            .accessibilityIdentifier("canvas.fingerPaint")
 
             Text(viewModel.progressLabel)
                 .font(.system(size: 18, weight: .black))
@@ -575,6 +590,7 @@ struct ColoringCanvasView: View {
 
 private struct CanvasInteractionOverlay: UIViewRepresentable {
     var selectedTool: ToolType
+    var fingerPaints: Bool
     var canvasSize: CGSize
     var viewportSize: CGSize
     var viewport: CanvasViewport
@@ -640,6 +656,29 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         }
 
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
+            if parent.fingerPaints && parent.selectedTool != .fillBucket {
+                handleFingerStroke(recognizer)
+            } else {
+                handleViewportPan(recognizer)
+            }
+        }
+
+        private func handleFingerStroke(_ recognizer: UIPanGestureRecognizer) {
+            switch recognizer.state {
+            case .began:
+                beginPencilStroke(at: recognizer.location(in: recognizer.view))
+            case .changed:
+                appendPencilPoint(recognizer.location(in: recognizer.view))
+            case .ended:
+                endPencilStroke(at: recognizer.location(in: recognizer.view))
+            case .cancelled, .failed:
+                cancelPencilStroke()
+            default:
+                break
+            }
+        }
+
+        private func handleViewportPan(_ recognizer: UIPanGestureRecognizer) {
             switch recognizer.state {
             case .began:
                 panStartOffset = parent.viewport.offset
@@ -844,18 +883,130 @@ private struct LiveStrokePreview: View {
     var body: some View {
         Canvas { context, _ in
             guard points.count > 1 else { return }
-            var path = Path()
-            path.move(to: points[0])
-            for point in points.dropFirst() {
-                path.addLine(to: point)
+
+            switch settings.tool {
+            case .fillBucket:
+                break
+
+            case .crayon:
+                let color = Color(hex: colorHex).opacity(settings.opacity)
+                let w = settings.size
+                for (offset, width) in [(-1.2, w * 0.88), (0, w), (1.2, w * 1.12)] {
+                    strokeSegments(perpOffset: offset, color: color, width: width, in: context)
+                }
+
+            case .coloredPencil:
+                let color = Color(hex: colorHex).opacity(settings.opacity * 0.35)
+                for offset in [-1.5, 0.0, 1.5] as [CGFloat] {
+                    strokeSegments(perpOffset: offset, color: color, width: settings.size, in: context)
+                }
+
+            case .watercolor:
+                let color = Color(hex: colorHex)
+                let layers: [(width: CGFloat, opacity: Double)] = [
+                    (settings.size * 0.6, settings.opacity * 0.6),
+                    (settings.size * 0.85, settings.opacity * 0.35),
+                    (settings.size * 1.1, settings.opacity * 0.15),
+                ]
+                for (w, o) in layers {
+                    context.stroke(
+                        mainPath,
+                        with: .color(color.opacity(o)),
+                        style: StrokeStyle(lineWidth: w, lineCap: .round, lineJoin: .round)
+                    )
+                }
+
+            case .marker:
+                let color = Color(hex: colorHex)
+                context.blendMode = .multiply
+                context.stroke(
+                    mainPath,
+                    with: .color(color.opacity(settings.opacity * 0.12)),
+                    style: StrokeStyle(lineWidth: settings.size * 1.15, lineCap: .round, lineJoin: .round)
+                )
+                context.blendMode = .normal
+                context.stroke(
+                    mainPath,
+                    with: .color(color.opacity(settings.opacity)),
+                    style: StrokeStyle(lineWidth: settings.size, lineCap: .round, lineJoin: .round)
+                )
+
+            case .sprayPaint:
+                let color = Color(hex: colorHex)
+                let radius = settings.size / 2
+                let stepSize: CGFloat = 3.0
+                var seed = UInt64(bitPattern: Int64(points.reduce(0) { $0.hashValue ^ $1.hashValue }))
+                for i in 0..<(points.count - 1) {
+                    let p1 = points[i]
+                    let p2 = points[i + 1]
+                    let dx = p2.x - p1.x
+                    let dy = p2.y - p1.y
+                    let segLen = hypot(dx, dy)
+                    guard segLen > 0 else { continue }
+                    let steps = max(1, Int(segLen / stepSize))
+                    for step in 0...steps {
+                        let t = CGFloat(step) / CGFloat(steps)
+                        let cx = p1.x + dx * t
+                        let cy = p1.y + dy * t
+                        for _ in 0..<8 {
+                            let u1 = nextRandom(&seed)
+                            let u2 = nextRandom(&seed)
+                            let dist = radius * CGFloat(pow(u1, 0.7))
+                            let ang = CGFloat(u2 * 2.0 * .pi)
+                            let dotSize = CGFloat(1.5 + nextRandom(&seed) * 2.0)
+                            let dotOpacity = settings.opacity * (0.5 + nextRandom(&seed) * 0.5)
+                            let x = cx + dist * cos(ang) - dotSize / 2
+                            let y = cy + dist * sin(ang) - dotSize / 2
+                            context.fill(
+                                Path(ellipseIn: CGRect(x: x, y: y, width: dotSize, height: dotSize)),
+                                with: .color(color.opacity(dotOpacity))
+                            )
+                        }
+                    }
+                }
+
+            case .eraser:
+                context.stroke(
+                    mainPath,
+                    with: .color(.white.opacity(0.55)),
+                    style: StrokeStyle(lineWidth: settings.size, lineCap: .round, lineJoin: .round)
+                )
             }
-            context.stroke(
-                path,
-                with: .color(settings.tool == .eraser ? .white.opacity(0.55) : Color(hex: colorHex).opacity(settings.opacity)),
-                style: StrokeStyle(lineWidth: settings.size, lineCap: .round, lineJoin: .round)
-            )
         }
         .allowsHitTesting(false)
+    }
+
+    private var mainPath: Path {
+        var path = Path()
+        path.move(to: points[0])
+        for point in points.dropFirst() {
+            path.addLine(to: point)
+        }
+        return path
+    }
+
+    private func strokeSegments(perpOffset: CGFloat, color: Color, width: CGFloat, in context: GraphicsContext) {
+        for i in 0..<(points.count - 1) {
+            let p1 = points[i]
+            let p2 = points[i + 1]
+            let dx = p2.x - p1.x
+            let dy = p2.y - p1.y
+            let len = hypot(dx, dy)
+            guard len > 0 else { continue }
+            let perpX = -dy / len
+            let perpY = dx / len
+            let o1 = CGPoint(x: p1.x + perpX * perpOffset, y: p1.y + perpY * perpOffset)
+            let o2 = CGPoint(x: p2.x + perpX * perpOffset, y: p2.y + perpY * perpOffset)
+            var seg = Path()
+            seg.move(to: o1)
+            seg.addLine(to: o2)
+            context.stroke(seg, with: .color(color), style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
+        }
+    }
+
+    private func nextRandom(_ seed: inout UInt64) -> Double {
+        seed = seed &* 0x9E3779B97F4A7C15 &+ 0xBF58476D1CE4E5B9
+        return Double(seed) / Double(UInt64.max)
     }
 }
 

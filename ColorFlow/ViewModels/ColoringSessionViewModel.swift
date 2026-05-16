@@ -66,7 +66,7 @@ final class ColoringSessionViewModel {
     @ObservationIgnored private let projectId: UUID?
     @ObservationIgnored private let templateId: UUID?
     @ObservationIgnored private var geometry: TemplateGeometry?
-    @ObservationIgnored private var paintState = ProjectPaintState()
+    @ObservationIgnored var paintState = ProjectPaintState()
     @ObservationIgnored private var hasLoaded = false
     @ObservationIgnored private var lastSavedRegionFills: [String: String] = [:]
     @ObservationIgnored private var lastSavedStrokeActions: [StrokeAction] = []
@@ -552,32 +552,7 @@ final class ColoringSessionViewModel {
     }
 
     private func draw(action: StrokeAction, geometry: TemplateGeometry, in context: CGContext) {
-        guard action.points.count > 1 else { return }
-        context.saveGState()
-        if let regionID = action.clippedRegionID,
-           let region = geometry.regions.first(where: { $0.id == regionID }) {
-            context.addPath(region.path)
-            context.clip(using: region.fillRule == .evenOdd ? .evenOdd : .winding)
-        }
-
-        if action.tool == .eraser {
-            context.setBlendMode(.clear)
-            context.setStrokeColor(UIColor.clear.cgColor)
-        } else {
-            context.setBlendMode(action.tool == .marker ? .multiply : .normal)
-            context.setStrokeColor(UIColor(Color(hex: action.colorHex)).withAlphaComponent(action.opacity).cgColor)
-        }
-
-        context.setLineCap(.round)
-        context.setLineJoin(.round)
-        context.setLineWidth(action.size)
-        context.beginPath()
-        context.move(to: action.points[0].cgPoint)
-        for point in action.points.dropFirst() {
-            context.addLine(to: point.cgPoint)
-        }
-        context.strokePath()
-        context.restoreGState()
+        BrushRenderers.draw(action: action, geometry: geometry, in: context)
     }
 
     private static func makePalettes() -> [ColorPalette] {

@@ -79,7 +79,7 @@ final class TemplateListViewModel {
         switch source {
         case .explore:
             templates = await repository.fetchExploreTemplates()
-            collections = []
+            collections = await repository.fetchCollections()
         case .collections:
             collections = await repository.fetchCollections()
             templates = []
@@ -132,6 +132,13 @@ final class TemplateListViewModel {
 
     var showsCollectionIndex: Bool {
         if case .collections = source {
+            return true
+        }
+        return false
+    }
+
+    var showsExploreCollections: Bool {
+        if case .explore = source {
             return true
         }
         return false

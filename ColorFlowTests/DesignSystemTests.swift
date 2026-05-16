@@ -32,7 +32,7 @@ final class DesignSystemTests: XCTestCase {
 
         let collections = await repository.fetchCollections()
         XCTAssertEqual(collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Canopy Color"])
-        XCTAssertEqual(collections.map(\.pageCount), [3, 1, 5, 1])
+        XCTAssertEqual(collections.map(\.pageCount), [3, 3, 3, 1])
         XCTAssertEqual(collections.map(\.category), [.botanicals, .architecture, .lifestyle, .animals])
 
         let moods = await repository.fetchMoodCategories()
@@ -51,6 +51,7 @@ final class DesignSystemTests: XCTestCase {
 
         XCTAssertFalse(viewModel.isLoading)
         XCTAssertEqual(viewModel.continuePages.count, 3)
+        XCTAssertEqual(viewModel.recentlyAddedPages.count, 8)
         XCTAssertEqual(viewModel.libraryPages.count, 3)
         XCTAssertEqual(viewModel.collections.count, 4)
         XCTAssertEqual(viewModel.moods.count, 6)
@@ -106,6 +107,30 @@ final class DesignSystemTests: XCTestCase {
         XCTAssertEqual(exploreTemplates.map(\.name), ["Lemon Branch", "Sunday Light"])
     }
 
+    func test_canonicalCollectionsDriveNamesCountsAndMembership() async throws {
+        let repository = SableHomeRepository(templates: Template.loadAll())
+
+        let collections = await repository.fetchCollections()
+
+        XCTAssertEqual(collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Canopy Color"])
+        XCTAssertEqual(collections.map(\.pageCount), [3, 3, 3, 1])
+        XCTAssertEqual(
+            collections.map(\.templateFilenames),
+            [
+                ["wildflowers.svg", "lemon-branch.svg", "florist-window.svg"],
+                ["amalfi-afternoon.svg", "lemon-balcony.svg", "mediterranean-kitchen-window.svg"],
+                ["sunday-light.svg", "quiet-balcony-room.svg", "rainy-library.svg"],
+                ["toucan-canopy.svg"]
+            ]
+        )
+
+        for collection in collections {
+            let templates = await repository.fetchTemplates(for: collection)
+            XCTAssertEqual(templates.map(\.svgFilename), collection.templateFilenames)
+            XCTAssertEqual(templates.count, collection.pageCount)
+        }
+    }
+
     func test_templateListViewModel_loadsCollectionIndex() async {
         let viewModel = TemplateListViewModel(source: .collections, repository: MockHomeRepository())
 
@@ -114,6 +139,17 @@ final class DesignSystemTests: XCTestCase {
         XCTAssertTrue(viewModel.showsCollectionIndex)
         XCTAssertEqual(viewModel.collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Canopy Color"])
         XCTAssertTrue(viewModel.templates.isEmpty)
+    }
+
+    func test_templateListViewModel_exploreLoadsCollectionsAndAllTemplates() async {
+        let viewModel = TemplateListViewModel(source: .explore, repository: MockHomeRepository())
+
+        await viewModel.load()
+
+        XCTAssertTrue(viewModel.showsExploreCollections)
+        XCTAssertFalse(viewModel.showsCollectionIndex)
+        XCTAssertEqual(viewModel.collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Canopy Color"])
+        XCTAssertEqual(viewModel.templates.count, Template.loadAll().count)
     }
 
     func test_templateListViewModel_sortsRecentlyAddedByCatalogOrderDescending() async {

@@ -28,6 +28,17 @@ struct ProjectArtworkThumbnail: View {
             .clipped()
         }
         .task(id: taskID) {
+            if let thumbnailPath = page.thumbnailPath,
+               let fillLayerPath = page.fillLayerPath,
+               let savedImage = ProjectThumbnailCache.shared.load(
+                   id: page.id,
+                   thumbnailPath: thumbnailPath,
+                   fillLayerPath: fillLayerPath
+               ) {
+                image = savedImage
+                return
+            }
+
             if let templateId = page.templateId,
                let template = Template.loadAll().first(where: { $0.id == templateId }) {
                 let renderSize = style == .wide ? CGSize(width: 520, height: 300) : CGSize(width: 280, height: 220)
@@ -63,7 +74,9 @@ struct ProjectArtworkThumbnail: View {
     private var taskID: TemplateThumbnailTaskID {
         TemplateThumbnailTaskID(
             templateID: page.templateId ?? page.id,
-            strokeWidth: renderTuning.thumbnailStrokeWidth
+            strokeWidth: renderTuning.thumbnailStrokeWidth,
+            thumbnailPath: page.thumbnailPath,
+            fillLayerPath: page.fillLayerPath
         )
     }
 }
@@ -71,6 +84,8 @@ struct ProjectArtworkThumbnail: View {
 private struct TemplateThumbnailTaskID: Hashable {
     let templateID: UUID
     let strokeWidth: Double
+    let thumbnailPath: String?
+    let fillLayerPath: String?
 }
 
 private struct PartialColorWash: View {

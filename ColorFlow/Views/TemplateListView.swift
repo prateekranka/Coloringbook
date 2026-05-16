@@ -41,6 +41,9 @@ struct TemplateListView: View {
                     } else if viewModel.showsCollectionIndex {
                         collectionGrid
                     } else {
+                        if viewModel.showsExploreCollections {
+                            libraryCollectionsSection
+                        }
                         templateGrid
                     }
                 }
@@ -104,16 +107,38 @@ struct TemplateListView: View {
     }
 
     private var templateGrid: some View {
-        LazyVGrid(columns: columns, spacing: 18) {
-            ForEach(Array(viewModel.filteredTemplates.enumerated()), id: \.element.id) { index, template in
-                TemplateCard(template: template, isTall: index % 5 == 1 || index % 5 == 3) {
-                    Task {
-                        let route = await viewModel.routeForTemplate(template)
-                        navigate(route)
+        VStack(alignment: .leading, spacing: 14) {
+            if viewModel.showsExploreCollections {
+                sectionTitle("All Templates")
+            }
+
+            LazyVGrid(columns: columns, spacing: 18) {
+                ForEach(Array(viewModel.filteredTemplates.enumerated()), id: \.element.id) { index, template in
+                    TemplateCard(template: template, isTall: index % 5 == 1 || index % 5 == 3) {
+                        Task {
+                            let route = await viewModel.routeForTemplate(template)
+                            navigate(route)
+                        }
                     }
                 }
             }
         }
+        .accessibilityIdentifier("library.allTemplates")
+    }
+
+    private var libraryCollectionsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionTitle("Collections")
+
+            LazyVGrid(columns: columns, spacing: 18) {
+                ForEach(viewModel.collections) { collection in
+                    LibraryCollectionCard(collection: collection) {
+                        navigate(.collection(collection))
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("library.collections")
     }
 
     private var collectionGrid: some View {
@@ -124,6 +149,13 @@ struct TemplateListView: View {
                 }
             }
         }
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 25, weight: .black))
+            .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+            .accessibilityIdentifier("library.section.\(title.normalizedIdentifier)")
     }
 
     private func filterButton(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {

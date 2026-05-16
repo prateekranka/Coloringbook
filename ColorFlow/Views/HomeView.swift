@@ -97,15 +97,15 @@ struct HomeView: View {
     }
 
     private var displayContinuePages: [ColoringPage] {
-        blendedPages(GouacheHomeFixtures.continuePages, fallback: viewModel.continuePages, count: 6)
+        Array(viewModel.continuePages.prefix(6))
     }
 
     private var displayRecentlyAddedPages: [ColoringPage] {
-        blendedPages(GouacheHomeFixtures.recentlyAddedPages, fallback: viewModel.libraryPages, count: 8)
+        Array(viewModel.recentlyAddedPages.prefix(8))
     }
 
     private var displayCollections: [PageCollection] {
-        GouacheHomeFixtures.collections
+        viewModel.collections
     }
 
     private func submitSearch() {
@@ -114,19 +114,6 @@ struct HomeView: View {
         navigate(.search(query))
     }
 
-    private func blendedPages(
-        _ pages: [ColoringPage],
-        fallback: [ColoringPage],
-        count: Int
-    ) -> [ColoringPage] {
-        guard pages.count < count else {
-            return Array(pages.prefix(count))
-        }
-
-        let existingTitles = Set(pages.map(\.title))
-        let additions = fallback.filter { !existingTitles.contains($0.title) }
-        return Array((pages + additions).prefix(count))
-    }
 }
 
 private struct GouacheHomeMetrics {
@@ -189,7 +176,7 @@ private struct GouacheHomeMetrics {
     }
 
     var moodCardWidth: CGFloat {
-        let visibleCount: CGFloat = isLandscape ? 4 : 3.65
+        let visibleCount: CGFloat = isLandscape ? 4 : 3.28
         return (contentWidth - (cardGap * (visibleCount - 1))) / visibleCount
     }
 
@@ -692,22 +679,64 @@ private struct ContinueSection: View {
         VStack(alignment: .leading, spacing: metrics.sectionHeaderSpacing) {
             HomeSectionHeader(title: "Continue Coloring", seeAll: seeAll)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: metrics.cardGap) {
-                    ForEach(Array(pages.enumerated()), id: \.element.id) { _, page in
-                        ContinueCard(
-                            page: page,
-                            imageHeight: metrics.continueImageHeight,
-                            footerHeight: metrics.continueFooterHeight,
-                            width: metrics.continueCardWidth
-                        ) {
-                            navigate(page)
+            if pages.isEmpty {
+                ContinueEmptyCard(width: metrics.contentWidth)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: metrics.cardGap) {
+                        ForEach(Array(pages.enumerated()), id: \.element.id) { _, page in
+                            ContinueCard(
+                                page: page,
+                                imageHeight: metrics.continueImageHeight,
+                                footerHeight: metrics.continueFooterHeight,
+                                width: metrics.continueCardWidth
+                            ) {
+                                navigate(page)
+                            }
                         }
                     }
+                    .padding(.vertical, 2)
                 }
-                .padding(.vertical, 2)
             }
         }
+    }
+}
+
+private struct ContinueEmptyCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let width: CGFloat
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "paintpalette")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
+                .frame(width: 42, height: 42)
+                .background(SableTheme.gouachePanel(for: colorScheme), in: Circle())
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text("No saved colorings yet")
+                    .font(SableTheme.fraunces(18, weight: .regular))
+                    .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                Text("Choose a template below to start.")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .frame(width: width, height: 82)
+        .background(SableTheme.gouachePanel(for: colorScheme))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: 1)
+        }
+        .accessibilityIdentifier("home.continue.empty")
     }
 }
 
@@ -782,11 +811,12 @@ private struct MoodSection: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: metrics.cardGap) {
-                    ForEach(GouacheMoodTile.allCases) { mood in
+                    ForEach(Array(GouacheMoodTile.allCases.enumerated()), id: \.element.id) { index, mood in
                         MoodCard(
                             mood: mood,
                             width: metrics.moodCardWidth,
-                            height: metrics.moodCardHeight
+                            height: metrics.moodCardHeight,
+                            showsTitle: metrics.isLandscape || index < 3
                         ) {
                             navigate(mood)
                         }
@@ -803,6 +833,7 @@ private struct MoodCard: View {
     let mood: GouacheMoodTile
     let width: CGFloat
     let height: CGFloat
+    let showsTitle: Bool
     let onTap: () -> Void
 
     var body: some View {
@@ -818,17 +849,29 @@ private struct MoodCard: View {
                     endPoint: .bottom
                 )
 
-                Text(mood.title)
-                    .font(SableTheme.fraunces(width < 190 ? 20 : 24, weight: .regular))
-                    .foregroundStyle(Color(hex: "#FFF4E2"))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(Color.black.opacity(0.42), in: Capsule())
-                    .padding(.leading, 12)
-                    .padding(.bottom, 10)
-                    .shadow(color: .black.opacity(0.34), radius: 4)
+                if showsTitle {
+                    VStack {
+                        Spacer(minLength: 0)
+
+                        HStack {
+                            Text(mood.title)
+                                .font(SableTheme.fraunces(width < 190 ? 19 : 23, weight: .regular))
+                                .foregroundStyle(Color(hex: "#FFF4E2"))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                                .padding(.leading, 18)
+                                .padding(.trailing, 12)
+                                .padding(.vertical, 7)
+                                .background(Color.black.opacity(0.42), in: Capsule())
+                                .shadow(color: .black.opacity(0.34), radius: 4)
+
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 10)
+                    }
+                    .frame(width: width, height: height, alignment: .bottomLeading)
+                }
             }
             .frame(width: width, height: height)
             .clipped()
@@ -1073,11 +1116,11 @@ private struct CollectionCard: View {
     private var collectionLabelPanel: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
-                Text(collection.name.replacingOccurrences(of: " ", with: "\n"))
-                    .font(SableTheme.fraunces(width < 260 ? 19 : 23, weight: .regular))
+                Text(collection.name)
+                    .font(SableTheme.fraunces(width < 260 ? 17 : 21, weight: .regular))
                     .foregroundStyle(titleColor)
                     .lineLimit(2)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.64)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Spacer(minLength: 10)
@@ -1089,7 +1132,7 @@ private struct CollectionCard: View {
             .padding(.leading, 14)
             .padding(.trailing, 8)
             .padding(.vertical, 15)
-            .frame(width: width < 260 ? width * 0.65 : width * 0.50, height: height, alignment: .leading)
+            .frame(width: width < 260 ? width * 0.72 : width * 0.58, height: height, alignment: .leading)
             .background(collectionPanelFill)
 
             Spacer(minLength: 0)
@@ -1156,7 +1199,7 @@ private struct CollectionCard: View {
 
     private var displayDifficulty: String {
         switch collection.name {
-        case "Sunlit Rooms", "Coastal Windows":
+        case "Sunlit Places", "Quiet Rooms":
             return "Medium"
         default:
             return "Easy"
@@ -1670,52 +1713,6 @@ private struct GouacheResolvedPalette {
     }
 }
 
-private enum GouacheHomeFixtures {
-    private static let templates = Template.loadAll()
-
-    static let continuePages: [ColoringPage] = [
-        page(slug: "wildflowers", progress: 0.64, color: "#EFA28F"),
-        page(slug: "lemon-branch", progress: 0.71, color: "#E6B74E"),
-        page(slug: "sunday-light", progress: 0.32, color: "#D9A97C"),
-        page(slug: "amalfi-afternoon", progress: 0.48, color: "#D9A23E"),
-        page(slug: "toucan-canopy", progress: 0.55, color: "#7E9C64"),
-        page(slug: "lemon-balcony", progress: 0.40, color: "#B6C6C8")
-    ]
-
-    static let recentlyAddedPages: [ColoringPage] = [
-        page(slug: "quiet-balcony-room", progress: 0.0, color: "#D98B63"),
-        page(slug: "rainy-library", progress: 0.0, color: "#6F8790"),
-        page(slug: "mediterranean-kitchen-window", progress: 0.0, color: "#D98931"),
-        page(slug: "florist-window", progress: 0.0, color: "#E9A1A0"),
-        page(slug: "wildflowers", progress: 0.0, color: "#EFA28F"),
-        page(slug: "lemon-branch", progress: 0.0, color: "#E6B74E"),
-        page(slug: "amalfi-afternoon", progress: 0.0, color: "#D9A23E"),
-        page(slug: "toucan-canopy", progress: 0.0, color: "#7E9C64")
-    ]
-
-    static let collections: [PageCollection] = [
-        PageCollection(name: "Bloom & Citrus", category: .botanicals, pageCount: 3),
-        PageCollection(name: "Sunlit Rooms", category: .lifestyle, pageCount: 5),
-        PageCollection(name: "Coastal Windows", category: .architecture, pageCount: 2),
-        PageCollection(name: "Wild Color", category: .animals, pageCount: 2)
-    ]
-
-    private static func page(
-        slug: String,
-        progress: Double,
-        color: String
-    ) -> ColoringPage {
-        let template = templates.first { $0.gouacheTemplateSlug == slug }
-        return ColoringPage(
-            projectId: nil,
-            templateId: template?.id,
-            title: slug.gouacheTemplateTitle,
-            progress: progress,
-            thumbnailColorHex: color
-        )
-    }
-}
-
 private extension ColoringPage {
     var homeArtworkAssetName: String? {
         switch title {
@@ -1742,40 +1739,17 @@ private extension ColoringPage {
 private extension PageCollection {
     var homeArtworkAssetName: String? {
         switch name {
-        case "Bloom & Citrus":
+        case "Fresh Botanicals":
             return "HomeWildflowersColored"
-        case "Sunlit Rooms":
-            return "HomeInteriorColored"
-        case "Coastal Windows":
+        case "Sunlit Places":
             return "HomeAmalfiColored"
-        case "Wild Color":
+        case "Quiet Rooms":
+            return "HomeInteriorColored"
+        case "Canopy Color":
             return "HomeAmalfiLine"
         default:
             return nil
         }
-    }
-}
-
-private extension Template {
-    var gouacheTemplateSlug: String {
-        let svgSlug = (svgFilename as NSString).deletingPathExtension
-            .replacingOccurrences(of: "_", with: "-")
-            .lowercased()
-        if !svgSlug.isEmpty {
-            return svgSlug
-        }
-
-        return name.normalizedIdentifier
-    }
-}
-
-private extension String {
-    var gouacheTemplateTitle: String {
-        split(separator: "-")
-            .map { word in
-                word.prefix(1).uppercased() + word.dropFirst()
-            }
-            .joined(separator: " ")
     }
 }
 

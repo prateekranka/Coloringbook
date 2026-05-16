@@ -10,6 +10,9 @@ final class ColoringFlowTests: XCTestCase {
     override func setUp() {
         super.setUp()
         storage = StorageService()
+        for project in storage.loadAllProjects() {
+            storage.delete(project: project)
+        }
         projectsToDelete = []
     }
 
@@ -56,6 +59,50 @@ final class ColoringFlowTests: XCTestCase {
         let resolved = await repository.resolveProject(projectId: page.projectId, templateId: page.templateId)
         XCTAssertEqual(resolved?.project.id, project.id)
         XCTAssertEqual(resolved?.template.id, template.id)
+    }
+
+    func test_sableRepository_continuePagesSortByLatestModifiedProject() async throws {
+        let olderTemplate = try uniqueTemplate(named: "Older Saved Page")
+        let middleTemplate = try uniqueTemplate(named: "Middle Saved Page")
+        let newestTemplate = try uniqueTemplate(named: "Newest Saved Page")
+
+        var olderProject = Project(template: olderTemplate)
+        olderProject.updateCompletion(filledRegionCount: 1, totalRegionCount: 4)
+        storage.save(project: &olderProject, drawing: PKDrawing(), fillLayer: nil, templateImage: nil)
+        projectsToDelete.append(olderProject)
+
+        usleep(20_000)
+        var middleProject = Project(template: middleTemplate)
+        middleProject.updateCompletion(filledRegionCount: 2, totalRegionCount: 4)
+        storage.save(project: &middleProject, drawing: PKDrawing(), fillLayer: nil, templateImage: nil)
+        projectsToDelete.append(middleProject)
+
+        usleep(20_000)
+        var newestProject = Project(template: newestTemplate)
+        newestProject.updateCompletion(filledRegionCount: 3, totalRegionCount: 4)
+        storage.save(project: &newestProject, drawing: PKDrawing(), fillLayer: nil, templateImage: nil)
+        projectsToDelete.append(newestProject)
+
+        let repository = SableHomeRepository(
+            storageService: storage,
+            templates: [olderTemplate, middleTemplate, newestTemplate]
+        )
+
+        let pages = await repository.fetchContinuePages()
+
+        XCTAssertEqual(
+            pages.prefix(3).map(\.projectId),
+            [newestProject.id, middleProject.id, olderProject.id]
+        )
+        XCTAssertEqual(pages.prefix(3).map(\.title), ["Newest Saved Page", "Middle Saved Page", "Older Saved Page"])
+    }
+
+    func test_sableRepository_freshUserHasNoFakeContinuePlaceholders() async throws {
+        let repository = SableHomeRepository(storageService: storage, templates: [try uniqueTemplate()])
+
+        let pages = await repository.fetchContinuePages()
+
+        XCTAssertTrue(pages.isEmpty)
     }
 
     func test_coloringSession_fillPersistsPaintStateAndProjectProgress() async throws {
@@ -248,10 +295,14 @@ final class ColoringFlowTests: XCTestCase {
     }
 
     private func uniqueTemplate() throws -> Template {
+        try uniqueTemplate(named: "Sunflower \(UUID().uuidString.prefix(8))")
+    }
+
+    private func uniqueTemplate(named name: String) throws -> Template {
         let base = try CanvasTestFixture.makeTemplate()
         return Template(
             id: UUID(),
-            name: "Sunflower \(UUID().uuidString.prefix(8))",
+            name: name,
             category: base.category,
             difficulty: base.difficulty,
             svgFilename: base.svgFilename,

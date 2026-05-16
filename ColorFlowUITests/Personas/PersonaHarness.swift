@@ -119,6 +119,17 @@ final class PersonaHarness: @unchecked Sendable {
         try runWithRetry(cmd)
     }
 
+    @discardableResult
+    func measureBatch(_ steps: [BatchStep], name: String, testCase: XCTestCase) throws -> TimeInterval {
+        let start = CFAbsoluteTimeGetCurrent()
+        try batch(steps)
+        let elapsed = CFAbsoluteTimeGetCurrent() - start
+        let attachment = XCTAttachment(string: "\(name): \(String(format: "%.3f", elapsed))s for \(steps.count) axe steps")
+        attachment.name = "Persona timing - \(name)"
+        testCase.add(attachment)
+        return elapsed
+    }
+
     // MARK: - State
 
     func describeUI() throws -> String {

@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import QuartzCore
 
 @MainActor
 struct ColoringCanvasView: View {
@@ -10,7 +11,7 @@ struct ColoringCanvasView: View {
     @State private var fillFeedbackID: UUID?
     @State private var isUIHidden = false
     @State private var fingerPaints = false
-    @State private var liveStrokePoints: [CGPoint] = []
+    @State private var liveStrokeSamples: [StrokeSample] = []
     #if DEBUG
     @State private var showRenderTuning = false
     #endif
@@ -120,11 +121,11 @@ struct ColoringCanvasView: View {
                         onFill: { point in
                             handleFill(atCanvasPoint: point, canvasSize: canvasSize)
                         },
-                        onStrokeChanged: { points in
-                            liveStrokePoints = points
+                        onStrokeChanged: { samples in
+                            liveStrokeSamples = samples
                         },
-                        onStrokeEnded: { points in
-                            handleStroke(canvasPoints: points, canvasSize: canvasSize)
+                        onStrokeEnded: { samples in
+                            handleStroke(samples: samples, canvasSize: canvasSize)
                         }
                     )
                     .frame(width: availableSize.width, height: availableSize.height)
@@ -443,34 +444,20 @@ struct ColoringCanvasView: View {
     }
 
     private func canvasArtwork(canvasSize: CGSize) -> some View {
-        ZStack {
-            SableTheme.paper
+        let liveClip = viewModel.liveStrokeClip(samples: liveStrokeSamples, canvasSize: canvasSize)
 
-            if let fillLayerImage = viewModel.fillLayerImage {
-                Image(uiImage: fillLayerImage)
-                    .resizable()
-                    .interpolation(.high)
-                    .scaledToFit()
-            }
-
-            if let lineArtImage = viewModel.lineArtImage {
-                Image(uiImage: lineArtImage)
-                    .resizable()
-                    .interpolation(.high)
-                    .scaledToFit()
-                    .blendMode(.multiply)
-            }
+        return ZStack {
+            NotebookCanvasRepresentable(
+                fillLayerImage: viewModel.fillLayerImage,
+                lineArtImage: viewModel.lineArtImage,
+                liveStrokeSamples: liveStrokeSamples,
+                liveStrokeClip: liveClip,
+                liveStrokeColorHex: viewModel.selectedColorHex,
+                liveStrokeSettings: viewModel.selectedToolSettings
+            )
 
             if fillFeedbackID != nil {
                 fillFeedback
-            }
-
-            if !liveStrokePoints.isEmpty {
-                LiveStrokePreview(
-                    points: liveStrokePoints,
-                    colorHex: viewModel.selectedColorHex,
-                    settings: viewModel.selectedToolSettings
-                )
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
@@ -573,10 +560,10 @@ struct ColoringCanvasView: View {
         }
     }
 
-    private func handleStroke(canvasPoints: [CGPoint], canvasSize: CGSize) {
+    private func handleStroke(samples: [StrokeSample], canvasSize: CGSize) {
         guard viewModel.selectedTool != .fillBucket else { return }
         Task {
-            _ = await viewModel.drawStroke(canvasPoints: canvasPoints, canvasSize: canvasSize)
+            _ = await viewModel.drawStroke(samples: samples, canvasSize: canvasSize)
         }
     }
 
@@ -585,6 +572,154 @@ struct ColoringCanvasView: View {
         viewport.reset()
         viewModel.updateViewport(viewport)
         viewModel.commitViewportChange()
+    }
+}
+
+private struct NotebookCanvasRepresentable: UIViewRepresentable {
+    let fillLayerImage: UIImage?
+    let lineArtImage: UIImage?
+    let liveStrokeSamples: [StrokeSample]
+    let liveStrokeClip: StrokeRenderClip?
+    let liveStrokeColorHex: String
+    let liveStrokeSettings: ToolSettings
+
+    func makeUIView(context: Context) -> NotebookCanvasUIView {
+        let view = NotebookCanvasUIView()
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        view.isUserInteractionEnabled = false
+        view.contentMode = .redraw
+        return view
+    }
+
+    func updateUIView(_ uiView: NotebookCanvasUIView, context: Context) {
+        uiView.configure(
+            fillLayerImage: fillLayerImage,
+            lineArtImage: lineArtImage,
+            liveStrokeSamples: liveStrokeSamples,
+            liveStrokeClip: liveStrokeClip,
+            liveStrokeColorHex: liveStrokeColorHex,
+            liveStrokeSettings: liveStrokeSettings
+        )
+    }
+}
+
+private final class NotebookCanvasUIView: UIView {
+    private var fillLayerImage: UIImage?
+    private var lineArtImage: UIImage?
+    private var liveStrokeSamples: [StrokeSample] = []
+    private var liveStrokeClip: StrokeRenderClip?
+    private var liveStrokeColorHex = SableTheme.progressPinkHex
+    private var liveStrokeSettings = ToolType.crayon.defaultSettings
+
+    func configure(
+        fillLayerImage: UIImage?,
+        lineArtImage: UIImage?,
+        liveStrokeSamples: [StrokeSample],
+        liveStrokeClip: StrokeRenderClip?,
+        liveStrokeColorHex: String,
+        liveStrokeSettings: ToolSettings
+    ) {
+        let imageChanged = self.fillLayerImage !== fillLayerImage
+            || self.lineArtImage !== lineArtImage
+        let changed = imageChanged
+            || self.liveStrokeSamples != liveStrokeSamples
+            || self.liveStrokeColorHex != liveStrokeColorHex
+            || self.liveStrokeSettings != liveStrokeSettings
+            || !sameClip(self.liveStrokeClip, liveStrokeClip)
+        let oldDirtyRect = dirtyRect(for: self.liveStrokeSamples, clip: self.liveStrokeClip)
+
+        self.fillLayerImage = fillLayerImage
+        self.lineArtImage = lineArtImage
+        self.liveStrokeSamples = liveStrokeSamples
+        self.liveStrokeClip = liveStrokeClip
+        self.liveStrokeColorHex = liveStrokeColorHex
+        self.liveStrokeSettings = liveStrokeSettings
+
+        if changed {
+            if imageChanged {
+                setNeedsDisplay()
+            } else {
+                setNeedsDisplay(oldDirtyRect.union(dirtyRect(for: liveStrokeSamples, clip: liveStrokeClip)))
+            }
+        }
+    }
+
+    override func draw(_ rect: CGRect) {
+        guard let context = UIGraphicsGetCurrentContext() else { return }
+        let canvasBounds = bounds
+
+        UIColor(hex: "#FFFDF8").setFill()
+        context.fill(canvasBounds)
+
+        let artRect = imageRect(for: fillLayerImage ?? lineArtImage, in: canvasBounds)
+        fillLayerImage?.draw(in: artRect)
+
+        if liveStrokeSamples.count > 1 {
+            context.saveGState()
+            BrushRenderers.drawLiveStroke(
+                samples: liveStrokeSamples,
+                tool: liveStrokeSettings.tool,
+                colorHex: liveStrokeColorHex,
+                size: liveStrokeSettings.size,
+                opacity: CGFloat(liveStrokeSettings.opacity),
+                clipPath: liveStrokeClip?.path,
+                clipFillRule: liveStrokeClip?.fillRule ?? .winding,
+                in: context
+            )
+            context.restoreGState()
+        }
+
+        if let lineArtImage {
+            context.saveGState()
+            context.setBlendMode(.multiply)
+            lineArtImage.draw(in: imageRect(for: lineArtImage, in: canvasBounds))
+            context.restoreGState()
+        }
+    }
+
+    private func imageRect(for image: UIImage?, in bounds: CGRect) -> CGRect {
+        guard let image, image.size.width > 0, image.size.height > 0 else {
+            return bounds
+        }
+
+        let scale = min(bounds.width / image.size.width, bounds.height / image.size.height)
+        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        return CGRect(
+            x: bounds.midX - size.width / 2,
+            y: bounds.midY - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+    }
+
+    private func dirtyRect(for samples: [StrokeSample], clip: StrokeRenderClip?) -> CGRect {
+        guard !samples.isEmpty else { return bounds }
+
+        let radius = max(CGFloat(liveStrokeSettings.size) * 2, 48)
+        var rect = samples
+            .map(\.cgPoint)
+            .reduce(CGRect.null) { partial, point in
+                partial.union(CGRect(x: point.x, y: point.y, width: 1, height: 1))
+            }
+            .insetBy(dx: -radius, dy: -radius)
+
+        if let clip {
+            rect = rect.intersection(clip.path.boundingBoxOfPath.insetBy(dx: -radius, dy: -radius))
+        }
+
+        return rect.isNull || rect.isEmpty ? bounds : rect.intersection(bounds)
+    }
+
+    private func sameClip(_ lhs: StrokeRenderClip?, _ rhs: StrokeRenderClip?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return true
+        case let (lhs?, rhs?):
+            return lhs.path === rhs.path && lhs.fillRule == rhs.fillRule
+        default:
+            return false
+        }
     }
 }
 
@@ -597,8 +732,8 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
     var onViewportChanged: (CanvasViewport) -> Void
     var onViewportCommitted: () -> Void
     var onFill: (CGPoint) -> Void
-    var onStrokeChanged: ([CGPoint]) -> Void
-    var onStrokeEnded: ([CGPoint]) -> Void
+    var onStrokeChanged: ([StrokeSample]) -> Void
+    var onStrokeEnded: ([StrokeSample]) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -640,7 +775,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         private var panStartOffset = CGSize.zero
         private var pinchStartScale = CanvasViewport.minimumScale
         private var pinchStartOffset = CGSize.zero
-        private var pencilPoints: [CGPoint] = []
+        private var strokeSamples: [StrokeSample] = []
 
         init(parent: CanvasInteractionOverlay) {
             self.parent = parent
@@ -666,13 +801,13 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         private func handleFingerStroke(_ recognizer: UIPanGestureRecognizer) {
             switch recognizer.state {
             case .began:
-                beginPencilStroke(at: recognizer.location(in: recognizer.view))
+                beginStroke(at: recognizer.location(in: recognizer.view))
             case .changed:
-                appendPencilPoint(recognizer.location(in: recognizer.view))
+                appendStrokePoint(recognizer.location(in: recognizer.view))
             case .ended:
-                endPencilStroke(at: recognizer.location(in: recognizer.view))
+                endStroke(at: recognizer.location(in: recognizer.view))
             case .cancelled, .failed:
-                cancelPencilStroke()
+                cancelStroke()
             default:
                 break
             }
@@ -735,37 +870,62 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             true
         }
 
-        func beginPencilStroke(at point: CGPoint) {
+        func beginStroke(at point: CGPoint) {
             guard parent.selectedTool != .fillBucket,
                   let canvasPoint = canvasPoint(for: point) else { return }
-            pencilPoints = [canvasPoint]
-            parent.onStrokeChanged(pencilPoints)
+            strokeSamples = [StrokeSample(point: canvasPoint, timestamp: CACurrentMediaTime())]
+            parent.onStrokeChanged(strokeSamples)
         }
 
-        func appendPencilPoint(_ point: CGPoint) {
+        func appendStrokePoint(_ point: CGPoint) {
             guard parent.selectedTool != .fillBucket,
-                  !pencilPoints.isEmpty,
+                  !strokeSamples.isEmpty,
                   let canvasPoint = canvasPoint(for: point) else { return }
-            pencilPoints.append(canvasPoint)
-            parent.onStrokeChanged(pencilPoints)
+            strokeSamples.append(StrokeSample(point: canvasPoint, timestamp: CACurrentMediaTime()))
+            parent.onStrokeChanged(strokeSamples)
         }
 
-        func endPencilStroke(at point: CGPoint?) {
+        func endStroke(at point: CGPoint?) {
             if let point {
-                appendPencilPoint(point)
+                appendStrokePoint(point)
             }
 
-            let completedPoints = pencilPoints
-            pencilPoints = []
+            let completedSamples = strokeSamples
+            strokeSamples = []
             parent.onStrokeChanged([])
-            if completedPoints.count > 1 {
-                parent.onStrokeEnded(completedPoints)
+            if completedSamples.count > 1 {
+                parent.onStrokeEnded(completedSamples)
             }
         }
 
-        func cancelPencilStroke() {
-            pencilPoints = []
+        func cancelStroke() {
+            strokeSamples = []
             parent.onStrokeChanged([])
+        }
+
+        func beginPencilStroke(with touch: UITouch, in view: UIView) {
+            guard parent.selectedTool != .fillBucket,
+                  let sample = strokeSample(for: touch, in: view) else { return }
+            strokeSamples = [sample]
+            parent.onStrokeChanged(strokeSamples)
+        }
+
+        func appendPencilStroke(with touch: UITouch, in view: UIView) {
+            guard parent.selectedTool != .fillBucket,
+                  !strokeSamples.isEmpty,
+                  let sample = strokeSample(for: touch, in: view) else { return }
+            strokeSamples.append(sample)
+            parent.onStrokeChanged(strokeSamples)
+        }
+
+        func endPencilStroke(with touch: UITouch, in view: UIView) {
+            appendPencilStroke(with: touch, in: view)
+            let completedSamples = strokeSamples
+            strokeSamples = []
+            parent.onStrokeChanged([])
+            if completedSamples.count > 1 {
+                parent.onStrokeEnded(completedSamples)
+            }
         }
 
         private func canvasPoint(for viewportPoint: CGPoint) -> CGPoint? {
@@ -779,6 +939,23 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             }
             return canvasPoint
         }
+
+        private func strokeSample(for touch: UITouch, in view: UIView) -> StrokeSample? {
+            guard let canvasPoint = canvasPoint(for: touch.location(in: view)) else { return nil }
+            let normalizedForce: Double?
+            if touch.maximumPossibleForce > 0 {
+                normalizedForce = Double(touch.force / touch.maximumPossibleForce)
+            } else {
+                normalizedForce = nil
+            }
+            return StrokeSample(
+                point: canvasPoint,
+                timestamp: touch.timestamp,
+                force: normalizedForce,
+                altitude: Double(touch.altitudeAngle),
+                azimuth: Double(touch.azimuthAngle(in: view))
+            )
+        }
     }
 }
 
@@ -787,25 +964,25 @@ private final class CanvasInteractionUIView: UIView {
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
-        coordinator?.beginPencilStroke(at: touch.location(in: self))
+        coordinator?.beginPencilStroke(with: touch, in: self)
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
         let coalescedTouches = event?.coalescedTouches(for: touch) ?? [touch]
         for coalescedTouch in coalescedTouches where coalescedTouch.type == .pencil {
-            coordinator?.appendPencilPoint(coalescedTouch.location(in: self))
+            coordinator?.appendPencilStroke(with: coalescedTouch, in: self)
         }
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
-        coordinator?.endPencilStroke(at: touch.location(in: self))
+        coordinator?.endPencilStroke(with: touch, in: self)
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard touches.contains(where: { $0.type == .pencil }) else { return }
-        coordinator?.cancelPencilStroke()
+        coordinator?.cancelStroke()
     }
 }
 
@@ -874,141 +1051,6 @@ private struct CanvasRenderTuningSlider: View {
     }
 }
 #endif
-
-private struct LiveStrokePreview: View {
-    let points: [CGPoint]
-    let colorHex: String
-    let settings: ToolSettings
-
-    var body: some View {
-        Canvas { context, _ in
-            guard points.count > 1 else { return }
-
-            switch settings.tool {
-            case .fillBucket:
-                break
-
-            case .crayon:
-                let color = Color(hex: colorHex).opacity(settings.opacity)
-                let w = settings.size
-                for (offset, width) in [(-1.2, w * 0.88), (0, w), (1.2, w * 1.12)] {
-                    strokeSegments(perpOffset: offset, color: color, width: width, in: context)
-                }
-
-            case .coloredPencil:
-                let color = Color(hex: colorHex).opacity(settings.opacity * 0.35)
-                for offset in [-1.5, 0.0, 1.5] as [CGFloat] {
-                    strokeSegments(perpOffset: offset, color: color, width: settings.size, in: context)
-                }
-
-            case .watercolor:
-                let color = Color(hex: colorHex)
-                let layers: [(width: CGFloat, opacity: Double)] = [
-                    (settings.size * 0.6, settings.opacity * 0.6),
-                    (settings.size * 0.85, settings.opacity * 0.35),
-                    (settings.size * 1.1, settings.opacity * 0.15),
-                ]
-                for (w, o) in layers {
-                    context.stroke(
-                        mainPath,
-                        with: .color(color.opacity(o)),
-                        style: StrokeStyle(lineWidth: w, lineCap: .round, lineJoin: .round)
-                    )
-                }
-
-            case .marker:
-                let color = Color(hex: colorHex)
-                context.blendMode = .multiply
-                context.stroke(
-                    mainPath,
-                    with: .color(color.opacity(settings.opacity * 0.12)),
-                    style: StrokeStyle(lineWidth: settings.size * 1.15, lineCap: .round, lineJoin: .round)
-                )
-                context.blendMode = .normal
-                context.stroke(
-                    mainPath,
-                    with: .color(color.opacity(settings.opacity)),
-                    style: StrokeStyle(lineWidth: settings.size, lineCap: .round, lineJoin: .round)
-                )
-
-            case .sprayPaint:
-                let color = Color(hex: colorHex)
-                let radius = settings.size / 2
-                let stepSize: CGFloat = 3.0
-                var seed = UInt64(bitPattern: Int64(points.reduce(0) { $0.hashValue ^ $1.hashValue }))
-                for i in 0..<(points.count - 1) {
-                    let p1 = points[i]
-                    let p2 = points[i + 1]
-                    let dx = p2.x - p1.x
-                    let dy = p2.y - p1.y
-                    let segLen = hypot(dx, dy)
-                    guard segLen > 0 else { continue }
-                    let steps = max(1, Int(segLen / stepSize))
-                    for step in 0...steps {
-                        let t = CGFloat(step) / CGFloat(steps)
-                        let cx = p1.x + dx * t
-                        let cy = p1.y + dy * t
-                        for _ in 0..<8 {
-                            let u1 = nextRandom(&seed)
-                            let u2 = nextRandom(&seed)
-                            let dist = radius * CGFloat(pow(u1, 0.7))
-                            let ang = CGFloat(u2 * 2.0 * .pi)
-                            let dotSize = CGFloat(1.5 + nextRandom(&seed) * 2.0)
-                            let dotOpacity = settings.opacity * (0.5 + nextRandom(&seed) * 0.5)
-                            let x = cx + dist * cos(ang) - dotSize / 2
-                            let y = cy + dist * sin(ang) - dotSize / 2
-                            context.fill(
-                                Path(ellipseIn: CGRect(x: x, y: y, width: dotSize, height: dotSize)),
-                                with: .color(color.opacity(dotOpacity))
-                            )
-                        }
-                    }
-                }
-
-            case .eraser:
-                context.stroke(
-                    mainPath,
-                    with: .color(.white.opacity(0.55)),
-                    style: StrokeStyle(lineWidth: settings.size, lineCap: .round, lineJoin: .round)
-                )
-            }
-        }
-        .allowsHitTesting(false)
-    }
-
-    private var mainPath: Path {
-        var path = Path()
-        path.move(to: points[0])
-        for point in points.dropFirst() {
-            path.addLine(to: point)
-        }
-        return path
-    }
-
-    private func strokeSegments(perpOffset: CGFloat, color: Color, width: CGFloat, in context: GraphicsContext) {
-        for i in 0..<(points.count - 1) {
-            let p1 = points[i]
-            let p2 = points[i + 1]
-            let dx = p2.x - p1.x
-            let dy = p2.y - p1.y
-            let len = hypot(dx, dy)
-            guard len > 0 else { continue }
-            let perpX = -dy / len
-            let perpY = dx / len
-            let o1 = CGPoint(x: p1.x + perpX * perpOffset, y: p1.y + perpY * perpOffset)
-            let o2 = CGPoint(x: p2.x + perpX * perpOffset, y: p2.y + perpY * perpOffset)
-            var seg = Path()
-            seg.move(to: o1)
-            seg.addLine(to: o2)
-            context.stroke(seg, with: .color(color), style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
-        }
-    }
-
-    private func nextRandom(_ seed: inout UInt64) -> Double {
-        seed = seed &* 0x9E3779B97F4A7C15 &+ 0xBF58476D1CE4E5B9
-        return Double(seed) / Double(UInt64.max)
-    }
-}
 
 private struct ToolAdjustmentPanel: View {
     let tool: ToolType

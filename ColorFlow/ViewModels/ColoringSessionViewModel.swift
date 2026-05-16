@@ -343,9 +343,17 @@ final class ColoringSessionViewModel {
 
     @discardableResult
     func drawStroke(canvasPoints: [CGPoint], canvasSize: CGSize) async -> Bool {
-        guard let geometry, !canvasPoints.isEmpty else { return false }
+        await drawStroke(
+            samples: canvasPoints.map { StrokeSample(point: $0) },
+            canvasSize: canvasSize
+        )
+    }
 
-        if selectedTool == .fillBucket, let firstPoint = canvasPoints.first {
+    @discardableResult
+    func drawStroke(samples canvasSamples: [StrokeSample], canvasSize: CGSize) async -> Bool {
+        guard let geometry, !canvasSamples.isEmpty else { return false }
+
+        if selectedTool == .fillBucket, let firstPoint = canvasSamples.first?.cgPoint {
             return await fill(atCanvasPoint: firstPoint, canvasSize: canvasSize)
         }
 
@@ -353,7 +361,17 @@ final class ColoringSessionViewModel {
             viewBox: geometry.viewBox,
             viewSize: canvasSize
         ).inverted()
-        let documentPoints = canvasPoints.map { $0.applying(transform) }
+        let documentSamples = canvasSamples.map { sample in
+            StrokeSample(
+                point: sample.cgPoint.applying(transform),
+                timestamp: sample.timestamp,
+                force: sample.force,
+                altitude: sample.altitude,
+                azimuth: sample.azimuth,
+                isPredicted: sample.isPredicted
+            )
+        }
+        let documentPoints = documentSamples.map(\.cgPoint)
         let clippedRegionID = coloringMode == .clean
             ? documentPoints.first.flatMap { geometry.region(at: $0)?.id }
             : nil
@@ -366,6 +384,7 @@ final class ColoringSessionViewModel {
             tool: selectedTool,
             colorHex: selectedColorHex,
             points: documentPoints.map { CodablePoint(x: $0.x, y: $0.y) },
+            samples: documentSamples,
             clippedRegionID: clippedRegionID,
             size: selectedToolSettings.size,
             opacity: selectedToolSettings.opacity
@@ -378,6 +397,26 @@ final class ColoringSessionViewModel {
         await refreshArtworkAfterEdit()
         HapticService.shared.impact(.light)
         return true
+    }
+
+    func liveStrokeClip(samples canvasSamples: [StrokeSample], canvasSize: CGSize) -> StrokeRenderClip? {
+        guard coloringMode == .clean,
+              let geometry,
+              let firstCanvasPoint = canvasSamples.first?.cgPoint else {
+            return nil
+        }
+
+        var documentToCanvas = TemplateRenderer.documentToViewTransform(
+            viewBox: geometry.viewBox,
+            viewSize: canvasSize
+        )
+        let documentPoint = firstCanvasPoint.applying(documentToCanvas.inverted())
+        guard let region = geometry.region(at: documentPoint),
+              let canvasPath = region.path.copy(using: &documentToCanvas) else {
+            return nil
+        }
+
+        return StrokeRenderClip(path: canvasPath, fillRule: region.fillRule)
     }
 
     private func resolveSeed() async -> (project: Project, template: Template)? {

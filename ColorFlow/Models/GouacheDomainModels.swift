@@ -146,6 +146,7 @@ struct StrokeAction: Identifiable, Codable, Equatable {
     var tool: ToolType
     var colorHex: String
     var points: [CodablePoint]
+    var samples: [StrokeSample]
     var clippedRegionID: String?
     var size: Double
     var opacity: Double
@@ -155,6 +156,7 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         tool: ToolType,
         colorHex: String,
         points: [CodablePoint],
+        samples: [StrokeSample]? = nil,
         clippedRegionID: String?,
         size: Double,
         opacity: Double
@@ -163,9 +165,54 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         self.tool = tool
         self.colorHex = colorHex
         self.points = points
+        self.samples = samples ?? points.map { StrokeSample(point: $0) }
         self.clippedRegionID = clippedRegionID
         self.size = size
         self.opacity = opacity
+    }
+
+    var renderSamples: [StrokeSample] {
+        samples.isEmpty ? points.map { StrokeSample(point: $0) } : samples
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case tool
+        case colorHex
+        case points
+        case samples
+        case clippedRegionID
+        case size
+        case opacity
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        tool = try container.decode(ToolType.self, forKey: .tool)
+        colorHex = try container.decode(String.self, forKey: .colorHex)
+        let decodedSamples = try container.decodeIfPresent([StrokeSample].self, forKey: .samples)
+        points = try container.decodeIfPresent([CodablePoint].self, forKey: .points)
+            ?? decodedSamples?.map(\.point)
+            ?? []
+        samples = decodedSamples ?? points.map { StrokeSample(point: $0) }
+        clippedRegionID = try container.decodeIfPresent(String.self, forKey: .clippedRegionID)
+        size = try container.decode(Double.self, forKey: .size)
+        opacity = try container.decode(Double.self, forKey: .opacity)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(tool, forKey: .tool)
+        try container.encode(colorHex, forKey: .colorHex)
+        try container.encode(points, forKey: .points)
+        if samples.contains(where: \.hasExtendedData) || samples.map(\.point) != points {
+            try container.encode(samples, forKey: .samples)
+        }
+        try container.encodeIfPresent(clippedRegionID, forKey: .clippedRegionID)
+        try container.encode(size, forKey: .size)
+        try container.encode(opacity, forKey: .opacity)
     }
 }
 
@@ -173,9 +220,75 @@ struct CodablePoint: Codable, Equatable {
     var x: Double
     var y: Double
 
+    init(x: Double, y: Double) {
+        self.x = x
+        self.y = y
+    }
+
+    init(_ point: CGPoint) {
+        x = Double(point.x)
+        y = Double(point.y)
+    }
+
     var cgPoint: CGPoint {
         CGPoint(x: x, y: y)
     }
+}
+
+struct StrokeSample: Codable, Equatable {
+    var point: CodablePoint
+    var timestamp: TimeInterval?
+    var force: Double?
+    var altitude: Double?
+    var azimuth: Double?
+    var isPredicted: Bool?
+
+    init(
+        point: CodablePoint,
+        timestamp: TimeInterval? = nil,
+        force: Double? = nil,
+        altitude: Double? = nil,
+        azimuth: Double? = nil,
+        isPredicted: Bool? = nil
+    ) {
+        self.point = point
+        self.timestamp = timestamp
+        self.force = force
+        self.altitude = altitude
+        self.azimuth = azimuth
+        self.isPredicted = isPredicted
+    }
+
+    init(
+        point: CGPoint,
+        timestamp: TimeInterval? = nil,
+        force: Double? = nil,
+        altitude: Double? = nil,
+        azimuth: Double? = nil,
+        isPredicted: Bool? = nil
+    ) {
+        self.init(
+            point: CodablePoint(point),
+            timestamp: timestamp,
+            force: force,
+            altitude: altitude,
+            azimuth: azimuth,
+            isPredicted: isPredicted
+        )
+    }
+
+    var cgPoint: CGPoint {
+        point.cgPoint
+    }
+
+    var hasExtendedData: Bool {
+        timestamp != nil || force != nil || altitude != nil || azimuth != nil || isPredicted != nil
+    }
+}
+
+struct StrokeRenderClip {
+    let path: CGPath
+    let fillRule: CGPathFillRule
 }
 
 protocol TemplateMask {

@@ -5,6 +5,8 @@ import Observation
 final class TemplateListViewModel {
     enum Source: Hashable {
         case explore
+        case collections
+        case recentlyAdded
         case collection(PageCollection)
         case mood(MoodCategory)
         case search(String)
@@ -13,6 +15,10 @@ final class TemplateListViewModel {
             switch self {
             case .explore:
                 return "Library"
+            case .collections:
+                return "Collections"
+            case .recentlyAdded:
+                return "Recently Added"
             case .collection(let collection):
                 return collection.name
             case .mood(let mood):
@@ -26,6 +32,10 @@ final class TemplateListViewModel {
             switch self {
             case .explore:
                 return "ALL TEMPLATES"
+            case .collections:
+                return "ALL COLLECTIONS"
+            case .recentlyAdded:
+                return "NEWEST FIRST"
             case .collection(let collection):
                 return collection.pageCountLabel
             case .mood:
@@ -38,6 +48,7 @@ final class TemplateListViewModel {
 
     var isLoading = false
     var templates: [Template] = []
+    var collections: [PageCollection] = []
     var searchText = ""
     var selectedDifficulty: Difficulty?
     var selectedMood: TemplateMood?
@@ -68,12 +79,28 @@ final class TemplateListViewModel {
         switch source {
         case .explore:
             templates = await repository.fetchExploreTemplates()
+            collections = []
+        case .collections:
+            collections = await repository.fetchCollections()
+            templates = []
+        case .recentlyAdded:
+            templates = await repository.fetchExploreTemplates()
+                .sorted { lhs, rhs in
+                    if lhs.addedSortIndex == rhs.addedSortIndex {
+                        return lhs.name < rhs.name
+                    }
+                    return lhs.addedSortIndex > rhs.addedSortIndex
+                }
+            collections = []
         case .collection(let collection):
             templates = await repository.fetchTemplates(for: collection)
+            collections = []
         case .mood(let mood):
             templates = await repository.fetchTemplates(for: mood)
+            collections = []
         case .search:
             templates = await repository.fetchExploreTemplates()
+            collections = []
         }
         isLoading = false
         hasLoaded = true
@@ -101,5 +128,16 @@ final class TemplateListViewModel {
             let matchesMood = selectedMood.map { $0.includes(template: template) } ?? true
             return matchesSearch && matchesDifficulty && matchesMood
         }
+    }
+
+    var showsCollectionIndex: Bool {
+        if case .collections = source {
+            return true
+        }
+        return false
+    }
+
+    var showsTemplateFilters: Bool {
+        !showsCollectionIndex
     }
 }

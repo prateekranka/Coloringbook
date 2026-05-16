@@ -42,6 +42,87 @@ final class CanvasViewportTests: XCTestCase {
         XCTAssertEqual(viewport.offset.height, -200)
     }
 
+    func test_updateScale_anchorsDocumentPointUnderPinchLocation() {
+        var viewport = CanvasViewport()
+        let canvasSize = CGSize(width: 400, height: 400)
+        let viewportSize = CGSize(width: 300, height: 300)
+        let anchor = CGPoint(x: 180, y: 160)
+
+        viewport.updateScale(
+            from: 1,
+            magnification: 2,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+        let documentPointBefore = viewport.canvasPoint(
+            forViewportPoint: anchor,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+
+        viewport.updateScale(
+            from: viewport.scale,
+            baseOffset: viewport.offset,
+            magnification: 1.5,
+            anchor: anchor,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+        let documentPointAfter = viewport.canvasPoint(
+            forViewportPoint: anchor,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+
+        XCTAssertEqual(documentPointAfter.x, documentPointBefore.x, accuracy: 0.01)
+        XCTAssertEqual(documentPointAfter.y, documentPointBefore.y, accuracy: 0.01)
+    }
+
+    func test_canvasPointMapping_accountsForViewportTransform() {
+        var viewport = CanvasViewport()
+        let canvasSize = CGSize(width: 400, height: 300)
+        let viewportSize = CGSize(width: 300, height: 200)
+
+        viewport.updateScale(
+            from: 1,
+            magnification: 2,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+        viewport.updateOffset(
+            from: .zero,
+            translation: CGSize(width: 40, height: -20),
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+
+        let canvasPoint = viewport.canvasPoint(
+            forViewportPoint: CGPoint(x: 190, y: 80),
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+
+        XCTAssertEqual(canvasPoint.x, 200, accuracy: 0.01)
+        XCTAssertEqual(canvasPoint.y, 150, accuracy: 0.01)
+        XCTAssertTrue(viewport.containsCanvasPoint(canvasPoint, canvasSize: canvasSize))
+    }
+
+    func test_canvasState_roundTripsViewportValues() {
+        var state = CanvasState()
+        state.zoomScale = 2.5
+        state.offsetX = 42
+        state.offsetY = -31
+
+        let viewport = CanvasViewport(canvasState: state)
+        let values = viewport.canvasStateValues
+
+        XCTAssertEqual(viewport.scale, 2.5)
+        XCTAssertEqual(viewport.offset, CGSize(width: 42, height: -31))
+        XCTAssertEqual(values.zoomScale, 2.5)
+        XCTAssertEqual(values.offsetX, 42)
+        XCTAssertEqual(values.offsetY, -31)
+    }
+
     func test_reset_restoresIdentityViewport() {
         var viewport = CanvasViewport()
         viewport.updateScale(

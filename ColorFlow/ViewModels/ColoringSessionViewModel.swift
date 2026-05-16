@@ -54,6 +54,7 @@ final class ColoringSessionViewModel {
     var coloringMode: CanvasColoringMode = .clean
     var recentColorHexes: [String] = [SableTheme.progressPinkHex]
     var canvasDocumentSize = CGSize(width: 800, height: 800)
+    var viewport = CanvasViewport()
     var saveState: SaveState = .saved
     var canUndo = false
     var canRedo = false
@@ -225,6 +226,7 @@ final class ColoringSessionViewModel {
             selectedTool = paintState.canvasState.selectedTool
             selectedToolSettings = toolSettingsCache[selectedTool] ?? selectedTool.defaultSettings
             coloringMode = paintState.canvasState.coloringMode
+            viewport = CanvasViewport(canvasState: paintState.canvasState)
             lastSavedRegionFills = paintState.regionFills
             lastSavedStrokeActions = paintState.strokeActions
             clearUndoHistory()
@@ -239,8 +241,18 @@ final class ColoringSessionViewModel {
         guard let geometry else { return }
         lineArtImage = await renderLineArtImage(
             geometry: geometry,
+            lineArtURL: template?.lineArtURL,
             strokeWidthPixels: CGFloat(strokeWidthPixels)
         )
+    }
+
+    func updateViewport(_ nextViewport: CanvasViewport) {
+        viewport = nextViewport
+    }
+
+    func commitViewportChange() {
+        storeViewportState()
+        markCanvasStateDirty()
     }
 
     @discardableResult
@@ -308,6 +320,7 @@ final class ColoringSessionViewModel {
         autosaveTask?.cancel()
         paintState.canvasState.selectedTool = selectedTool
         paintState.canvasState.coloringMode = coloringMode
+        storeViewportState()
         saveState = .saving
         storageService.savePaintState(paintState, for: mutableProject)
         storageService.save(
@@ -377,14 +390,13 @@ final class ColoringSessionViewModel {
     private func renderImages(geometry: TemplateGeometry) async {
         let fills = paintState.regionFills
         let size = geometry.viewBox.size
+        let lineArtURL = template?.lineArtURL
 
-        async let lineArtTask = Task.detached(priority: .userInitiated) {
-            TemplateRenderer.renderLineArt(
-                geometry: geometry,
-                size: size,
-                strokeWidthPixels: CGFloat(RenderTuningStore.defaultCanvasStrokeWidth)
-            )
-        }.value
+        async let lineArtTask = renderLineArtImage(
+            geometry: geometry,
+            lineArtURL: lineArtURL,
+            strokeWidthPixels: CGFloat(RenderTuningStore.defaultCanvasStrokeWidth)
+        )
 
         async let fillLayerTask = Task.detached(priority: .userInitiated) {
             TemplateRenderer.renderFillLayer(geometry: geometry, fills: fills, size: size)
@@ -400,9 +412,19 @@ final class ColoringSessionViewModel {
 
     private func renderLineArtImage(
         geometry: TemplateGeometry,
+        lineArtURL: URL?,
         strokeWidthPixels: CGFloat
     ) async -> UIImage {
         let size = geometry.viewBox.size
+        if let lineArtURL {
+            let image = await Task.detached(priority: .userInitiated) {
+                UIImage(contentsOfFile: lineArtURL.path)
+            }.value
+            if let image {
+                return image
+            }
+        }
+
         return await Task.detached(priority: .userInitiated) {
             TemplateRenderer.renderLineArt(
                 geometry: geometry,
@@ -410,6 +432,13 @@ final class ColoringSessionViewModel {
                 strokeWidthPixels: strokeWidthPixels
             )
         }.value
+    }
+
+    private func storeViewportState() {
+        let values = viewport.canvasStateValues
+        paintState.canvasState.zoomScale = values.zoomScale
+        paintState.canvasState.offsetX = values.offsetX
+        paintState.canvasState.offsetY = values.offsetY
     }
 
     private func applyFill(regionID: String, hex: String?) {

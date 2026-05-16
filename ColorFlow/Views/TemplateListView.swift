@@ -31,22 +31,17 @@ struct TemplateListView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 22) {
                     header
-                    GouacheSearchBar(text: $viewModel.searchText, placeholder: "Search by artwork, subject, mood")
-                    filters
+                    if viewModel.showsTemplateFilters {
+                        GouacheSearchBar(text: $viewModel.searchText, placeholder: "Search by artwork, subject, mood")
+                        filters
+                    }
 
                     if viewModel.isLoading {
                         loading
+                    } else if viewModel.showsCollectionIndex {
+                        collectionGrid
                     } else {
-                        LazyVGrid(columns: columns, spacing: 18) {
-                            ForEach(Array(viewModel.filteredTemplates.enumerated()), id: \.element.id) { index, template in
-                                TemplateCard(template: template, isTall: index % 5 == 1 || index % 5 == 3) {
-                                    Task {
-                                        let route = await viewModel.routeForTemplate(template)
-                                        navigate(route)
-                                    }
-                                }
-                            }
-                        }
+                        templateGrid
                     }
                 }
                 .padding(.horizontal, SableTheme.Spacing.pageInset)
@@ -108,6 +103,29 @@ struct TemplateListView: View {
         }
     }
 
+    private var templateGrid: some View {
+        LazyVGrid(columns: columns, spacing: 18) {
+            ForEach(Array(viewModel.filteredTemplates.enumerated()), id: \.element.id) { index, template in
+                TemplateCard(template: template, isTall: index % 5 == 1 || index % 5 == 3) {
+                    Task {
+                        let route = await viewModel.routeForTemplate(template)
+                        navigate(route)
+                    }
+                }
+            }
+        }
+    }
+
+    private var collectionGrid: some View {
+        LazyVGrid(columns: columns, spacing: 18) {
+            ForEach(viewModel.collections) { collection in
+                LibraryCollectionCard(collection: collection) {
+                    navigate(.collection(collection))
+                }
+            }
+        }
+    }
+
     private func filterButton(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
@@ -132,6 +150,63 @@ struct TemplateListView: View {
 
     private var columns: [GridItem] {
         [GridItem(.adaptive(minimum: 220, maximum: 330), spacing: 18)]
+    }
+}
+
+private struct LibraryCollectionCard: View {
+    let collection: PageCollection
+    let onTap: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 0) {
+                ZStack {
+                    if collection.previewTemplates.isEmpty {
+                        PlaceholderArtwork(
+                            tint: collection.category.accentColor,
+                            seed: collection.name,
+                            style: .compact
+                        )
+                    } else {
+                        HStack(spacing: 0) {
+                            ForEach(collection.previewTemplates.prefix(3)) { template in
+                                TemplateThumbnailView(template: template)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .clipped()
+                            }
+                        }
+                    }
+                }
+                .aspectRatio(1.18, contentMode: .fit)
+                .frame(maxWidth: .infinity)
+                .clipped()
+
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(collection.name)
+                        .font(.system(size: 20, weight: .black))
+                        .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+
+                    Text(collection.category.rawValue.uppercased())
+                        .font(.system(size: 11, weight: .black))
+                        .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(SableTheme.elevatedSurface(for: colorScheme))
+            }
+            .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
+            .overlay {
+                RoundedRectangle(cornerRadius: SableTheme.Radius.card)
+                    .stroke(SableTheme.hairline(for: colorScheme), lineWidth: 1)
+            }
+            .shadow(color: SableTheme.cardShadow, radius: 8, x: 0, y: 5)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(collection.name)
+        .accessibilityIdentifier("library.collection.\(collection.name.normalizedIdentifier)")
     }
 }
 

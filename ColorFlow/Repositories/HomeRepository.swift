@@ -9,6 +9,7 @@ protocol HomeRepositoryProtocol {
 
 protocol ColoringFlowRepositoryProtocol {
     func fetchExploreTemplates() async -> [Template]
+    func fetchCollections() async -> [PageCollection]
     func fetchTemplates(for collection: PageCollection) async -> [Template]
     func fetchTemplates(for mood: MoodCategory) async -> [Template]
     func openOrCreateProject(for template: Template) async -> Project

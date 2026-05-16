@@ -1,6 +1,11 @@
 import SwiftUI
 
 @MainActor
+enum ProfileFocus: Hashable {
+    case myWork
+}
+
+@MainActor
 struct ProfileView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(AppThemeStore.self) private var themeStore
@@ -8,30 +13,40 @@ struct ProfileView: View {
     @AppStorage("gouache.displayName") private var displayName = "Artist"
     @State private var selectedFilter: MyWorkFilter = .all
     @State private var resetPage: ColoringPage?
+    let focus: ProfileFocus?
     let navigate: (AppRoute) -> Void
 
     init(
         repository: any HomeRepositoryProtocol = SableHomeRepository(),
+        focus: ProfileFocus? = nil,
         navigate: @escaping (AppRoute) -> Void = { _ in }
     ) {
         _viewModel = State(initialValue: MyLibraryViewModel(repository: repository))
+        self.focus = focus
         self.navigate = navigate
     }
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 26) {
-                header
-                settingsPanel
-                myWorkSection
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 26) {
+                    header
+                    settingsPanel
+                    myWorkSection
+                        .id(ProfileFocus.myWork)
+                }
+                .padding(.horizontal, SableTheme.Spacing.pageInset)
+                .padding(.top, 30)
+                .padding(.bottom, 110)
             }
-            .padding(.horizontal, SableTheme.Spacing.pageInset)
-            .padding(.top, 30)
-            .padding(.bottom, 110)
-        }
-        .background(SableTheme.appBackground(for: colorScheme).ignoresSafeArea())
-        .task {
-            await viewModel.load()
+            .background(SableTheme.appBackground(for: colorScheme).ignoresSafeArea())
+            .task {
+                await viewModel.load()
+                scrollToFocus(with: proxy)
+            }
+            .onChange(of: focus) { _, _ in
+                scrollToFocus(with: proxy)
+            }
         }
         .confirmationDialog(
             "Reset this artwork?",
@@ -49,6 +64,16 @@ struct ProfileView: View {
             }
         } message: {
             Text("This will remove all coloring progress and cannot be undone.")
+        }
+    }
+
+    private func scrollToFocus(with proxy: ScrollViewProxy) {
+        guard let focus else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(80))
+            withAnimation(.snappy(duration: 0.28)) {
+                proxy.scrollTo(focus, anchor: .top)
+            }
         }
     }
 

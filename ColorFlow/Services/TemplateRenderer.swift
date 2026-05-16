@@ -107,12 +107,15 @@ struct TemplateRenderer {
         strokeWidthPixels: CGFloat = 2.4
     ) async -> UIImage? {
         guard let url = template.svgURL else { return nil }
+        let lineArtURL = template.lineArtURL
         return await Task.detached(priority: .userInitiated) {
             guard case .success(let geo) = SVGParser.parse(url: url) else { return nil }
+            let lineArtImage = lineArtURL.flatMap { UIImage(contentsOfFile: $0.path) }
             return renderThumbnail(
                 geometry: geo,
                 fills: fills,
                 size: size,
+                lineArtImage: lineArtImage,
                 strokeWidthPixels: strokeWidthPixels
             )
         }.value
@@ -125,12 +128,15 @@ struct TemplateRenderer {
         strokeWidthPixels: CGFloat = 2.4
     ) async -> UIImage? {
         guard let url = template.svgURL else { return nil }
+        let lineArtURL = template.lineArtURL
         return await Task.detached(priority: .userInitiated) {
             guard case .success(let geo) = SVGParser.parse(url: url) else { return nil }
+            let lineArtImage = lineArtURL.flatMap { UIImage(contentsOfFile: $0.path) }
             return renderThumbnail(
                 geometry: geo,
                 fillLayer: fillLayer,
                 size: size,
+                lineArtImage: lineArtImage,
                 strokeWidthPixels: strokeWidthPixels
             )
         }.value
@@ -140,6 +146,7 @@ struct TemplateRenderer {
         geometry: TemplateGeometry,
         fills: [String: String] = [:],
         size: CGSize = CGSize(width: 400, height: 400),
+        lineArtImage: UIImage? = nil,
         strokeWidthPixels: CGFloat = 2.4
     ) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -157,15 +164,19 @@ struct TemplateRenderer {
                 fillLayer.draw(in: artBounds)
             }
 
-            let lineArt = renderLineArt(
-                geometry: geometry,
-                size: artSize,
-                strokeWidthPixels: strokeWidthPixels
-            )
             let cgContext = context.cgContext
             cgContext.saveGState()
             cgContext.setBlendMode(.multiply)
-            lineArt.draw(in: artBounds)
+            if let lineArtImage {
+                drawLineArtImage(lineArtImage, geometry: geometry, in: artBounds)
+            } else {
+                let lineArt = renderLineArt(
+                    geometry: geometry,
+                    size: artSize,
+                    strokeWidthPixels: strokeWidthPixels
+                )
+                lineArt.draw(in: artBounds)
+            }
             cgContext.restoreGState()
         }
     }
@@ -174,6 +185,7 @@ struct TemplateRenderer {
         geometry: TemplateGeometry,
         fillLayer: UIImage?,
         size: CGSize = CGSize(width: 400, height: 400),
+        lineArtImage: UIImage? = nil,
         strokeWidthPixels: CGFloat = 2.4
     ) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -188,17 +200,38 @@ struct TemplateRenderer {
 
             fillLayer?.draw(in: artBounds)
 
-            let lineArt = renderLineArt(
-                geometry: geometry,
-                size: artSize,
-                strokeWidthPixels: strokeWidthPixels
-            )
             let cgContext = context.cgContext
             cgContext.saveGState()
             cgContext.setBlendMode(.multiply)
-            lineArt.draw(in: artBounds)
+            if let lineArtImage {
+                drawLineArtImage(lineArtImage, geometry: geometry, in: artBounds)
+            } else {
+                let lineArt = renderLineArt(
+                    geometry: geometry,
+                    size: artSize,
+                    strokeWidthPixels: strokeWidthPixels
+                )
+                lineArt.draw(in: artBounds)
+            }
             cgContext.restoreGState()
         }
+    }
+
+    private static func drawLineArtImage(
+        _ image: UIImage,
+        geometry: TemplateGeometry,
+        in bounds: CGRect
+    ) {
+        let viewBoxSize = geometry.viewBox.size
+        let scale = min(bounds.width / viewBoxSize.width, bounds.height / viewBoxSize.height)
+        let fittedSize = CGSize(width: viewBoxSize.width * scale, height: viewBoxSize.height * scale)
+        let fittedRect = CGRect(
+            x: bounds.midX - fittedSize.width / 2,
+            y: bounds.midY - fittedSize.height / 2,
+            width: fittedSize.width,
+            height: fittedSize.height
+        )
+        image.draw(in: fittedRect)
     }
 
     // MARK: - Export

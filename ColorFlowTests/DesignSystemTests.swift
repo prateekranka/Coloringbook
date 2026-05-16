@@ -105,4 +105,36 @@ final class DesignSystemTests: XCTestCase {
         XCTAssertEqual(botanicalTemplates.map(\.name), ["Lemon Branch"])
         XCTAssertEqual(exploreTemplates.map(\.name), ["Lemon Branch", "Sunday Light"])
     }
+
+    func test_templateListViewModel_loadsCollectionIndex() async {
+        let viewModel = TemplateListViewModel(source: .collections, repository: MockHomeRepository())
+
+        await viewModel.load()
+
+        XCTAssertTrue(viewModel.showsCollectionIndex)
+        XCTAssertEqual(viewModel.collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Canopy Color"])
+        XCTAssertTrue(viewModel.templates.isEmpty)
+    }
+
+    func test_templateListViewModel_sortsRecentlyAddedByCatalogOrderDescending() async {
+        let viewModel = TemplateListViewModel(source: .recentlyAdded, repository: MockHomeRepository())
+
+        await viewModel.load()
+
+        XCTAssertEqual(
+            viewModel.templates.map(\.name),
+            [
+                "Florist Window",
+                "Mediterranean Kitchen Window",
+                "Rainy Library",
+                "Quiet Balcony Room",
+                "Lemon Balcony",
+                "Toucan Canopy",
+                "Amalfi Afternoon",
+                "Sunday Light",
+                "Lemon Branch",
+                "Wildflowers"
+            ]
+        )
+    }
 }

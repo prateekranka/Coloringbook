@@ -5,6 +5,8 @@ struct NavigationShell: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var selectedTab: SableTab = .home
     @State private var path: [AppRoute] = []
+    @State private var librarySource: TemplateListViewModel.Source = .explore
+    @State private var profileFocus: ProfileFocus?
     @State private var renderTuning = RenderTuningStore()
     @State private var appThemeStore = AppThemeStore()
     private let repository = SableHomeRepository()
@@ -47,16 +49,21 @@ struct NavigationShell: View {
             HomeView(
                 repository: repository,
                 navigate: navigate,
-                openProfile: openProfile
+                openProfile: openProfile,
+                openMyWork: openMyWork,
+                openCollections: openCollections,
+                openRecentlyAdded: openRecentlyAdded
             )
         case .library:
             TemplateListView(
-                source: .explore,
+                source: librarySource,
                 repository: repository,
                 navigate: navigate
             )
+            .id(librarySource)
         case .profile:
-            ProfileView(repository: repository, navigate: navigate)
+            ProfileView(repository: repository, focus: profileFocus, navigate: navigate)
+                .id(profileFocus)
         }
     }
 
@@ -104,7 +111,26 @@ struct NavigationShell: View {
 
     private func openProfile() {
         path.removeAll()
+        profileFocus = nil
         selectedTab = .profile
+    }
+
+    private func openMyWork() {
+        path.removeAll()
+        profileFocus = .myWork
+        selectedTab = .profile
+    }
+
+    private func openCollections() {
+        path.removeAll()
+        librarySource = .collections
+        selectedTab = .library
+    }
+
+    private func openRecentlyAdded() {
+        path.removeAll()
+        librarySource = .recentlyAdded
+        selectedTab = .library
     }
 }
 

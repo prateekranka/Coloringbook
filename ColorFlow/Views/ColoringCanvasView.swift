@@ -6,9 +6,6 @@ struct ColoringCanvasView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(RenderTuningStore.self) private var renderTuning
     @State private var viewModel: ColoringSessionViewModel
-    @State private var viewport = CanvasViewport()
-    @State private var gestureStartScale = CanvasViewport.minimumScale
-    @State private var gestureStartOffset = CGSize.zero
     @State private var showClearArtworkConfirmation = false
     @State private var fillFeedbackID: UUID?
     @State private var isUIHidden = false
@@ -101,52 +98,37 @@ struct ColoringCanvasView: View {
                 let canvasSize = fittedCanvasSize(in: availableSize)
 
                 ZStack {
-                    SableTheme.paper
+                    canvasArtwork(canvasSize: canvasSize)
+                        .position(x: availableSize.width / 2, y: availableSize.height / 2)
+                        .scaleEffect(viewModel.viewport.scale)
+                        .offset(viewModel.viewport.offset)
+                        .allowsHitTesting(false)
 
-                    if let fillLayerImage = viewModel.fillLayerImage {
-                        Image(uiImage: fillLayerImage)
-                            .resizable()
-                            .interpolation(.high)
-                            .scaledToFit()
-                    }
-
-                    if let lineArtImage = viewModel.lineArtImage {
-                        Image(uiImage: lineArtImage)
-                            .resizable()
-                            .interpolation(.high)
-                            .scaledToFit()
-                            .blendMode(.multiply)
-                    }
-
-                    if fillFeedbackID != nil {
-                        fillFeedback
-                    }
-
-                    if !liveStrokePoints.isEmpty {
-                        LiveStrokePreview(points: liveStrokePoints, colorHex: viewModel.selectedColorHex, settings: viewModel.selectedToolSettings)
-                    }
+                    CanvasInteractionOverlay(
+                        selectedTool: viewModel.selectedTool,
+                        canvasSize: canvasSize,
+                        viewportSize: availableSize,
+                        viewport: viewModel.viewport,
+                        onViewportChanged: { viewport in
+                            viewModel.updateViewport(viewport)
+                        },
+                        onViewportCommitted: {
+                            viewModel.commitViewportChange()
+                        },
+                        onFill: { point in
+                            handleFill(atCanvasPoint: point, canvasSize: canvasSize)
+                        },
+                        onStrokeChanged: { points in
+                            liveStrokePoints = points
+                        },
+                        onStrokeEnded: { points in
+                            handleStroke(canvasPoints: points, canvasSize: canvasSize)
+                        }
+                    )
+                    .frame(width: availableSize.width, height: availableSize.height)
                 }
-                .frame(width: canvasSize.width, height: canvasSize.height)
-                .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
-                .overlay {
-                    RoundedRectangle(cornerRadius: SableTheme.Radius.card)
-                        .stroke(SableTheme.cardBlack, lineWidth: 2)
-                }
-                .shadow(color: Color.black.opacity(0.2), radius: 18, x: 0, y: 10)
-                .position(x: availableSize.width / 2, y: availableSize.height / 2)
-                .scaleEffect(viewport.scale)
-                .offset(viewport.offset)
+                .clipped()
                 .contentShape(Rectangle())
-                .gesture(tapToFillGesture(canvasSize: canvasSize))
-                .simultaneousGesture(
-                    panGesture(canvasSize: canvasSize, viewportSize: availableSize)
-                )
-                .simultaneousGesture(
-                    zoomGesture(canvasSize: canvasSize, viewportSize: availableSize)
-                )
-                .simultaneousGesture(
-                    drawGesture(canvasSize: canvasSize)
-                )
                 .accessibilityElement(children: .contain)
                 .accessibilityAddTraits(.isImage)
                 .accessibilityLabel(viewModel.title)
@@ -221,13 +203,13 @@ struct ColoringCanvasView: View {
                 .accessibilityLabel(viewModel.saveState.label)
                 .accessibilityIdentifier(A11y.Canvas.saveState)
 
-            Text("\(Int((viewport.scale * 100).rounded()))%")
+            Text("\(Int((viewModel.viewport.scale * 100).rounded()))%")
                 .font(.system(size: 16, weight: .black))
                 .foregroundStyle(SableTheme.ink)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(.white.opacity(0.78), in: Capsule())
-                .accessibilityLabel("Zoom \(Int((viewport.scale * 100).rounded())) percent")
+                .accessibilityLabel("Zoom \(Int((viewModel.viewport.scale * 100).rounded())) percent")
                 .accessibilityIdentifier(A11y.Canvas.zoom)
 
             Button(isUIHidden ? "Show UI" : "Hide UI", systemImage: isUIHidden ? "eye" : "eye.slash") {
@@ -445,6 +427,46 @@ struct ColoringCanvasView: View {
         .accessibilityIdentifier(A11y.Canvas.color(swatch.hex))
     }
 
+    private func canvasArtwork(canvasSize: CGSize) -> some View {
+        ZStack {
+            SableTheme.paper
+
+            if let fillLayerImage = viewModel.fillLayerImage {
+                Image(uiImage: fillLayerImage)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+            }
+
+            if let lineArtImage = viewModel.lineArtImage {
+                Image(uiImage: lineArtImage)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .blendMode(.multiply)
+            }
+
+            if fillFeedbackID != nil {
+                fillFeedback
+            }
+
+            if !liveStrokePoints.isEmpty {
+                LiveStrokePreview(
+                    points: liveStrokePoints,
+                    colorHex: viewModel.selectedColorHex,
+                    settings: viewModel.selectedToolSettings
+                )
+            }
+        }
+        .frame(width: canvasSize.width, height: canvasSize.height)
+        .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
+        .overlay {
+            RoundedRectangle(cornerRadius: SableTheme.Radius.card)
+                .stroke(SableTheme.cardBlack, lineWidth: 2)
+        }
+        .shadow(color: Color.black.opacity(0.2), radius: 18, x: 0, y: 10)
+    }
+
     private var fillFeedback: some View {
         VStack {
             HStack {
@@ -521,91 +543,230 @@ struct ColoringCanvasView: View {
         )
     }
 
-    private func tapToFillGesture(canvasSize: CGSize) -> some Gesture {
-        SpatialTapGesture()
-            .onEnded { value in
-                guard viewModel.selectedTool == .fillBucket else { return }
-                Task {
-                    let didFill = await viewModel.fill(
-                        atCanvasPoint: value.location,
-                        canvasSize: canvasSize
-                    )
-                    if didFill {
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            showFillFeedback()
-                        }
-                    }
+    private func handleFill(atCanvasPoint point: CGPoint, canvasSize: CGSize) {
+        guard viewModel.selectedTool == .fillBucket else { return }
+        Task {
+            let didFill = await viewModel.fill(
+                atCanvasPoint: point,
+                canvasSize: canvasSize
+            )
+            if didFill {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    showFillFeedback()
                 }
             }
+        }
     }
 
-    private func panGesture(canvasSize: CGSize, viewportSize: CGSize) -> some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { value in
-                viewport.updateOffset(
-                    from: gestureStartOffset,
-                    translation: value.translation,
-                    canvasSize: canvasSize,
-                    viewportSize: viewportSize
-                )
-            }
-            .onEnded { value in
-                viewport.updateOffset(
-                    from: gestureStartOffset,
-                    translation: value.translation,
-                    canvasSize: canvasSize,
-                    viewportSize: viewportSize
-                )
-                gestureStartOffset = viewport.offset
-            }
-    }
-
-    private func drawGesture(canvasSize: CGSize) -> some Gesture {
-        DragGesture(minimumDistance: 2)
-            .onChanged { value in
-                guard viewModel.selectedTool != .fillBucket else { return }
-                if liveStrokePoints.isEmpty {
-                    liveStrokePoints = [value.startLocation]
-                }
-                liveStrokePoints.append(value.location)
-            }
-            .onEnded { value in
-                guard viewModel.selectedTool != .fillBucket else { return }
-                liveStrokePoints.append(value.location)
-                let points = liveStrokePoints
-                liveStrokePoints = []
-                Task {
-                    _ = await viewModel.drawStroke(canvasPoints: points, canvasSize: canvasSize)
-                }
-            }
-    }
-
-    private func zoomGesture(canvasSize: CGSize, viewportSize: CGSize) -> some Gesture {
-        MagnificationGesture()
-            .onChanged { magnification in
-                viewport.updateScale(
-                    from: gestureStartScale,
-                    magnification: magnification,
-                    canvasSize: canvasSize,
-                    viewportSize: viewportSize
-                )
-            }
-            .onEnded { magnification in
-                viewport.updateScale(
-                    from: gestureStartScale,
-                    magnification: magnification,
-                    canvasSize: canvasSize,
-                    viewportSize: viewportSize
-                )
-                gestureStartScale = viewport.scale
-                gestureStartOffset = viewport.offset
-            }
+    private func handleStroke(canvasPoints: [CGPoint], canvasSize: CGSize) {
+        guard viewModel.selectedTool != .fillBucket else { return }
+        Task {
+            _ = await viewModel.drawStroke(canvasPoints: canvasPoints, canvasSize: canvasSize)
+        }
     }
 
     private func resetViewport() {
+        var viewport = viewModel.viewport
         viewport.reset()
-        gestureStartScale = viewport.scale
-        gestureStartOffset = viewport.offset
+        viewModel.updateViewport(viewport)
+        viewModel.commitViewportChange()
+    }
+}
+
+private struct CanvasInteractionOverlay: UIViewRepresentable {
+    var selectedTool: ToolType
+    var canvasSize: CGSize
+    var viewportSize: CGSize
+    var viewport: CanvasViewport
+    var onViewportChanged: (CanvasViewport) -> Void
+    var onViewportCommitted: () -> Void
+    var onFill: (CGPoint) -> Void
+    var onStrokeChanged: ([CGPoint]) -> Void
+    var onStrokeEnded: ([CGPoint]) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIView(context: Context) -> CanvasInteractionUIView {
+        let view = CanvasInteractionUIView()
+        view.backgroundColor = .clear
+        view.isMultipleTouchEnabled = true
+        view.isAccessibilityElement = false
+        view.coordinator = context.coordinator
+
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
+        tap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        tap.delegate = context.coordinator
+        view.addGestureRecognizer(tap)
+
+        let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
+        pan.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        pan.maximumNumberOfTouches = 1
+        pan.delegate = context.coordinator
+        view.addGestureRecognizer(pan)
+
+        let pinch = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
+        pinch.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        pinch.delegate = context.coordinator
+        view.addGestureRecognizer(pinch)
+
+        return view
+    }
+
+    func updateUIView(_ uiView: CanvasInteractionUIView, context: Context) {
+        context.coordinator.parent = self
+        uiView.coordinator = context.coordinator
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: CanvasInteractionOverlay
+        private var panStartOffset = CGSize.zero
+        private var pinchStartScale = CanvasViewport.minimumScale
+        private var pinchStartOffset = CGSize.zero
+        private var pencilPoints: [CGPoint] = []
+
+        init(parent: CanvasInteractionOverlay) {
+            self.parent = parent
+        }
+
+        @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
+            guard recognizer.state == .ended,
+                  parent.selectedTool == .fillBucket,
+                  let canvasPoint = canvasPoint(for: recognizer.location(in: recognizer.view)) else {
+                return
+            }
+            parent.onFill(canvasPoint)
+        }
+
+        @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
+            switch recognizer.state {
+            case .began:
+                panStartOffset = parent.viewport.offset
+            case .changed, .ended:
+                var nextViewport = parent.viewport
+                let translation = recognizer.translation(in: recognizer.view)
+                nextViewport.updateOffset(
+                    from: panStartOffset,
+                    translation: CGSize(width: translation.x, height: translation.y),
+                    canvasSize: parent.canvasSize,
+                    viewportSize: parent.viewportSize
+                )
+                parent.onViewportChanged(nextViewport)
+                if recognizer.state == .ended {
+                    parent.onViewportCommitted()
+                }
+            case .cancelled, .failed:
+                parent.onViewportCommitted()
+            default:
+                break
+            }
+        }
+
+        @objc func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
+            switch recognizer.state {
+            case .began:
+                pinchStartScale = parent.viewport.scale
+                pinchStartOffset = parent.viewport.offset
+            case .changed, .ended:
+                var nextViewport = parent.viewport
+                nextViewport.updateScale(
+                    from: pinchStartScale,
+                    baseOffset: pinchStartOffset,
+                    magnification: recognizer.scale,
+                    anchor: recognizer.location(in: recognizer.view),
+                    canvasSize: parent.canvasSize,
+                    viewportSize: parent.viewportSize
+                )
+                parent.onViewportChanged(nextViewport)
+                if recognizer.state == .ended {
+                    parent.onViewportCommitted()
+                }
+            case .cancelled, .failed:
+                parent.onViewportCommitted()
+            default:
+                break
+            }
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            true
+        }
+
+        func beginPencilStroke(at point: CGPoint) {
+            guard parent.selectedTool != .fillBucket,
+                  let canvasPoint = canvasPoint(for: point) else { return }
+            pencilPoints = [canvasPoint]
+            parent.onStrokeChanged(pencilPoints)
+        }
+
+        func appendPencilPoint(_ point: CGPoint) {
+            guard parent.selectedTool != .fillBucket,
+                  !pencilPoints.isEmpty,
+                  let canvasPoint = canvasPoint(for: point) else { return }
+            pencilPoints.append(canvasPoint)
+            parent.onStrokeChanged(pencilPoints)
+        }
+
+        func endPencilStroke(at point: CGPoint?) {
+            if let point {
+                appendPencilPoint(point)
+            }
+
+            let completedPoints = pencilPoints
+            pencilPoints = []
+            parent.onStrokeChanged([])
+            if completedPoints.count > 1 {
+                parent.onStrokeEnded(completedPoints)
+            }
+        }
+
+        func cancelPencilStroke() {
+            pencilPoints = []
+            parent.onStrokeChanged([])
+        }
+
+        private func canvasPoint(for viewportPoint: CGPoint) -> CGPoint? {
+            let canvasPoint = parent.viewport.canvasPoint(
+                forViewportPoint: viewportPoint,
+                canvasSize: parent.canvasSize,
+                viewportSize: parent.viewportSize
+            )
+            guard parent.viewport.containsCanvasPoint(canvasPoint, canvasSize: parent.canvasSize) else {
+                return nil
+            }
+            return canvasPoint
+        }
+    }
+}
+
+private final class CanvasInteractionUIView: UIView {
+    weak var coordinator: CanvasInteractionOverlay.Coordinator?
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        coordinator?.beginPencilStroke(at: touch.location(in: self))
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        let coalescedTouches = event?.coalescedTouches(for: touch) ?? [touch]
+        for coalescedTouch in coalescedTouches where coalescedTouch.type == .pencil {
+            coordinator?.appendPencilPoint(coalescedTouch.location(in: self))
+        }
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        coordinator?.endPencilStroke(at: touch.location(in: self))
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard touches.contains(where: { $0.type == .pencil }) else { return }
+        coordinator?.cancelPencilStroke()
     }
 }
 

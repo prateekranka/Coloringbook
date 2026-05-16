@@ -40,6 +40,10 @@ struct Template: Identifiable, Codable, Hashable {
         (svgFilename as NSString).deletingPathExtension
     }
 
+    var addedSortIndex: Int {
+        Self.expectedCatalogSlugs.firstIndex(of: slug) ?? -1
+    }
+
     var svgURL: URL? {
         if let dirPath = userTemplateDirectoryPath {
             let url = StorageService.documentsURL
@@ -98,7 +102,7 @@ extension Template {
             && Set(templates.map(\.slug)) == Set(expectedCatalogSlugs)
     }
 
-    private static let expectedCatalogSlugs = [
+    static let expectedCatalogSlugs = [
         "wildflowers",
         "lemon-branch",
         "sunday-light",

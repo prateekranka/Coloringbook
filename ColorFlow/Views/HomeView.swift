@@ -8,25 +8,40 @@ struct HomeView: View {
     @State private var searchText = ""
     let navigate: (AppRoute) -> Void
     let openProfile: () -> Void
+    let openMyWork: () -> Void
+    let openCollections: () -> Void
+    let openRecentlyAdded: () -> Void
 
     init(
         repository: any HomeRepositoryProtocol = SableHomeRepository(),
         navigate: @escaping (AppRoute) -> Void = { _ in },
-        openProfile: @escaping () -> Void = {}
+        openProfile: @escaping () -> Void = {},
+        openMyWork: @escaping () -> Void = {},
+        openCollections: @escaping () -> Void = {},
+        openRecentlyAdded: @escaping () -> Void = {}
     ) {
         _viewModel = State(initialValue: HomeViewModel(repository: repository))
         self.navigate = navigate
         self.openProfile = openProfile
+        self.openMyWork = openMyWork
+        self.openCollections = openCollections
+        self.openRecentlyAdded = openRecentlyAdded
     }
 
     init(
         viewModel: HomeViewModel,
         navigate: @escaping (AppRoute) -> Void = { _ in },
-        openProfile: @escaping () -> Void = {}
+        openProfile: @escaping () -> Void = {},
+        openMyWork: @escaping () -> Void = {},
+        openCollections: @escaping () -> Void = {},
+        openRecentlyAdded: @escaping () -> Void = {}
     ) {
         _viewModel = State(initialValue: viewModel)
         self.navigate = navigate
         self.openProfile = openProfile
+        self.openMyWork = openMyWork
+        self.openCollections = openCollections
+        self.openRecentlyAdded = openRecentlyAdded
     }
 
     var body: some View {
@@ -49,6 +64,7 @@ struct HomeView: View {
                         ContinueSection(
                             pages: displayContinuePages,
                             metrics: metrics,
+                            seeAll: openMyWork,
                             navigate: { navigate(.coloringPage($0)) }
                         )
 
@@ -59,12 +75,14 @@ struct HomeView: View {
                         FeaturedCollectionsSection(
                             collections: displayCollections,
                             metrics: metrics,
+                            seeAll: openCollections,
                             navigate: { navigate(.collection($0)) }
                         )
 
                         RecentlyAddedSection(
                             pages: displayRecentlyAddedPages,
                             metrics: metrics,
+                            seeAll: openRecentlyAdded,
                             navigate: { navigate(.coloringPage($0)) }
                         )
                     }
@@ -171,11 +189,12 @@ private struct GouacheHomeMetrics {
     }
 
     var moodCardWidth: CGFloat {
-        (contentWidth - (cardGap * 3)) / 4
+        let visibleCount: CGFloat = isLandscape ? 4 : 3.65
+        return (contentWidth - (cardGap * (visibleCount - 1))) / visibleCount
     }
 
     var moodCardHeight: CGFloat {
-        isLandscape ? 100 : 150
+        moodCardWidth
     }
 
     var collectionCardWidth: CGFloat {
@@ -272,16 +291,21 @@ private struct GouacheHero: View {
 
             Text("Color slowly.\nMake it yours.")
                 .font(SableTheme.fraunces(metrics.titleSize, weight: .regular))
-                .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+                .foregroundStyle(heroTitleColor)
                 .lineSpacing(-5)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(width: metrics.isLandscape ? 500 : 480, alignment: .leading)
                 .offset(x: metrics.isLandscape ? 54 : 8, y: metrics.titleTop)
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.72 : 0.18), radius: colorScheme == .dark ? 9 : 4, x: 0, y: 3)
         }
         .frame(maxWidth: .infinity)
         .frame(height: metrics.heroHeight)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Gouache, Color slowly. Make it yours.")
+    }
+
+    private var heroTitleColor: Color {
+        colorScheme == .dark ? Color(hex: "#FFF4E2") : SableTheme.gouachePrimaryText(for: colorScheme)
     }
 }
 
@@ -661,11 +685,12 @@ private struct GouacheHeroIllustration: View {
 private struct ContinueSection: View {
     let pages: [ColoringPage]
     let metrics: GouacheHomeMetrics
+    let seeAll: () -> Void
     let navigate: (ColoringPage) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: metrics.sectionHeaderSpacing) {
-            HomeSectionHeader(title: "Continue Coloring", showsSeeAll: true)
+            HomeSectionHeader(title: "Continue Coloring", seeAll: seeAll)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: metrics.cardGap) {
@@ -753,18 +778,21 @@ private struct MoodSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: metrics.sectionHeaderSpacing) {
-            HomeSectionHeader(title: "Browse by Mood", showsSeeAll: false)
+            HomeSectionHeader(title: "Browse by Mood")
 
-            HStack(spacing: metrics.cardGap) {
-                ForEach(GouacheMoodTile.allCases) { mood in
-                    MoodCard(
-                        mood: mood,
-                        width: metrics.moodCardWidth,
-                        height: metrics.moodCardHeight
-                    ) {
-                        navigate(mood)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: metrics.cardGap) {
+                    ForEach(GouacheMoodTile.allCases) { mood in
+                        MoodCard(
+                            mood: mood,
+                            width: metrics.moodCardWidth,
+                            height: metrics.moodCardHeight
+                        ) {
+                            navigate(mood)
+                        }
                     }
                 }
+                .padding(.vertical, 2)
             }
         }
     }
@@ -785,17 +813,22 @@ private struct MoodCard: View {
                     .scaledToFill()
 
                 LinearGradient(
-                    colors: [.clear, Color.black.opacity(mood.title == "Bold" ? 0.18 : 0.08)],
-                    startPoint: .center,
+                    colors: [.clear, Color.black.opacity(mood.title == "Bold" ? 0.34 : 0.24)],
+                    startPoint: .top,
                     endPoint: .bottom
                 )
 
                 Text(mood.title)
-                    .font(SableTheme.fraunces(24, weight: .regular))
-                    .foregroundStyle(mood.titleColor)
-                    .padding(.leading, 18)
-                    .padding(.bottom, 12)
-                    .shadow(color: mood.title == "Bold" ? .black.opacity(0.32) : .white.opacity(0.38), radius: 4)
+                    .font(SableTheme.fraunces(width < 190 ? 20 : 24, weight: .regular))
+                    .foregroundStyle(Color(hex: "#FFF4E2"))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Color.black.opacity(0.42), in: Capsule())
+                    .padding(.leading, 12)
+                    .padding(.bottom, 10)
+                    .shadow(color: .black.opacity(0.34), radius: 4)
             }
             .frame(width: width, height: height)
             .clipped()
@@ -975,11 +1008,12 @@ private struct MoodArtworkCanvas: View {
 private struct FeaturedCollectionsSection: View {
     let collections: [PageCollection]
     let metrics: GouacheHomeMetrics
+    let seeAll: () -> Void
     let navigate: (PageCollection) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: metrics.sectionHeaderSpacing) {
-            HomeSectionHeader(title: "Featured Collections", showsSeeAll: true)
+            HomeSectionHeader(title: "Featured Collections", seeAll: seeAll)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: metrics.cardGap) {
@@ -1032,7 +1066,7 @@ private struct CollectionCard: View {
             .shadow(color: SableTheme.gouacheCardShadow(for: colorScheme), radius: 9, x: 0, y: 5)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(collection.name), \(displayPageCount), \(displayDifficulty)")
+        .accessibilityLabel("\(collection.name), \(displayDifficulty)")
         .accessibilityIdentifier("home.collection.\(collection.name.normalizedIdentifier)")
     }
 
@@ -1049,7 +1083,6 @@ private struct CollectionCard: View {
                 Spacer(minLength: 10)
 
                 HStack(spacing: 9) {
-                    chip(displayPageCount)
                     chip(displayDifficulty)
                 }
             }
@@ -1121,21 +1154,6 @@ private struct CollectionCard: View {
         colorScheme == .dark ? Color(hex: "#F2E6D6") : Color(hex: "#5E554C")
     }
 
-    private var displayPageCount: String {
-        switch collection.name {
-        case "Bloom & Citrus":
-            return "3 Pages"
-        case "Sunlit Rooms":
-            return "3 Pages"
-        case "Coastal Windows":
-            return "2 Pages"
-        case "Wild Color":
-            return "2 Pages"
-        default:
-            return collection.pageCountLabel.capitalized
-        }
-    }
-
     private var displayDifficulty: String {
         switch collection.name {
         case "Sunlit Rooms", "Coastal Windows":
@@ -1149,11 +1167,12 @@ private struct CollectionCard: View {
 private struct RecentlyAddedSection: View {
     let pages: [ColoringPage]
     let metrics: GouacheHomeMetrics
+    let seeAll: () -> Void
     let navigate: (ColoringPage) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: metrics.sectionHeaderSpacing) {
-            HomeSectionHeader(title: "Recently Added", showsSeeAll: true)
+            HomeSectionHeader(title: "Recently Added", seeAll: seeAll)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: metrics.cardGap) {
@@ -1228,7 +1247,7 @@ private struct HomeArtworkImage<Fallback: View>: View {
 private struct HomeSectionHeader: View {
     @Environment(\.colorScheme) private var colorScheme
     let title: String
-    let showsSeeAll: Bool
+    var seeAll: (() -> Void)?
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
@@ -1238,8 +1257,8 @@ private struct HomeSectionHeader: View {
 
             Spacer()
 
-            if showsSeeAll {
-                Button { } label: {
+            if let seeAll {
+                Button(action: seeAll) {
                     HStack(spacing: 7) {
                         Text("See All")
                         Image(systemName: "chevron.right")
@@ -1676,7 +1695,7 @@ private enum GouacheHomeFixtures {
 
     static let collections: [PageCollection] = [
         PageCollection(name: "Bloom & Citrus", category: .botanicals, pageCount: 3),
-        PageCollection(name: "Sunlit Rooms", category: .lifestyle, pageCount: 3),
+        PageCollection(name: "Sunlit Rooms", category: .lifestyle, pageCount: 5),
         PageCollection(name: "Coastal Windows", category: .architecture, pageCount: 2),
         PageCollection(name: "Wild Color", category: .animals, pageCount: 2)
     ]

@@ -114,6 +114,43 @@ final class SVGCatalogParityTests: XCTestCase {
         }
     }
 
+    func test_allBundledSVGs_haveRealMaskDensity() throws {
+        let urls = allBundledSVGURLs()
+        XCTAssertFalse(urls.isEmpty)
+
+        for url in urls {
+            guard case .success(let geometry) = SVGParser.parse(url: url) else {
+                XCTFail("\(url.lastPathComponent) should parse before checking mask density.")
+                continue
+            }
+
+            XCTAssertGreaterThan(
+                geometry.regions.count,
+                40,
+                "\(url.lastPathComponent) looks like a placeholder grid, not a real template mask."
+            )
+        }
+    }
+
+    func test_allBundledTemplates_haveLineArtMatchingSVGViewBox() throws {
+        let templates = Template.loadAll()
+        XCTAssertFalse(templates.isEmpty)
+
+        for template in templates {
+            let svgURL = try XCTUnwrap(template.svgURL, "\(template.name) should have a bundled SVG.")
+            let lineArtURL = try XCTUnwrap(template.lineArtURL, "\(template.name) should have bundled line art.")
+            let image = try XCTUnwrap(UIImage(contentsOfFile: lineArtURL.path), "\(template.name) line art should decode.")
+
+            guard case .success(let geometry) = SVGParser.parse(url: svgURL) else {
+                XCTFail("\(template.name) SVG should parse before checking line art dimensions.")
+                continue
+            }
+
+            XCTAssertEqual(image.size.width, geometry.viewBox.width, accuracy: 0.1)
+            XCTAssertEqual(image.size.height, geometry.viewBox.height, accuracy: 0.1)
+        }
+    }
+
     // MARK: - Completeness check: templates.json ↔ bundle
 
     /// Every template referenced in templates.json must have a corresponding

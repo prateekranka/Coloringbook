@@ -9,22 +9,38 @@ enum ExportFormat {
 
 final class ExportService {
     func compositeImage(
+        lineArtImage: UIImage?,
+        pigmentLayer: UIImage?,
+        drawing: PKDrawing = PKDrawing(),
+        backgroundColor: UIColor = CanvasSnapshotRenderer.paperColor,
+        size: CGSize
+    ) -> UIImage {
+        CanvasSnapshotRenderer().render(
+            lineArtImage: lineArtImage,
+            pigmentLayer: pigmentLayer,
+            drawing: drawing,
+            backgroundColor: backgroundColor,
+            size: size
+        )
+    }
+
+    func compositeImage(
         geometry: TemplateGeometry,
         fills: [String: String],
         pigmentLayer: UIImage? = nil,
         drawing: PKDrawing = PKDrawing(),
-        backgroundColor: UIColor = .white,
+        backgroundColor: UIColor = CanvasSnapshotRenderer.paperColor,
         size: CGSize
     ) -> UIImage {
-        let pencilImage = drawing.bounds.isNull || drawing.bounds.isEmpty
-            ? nil
-            : drawing.image(from: CGRect(origin: .zero, size: size), scale: 1)
-
-        return TemplateRenderer.renderExport(
+        let fallbackPigment = pigmentLayer ?? TemplateRenderer.renderFillLayer(
             geometry: geometry,
             fills: fills,
-            pigmentLayer: pigmentLayer,
-            pencilImage: pencilImage,
+            size: size
+        )
+        return compositeImage(
+            lineArtImage: TemplateRenderer.renderLineArt(geometry: geometry, size: size),
+            pigmentLayer: fallbackPigment,
+            drawing: drawing,
             backgroundColor: backgroundColor,
             size: size
         )

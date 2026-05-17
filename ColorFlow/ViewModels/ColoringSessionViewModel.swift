@@ -73,6 +73,7 @@ final class ColoringSessionViewModel {
     @ObservationIgnored private var lastSavedRegionFills: [String: String] = [:]
     @ObservationIgnored private var lastSavedStrokeActions: [StrokeAction] = []
     @ObservationIgnored private var hasUnsavedPigmentChanges = false
+    @ObservationIgnored private var activePigmentStroke: ActivePigmentStroke?
     @ObservationIgnored private var undoStack: [CanvasEditAction] = []
     @ObservationIgnored private var redoStack: [CanvasEditAction] = []
     @ObservationIgnored private var autosaveTask: Task<Void, Never>?
@@ -82,6 +83,18 @@ final class ColoringSessionViewModel {
 
     let fallbackTitle: String
     let palettes: [ColorPalette]
+
+    private struct ActivePigmentStroke {
+        let beforeImage: UIImage
+        let tool: ToolType
+        let colorHex: String
+        let regionID: String?
+        let size: CGFloat
+        let opacity: Double
+        let seed: UInt64
+        var latestPatch: PigmentPatch?
+        var latestDocumentSamples: [StrokeSample] = []
+    }
 
     init(
         project: Project,
@@ -294,7 +307,7 @@ final class ColoringSessionViewModel {
         syncUndoRedoState()
         fillLayerImage = pigmentEngine?.image
         hasUnsavedPigmentChanges = true
-        await refreshArtworkAfterEdit()
+        refreshArtworkAfterEdit()
 
         HapticService.shared.impact(.light)
         return true
@@ -305,7 +318,7 @@ final class ColoringSessionViewModel {
         redoStack.append(action)
         syncUndoRedoState()
         applyUndo(action)
-        await refreshArtworkAfterEdit()
+        refreshArtworkAfterEdit()
     }
 
     func redoFill() async {
@@ -313,7 +326,7 @@ final class ColoringSessionViewModel {
         undoStack.append(action)
         syncUndoRedoState()
         applyRedo(action)
-        await refreshArtworkAfterEdit()
+        refreshArtworkAfterEdit()
     }
 
     func clearArtwork() async {
@@ -327,7 +340,7 @@ final class ColoringSessionViewModel {
         }
         clearUndoHistory()
         hasUnsavedPigmentChanges = true
-        await refreshArtworkAfterEdit()
+        refreshArtworkAfterEdit()
         HapticService.shared.impact(.medium)
     }
 
@@ -361,11 +374,10 @@ final class ColoringSessionViewModel {
         save()
     }
 
-    func exportImage(backgroundColor: UIColor = .white) -> UIImage? {
+    func exportImage(backgroundColor: UIColor = CanvasSnapshotRenderer.paperColor) -> UIImage? {
         guard let geometry else { return nil }
         return ExportService().compositeImage(
-            geometry: geometry,
-            fills: paintState.regionFills,
+            lineArtImage: lineArtImage,
             pigmentLayer: pigmentEngine?.image ?? fillLayerImage,
             drawing: freehandDrawing,
             backgroundColor: backgroundColor,
@@ -383,17 +395,165 @@ final class ColoringSessionViewModel {
 
     @discardableResult
     func drawStroke(samples canvasSamples: [StrokeSample], canvasSize: CGSize) async -> Bool {
-        guard let geometry, !canvasSamples.isEmpty else { return false }
+        guard !canvasSamples.isEmpty else { return false }
 
         if selectedTool == .fillBucket, let firstPoint = canvasSamples.first?.cgPoint {
             return await fill(atCanvasPoint: firstPoint, canvasSize: canvasSize)
         }
 
+        guard beginLiveStroke(samples: [canvasSamples[0]], canvasSize: canvasSize) else {
+            return false
+        }
+        _ = updateLiveStroke(samples: canvasSamples, canvasSize: canvasSize)
+        return endLiveStroke(samples: canvasSamples, canvasSize: canvasSize)
+    }
+
+    @discardableResult
+    func beginLiveStroke(samples canvasSamples: [StrokeSample], canvasSize: CGSize) -> Bool {
+        guard let geometry,
+              selectedTool != .fillBucket,
+              let pigmentEngine,
+              let firstSample = canvasSamples.first else {
+            return false
+        }
+
+        let documentSamples = documentSamples(from: canvasSamples, canvasSize: canvasSize, geometry: geometry)
+        let firstDocumentPoint = documentSamples.first?.cgPoint ?? firstSample.cgPoint
+        let regionID: String?
+        if coloringMode == .clean {
+            guard let region = geometry.region(at: firstDocumentPoint) else {
+                activePigmentStroke = nil
+                return false
+            }
+            regionID = region.id
+        } else {
+            regionID = nil
+        }
+
+        let opacity = selectedTool == .eraser ? 1 : selectedToolSettings.opacity
+        let colorHex = selectedTool == .eraser ? "#000000" : selectedColorHex
+        activePigmentStroke = ActivePigmentStroke(
+            beforeImage: pigmentEngine.image,
+            tool: selectedTool,
+            colorHex: colorHex,
+            regionID: regionID,
+            size: selectedToolSettings.size,
+            opacity: opacity,
+            seed: strokeSeed(
+                tool: selectedTool,
+                colorHex: colorHex,
+                samples: documentSamples,
+                size: selectedToolSettings.size,
+                opacity: opacity
+            ),
+            latestDocumentSamples: documentSamples
+        )
+
+        if canvasSamples.count > 1 {
+            return updateLiveStroke(samples: canvasSamples, canvasSize: canvasSize)
+        }
+        return true
+    }
+
+    @discardableResult
+    func updateLiveStroke(samples canvasSamples: [StrokeSample], canvasSize: CGSize) -> Bool {
+        guard var activeStroke = activePigmentStroke,
+              let geometry,
+              let pigmentEngine else {
+            return false
+        }
+
+        let documentSamples = documentSamples(from: canvasSamples, canvasSize: canvasSize, geometry: geometry)
+        let documentPoints = documentSamples.map(\.cgPoint)
+        guard documentPoints.count > 1 else {
+            activeStroke.latestDocumentSamples = documentSamples
+            activePigmentStroke = activeStroke
+            return true
+        }
+
+        pigmentEngine.restore(activeStroke.beforeImage)
+        guard let patch = pigmentEngine.renderStroke(
+            tool: activeStroke.tool,
+            colorHex: activeStroke.colorHex,
+            points: documentPoints,
+            regionID: activeStroke.regionID,
+            size: activeStroke.size,
+            opacity: activeStroke.opacity,
+            seed: activeStroke.seed
+        ) else {
+            pigmentEngine.restore(activeStroke.beforeImage)
+            fillLayerImage = activeStroke.beforeImage
+            return false
+        }
+
+        activeStroke.latestPatch = PigmentPatch(
+            rect: patch.rect,
+            before: activeStroke.beforeImage,
+            after: patch.after
+        )
+        activeStroke.latestDocumentSamples = documentSamples
+        activePigmentStroke = activeStroke
+        fillLayerImage = pigmentEngine.image
+        return true
+    }
+
+    @discardableResult
+    func endLiveStroke(samples canvasSamples: [StrokeSample], canvasSize: CGSize) -> Bool {
+        if activePigmentStroke == nil {
+            guard beginLiveStroke(samples: canvasSamples, canvasSize: canvasSize) else { return false }
+        }
+
+        _ = updateLiveStroke(samples: canvasSamples, canvasSize: canvasSize)
+        guard let activeStroke = activePigmentStroke,
+              let patch = activeStroke.latestPatch,
+              activeStroke.latestDocumentSamples.count > 1 else {
+            activePigmentStroke = nil
+            return false
+        }
+
+        let documentPoints = activeStroke.latestDocumentSamples.map(\.cgPoint)
+        let action = StrokeAction(
+            tool: activeStroke.tool,
+            colorHex: activeStroke.colorHex,
+            points: documentPoints.map { CodablePoint(x: $0.x, y: $0.y) },
+            samples: activeStroke.latestDocumentSamples,
+            clippedRegionID: activeStroke.regionID,
+            size: activeStroke.size,
+            opacity: activeStroke.opacity
+        )
+        paintState.strokeActions.append(action)
+        undoStack.append(
+            activeStroke.tool == .eraser
+                ? .erasePatch(StrokePatchAction(action: action, patch: patch))
+                : .pigmentStrokePatch(StrokePatchAction(action: action, patch: patch))
+        )
+        activePigmentStroke = nil
+        redoStack.removeAll()
+        syncUndoRedoState()
+        fillLayerImage = pigmentEngine?.image
+        hasUnsavedPigmentChanges = true
+        refreshArtworkAfterEdit()
+        HapticService.shared.impact(.light)
+        return true
+    }
+
+    func cancelLiveStroke() {
+        guard let activeStroke = activePigmentStroke else { return }
+        pigmentEngine?.restore(activeStroke.beforeImage)
+        fillLayerImage = activeStroke.beforeImage
+        activePigmentStroke = nil
+    }
+
+    private func documentSamples(
+        from canvasSamples: [StrokeSample],
+        canvasSize: CGSize,
+        geometry: TemplateGeometry
+    ) -> [StrokeSample] {
         let transform = TemplateRenderer.documentToViewTransform(
             viewBox: geometry.viewBox,
             viewSize: canvasSize
         ).inverted()
-        let documentSamples = canvasSamples.map { sample in
+        return canvasSamples.map { sample in
             StrokeSample(
                 point: sample.cgPoint.applying(transform),
                 timestamp: sample.timestamp,
@@ -403,49 +563,29 @@ final class ColoringSessionViewModel {
                 isPredicted: sample.isPredicted
             )
         }
-        let documentPoints = documentSamples.map(\.cgPoint)
-        let clippedRegionID = coloringMode == .clean
-            ? documentPoints.first.flatMap { geometry.region(at: $0)?.id }
-            : nil
+    }
 
-        let patch: PigmentPatch?
-        if coloringMode == .clean {
-            patch = pigmentEngine?.renderCleanStroke(
-                tool: selectedTool,
-                colorHex: selectedColorHex,
-                points: documentPoints,
-                size: selectedToolSettings.size,
-                opacity: selectedTool == .eraser ? 1 : selectedToolSettings.opacity
-            )
-        } else {
-            patch = pigmentEngine?.renderFreeStroke(
-                tool: selectedTool,
-                colorHex: selectedColorHex,
-                points: documentPoints,
-                size: selectedToolSettings.size,
-                opacity: selectedTool == .eraser ? 1 : selectedToolSettings.opacity
-            )
+    private func strokeSeed(
+        tool: ToolType,
+        colorHex: String,
+        samples: [StrokeSample],
+        size: CGFloat,
+        opacity: Double
+    ) -> UInt64 {
+        var hasher = CanvasStrokeHasher()
+        hasher.combine(tool.rawValue)
+        hasher.combine(colorHex)
+        hasher.combine(Double(size))
+        hasher.combine(opacity)
+        if let firstSample = samples.first {
+            hasher.combine(firstSample.point.x)
+            hasher.combine(firstSample.point.y)
+            hasher.combine(firstSample.timestamp ?? 0)
+            if let force = firstSample.force {
+                hasher.combine(force)
+            }
         }
-
-        guard let patch else { return false }
-        let action = StrokeAction(
-            tool: selectedTool,
-            colorHex: selectedTool == .eraser ? "#000000" : selectedColorHex,
-            points: documentPoints.map { CodablePoint(x: $0.x, y: $0.y) },
-            samples: documentSamples,
-            clippedRegionID: clippedRegionID,
-            size: selectedToolSettings.size,
-            opacity: selectedTool == .eraser ? 1 : selectedToolSettings.opacity
-        )
-        paintState.strokeActions.append(action)
-        undoStack.append(selectedTool == .eraser ? .erasePatch(StrokePatchAction(action: action, patch: patch)) : .pigmentStrokePatch(StrokePatchAction(action: action, patch: patch)))
-        redoStack.removeAll()
-        syncUndoRedoState()
-        fillLayerImage = pigmentEngine?.image
-        hasUnsavedPigmentChanges = true
-        await refreshArtworkAfterEdit()
-        HapticService.shared.impact(.light)
-        return true
+        return hasher.value
     }
 
     func updateFreehandDrawing(_ drawing: PKDrawing) {
@@ -546,7 +686,7 @@ final class ColoringSessionViewModel {
         }
     }
 
-    private func refreshArtworkAfterEdit() async {
+    private func refreshArtworkAfterEdit() {
         updateProjectCompletion()
         fillLayerImage = pigmentEngine?.image ?? fillLayerImage
         updateSaveStateForCurrentPaint()
@@ -681,6 +821,26 @@ final class ColoringSessionViewModel {
             ColorSwatch(id: UUID(uuidString: "22222222-0000-0000-0000-000000000107")!, name: "Ink", hex: "#111111")
         ]
     )
+}
+
+private struct CanvasStrokeHasher {
+    private(set) var value: UInt64 = 0xcbf29ce484222325
+
+    mutating func combine(_ string: String) {
+        for byte in string.utf8 {
+            combine(byte)
+        }
+        combine(UInt8(0xff))
+    }
+
+    mutating func combine(_ double: Double) {
+        combine(String(format: "%.6f", double))
+    }
+
+    private mutating func combine(_ byte: UInt8) {
+        value ^= UInt64(byte)
+        value &*= 0x100000001b3
+    }
 }
 
 private enum CanvasEditAction {

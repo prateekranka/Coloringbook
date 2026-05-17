@@ -67,7 +67,7 @@ enum ToolType: String, CaseIterable, Identifiable, Codable {
         case .marker:
             return "highlighter"
         case .sprayPaint:
-            return "spray"
+            return "paintbrush.pointed"
         case .eraser:
             return "eraser"
         case .fillBucket:
@@ -104,6 +104,24 @@ enum ToolType: String, CaseIterable, Identifiable, Codable {
             return true
         case .eraser, .fillBucket:
             return false
+        }
+    }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .sprayPaint:
+            return "Spray"
+        default:
+            return rawValue
+        }
+    }
+
+    var accessibilityIdentifier: String {
+        switch self {
+        case .sprayPaint:
+            return "canvas.tool.spray"
+        default:
+            return "canvas.tool.\(rawValue.normalizedIdentifier)"
         }
     }
 }

@@ -12,7 +12,6 @@ struct ColoringCanvasView: View {
     @State private var fillFeedbackID: UUID?
     @State private var isUIHidden = false
     @State private var fingerPaints = false
-    @State private var liveStrokeSamples: [StrokeSample] = []
     @State private var showSettingsSheet = false
     @State private var showColorPicker = false
     @State private var showPalettePicker = false
@@ -130,11 +129,17 @@ struct ColoringCanvasView: View {
                             onFill: { point in
                                 handleFill(atCanvasPoint: point, canvasSize: canvasSize)
                             },
+                            onStrokeBegan: { samples in
+                                handleStrokeBegan(samples: samples, canvasSize: canvasSize)
+                            },
                             onStrokeChanged: { samples in
-                                liveStrokeSamples = samples
+                                handleStrokeChanged(samples: samples, canvasSize: canvasSize)
                             },
                             onStrokeEnded: { samples in
-                                handleStroke(samples: samples, canvasSize: canvasSize)
+                                handleStrokeEnded(samples: samples, canvasSize: canvasSize)
+                            },
+                            onStrokeCancelled: {
+                                viewModel.cancelLiveStroke()
                             }
                         )
                         .frame(width: availableSize.width, height: availableSize.height)
@@ -445,9 +450,9 @@ struct ColoringCanvasView: View {
                         Button {
                             viewModel.selectTool(tool)
                         } label: {
+                            let iconColor = viewModel.selectedTool == tool ? Color.white : SableTheme.ink
                             VStack(spacing: 5) {
-                                Image(systemName: tool.systemImageName)
-                                    .font(.system(size: 18, weight: .bold))
+                                ToolIconView(tool: tool, color: iconColor, size: 20)
                                 Text(tool.rawValue)
                                     .font(.system(size: 9, weight: .black))
                                     .lineLimit(1)
@@ -458,7 +463,8 @@ struct ColoringCanvasView: View {
                             .background(viewModel.selectedTool == tool ? SableTheme.cardBlack : Color.white.opacity(0.65), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
                         }
                         .buttonStyle(.plain)
-                        .accessibilityIdentifier("canvas.tool.\(tool.rawValue.normalizedIdentifier)")
+                        .accessibilityLabel(tool.accessibilityLabel)
+                        .accessibilityIdentifier(tool.accessibilityIdentifier)
                     }
 
                     Divider()
@@ -511,18 +517,12 @@ struct ColoringCanvasView: View {
     }
 
     private func canvasArtwork(canvasSize: CGSize) -> some View {
-        let liveClip = viewModel.liveStrokeClip(samples: liveStrokeSamples, canvasSize: canvasSize)
-
-        return ZStack {
+        ZStack {
             NotebookCanvasRepresentable(
                 fillLayerImage: viewModel.fillLayerImage,
                 lineArtImage: viewModel.lineArtImage,
                 freehandDrawing: viewModel.coloringMode == .free ? PKDrawing() : viewModel.freehandDrawing,
-                showsLineArt: viewModel.coloringMode == .clean,
-                liveStrokeSamples: liveStrokeSamples,
-                liveStrokeClip: liveClip,
-                liveStrokeColorHex: viewModel.selectedColorHex,
-                liveStrokeSettings: viewModel.selectedToolSettings
+                showsLineArt: viewModel.coloringMode == .clean
             )
 
             if viewModel.coloringMode == .free, viewModel.selectedTool != .fillBucket {
@@ -650,11 +650,19 @@ struct ColoringCanvasView: View {
         }
     }
 
-    private func handleStroke(samples: [StrokeSample], canvasSize: CGSize) {
+    private func handleStrokeBegan(samples: [StrokeSample], canvasSize: CGSize) {
         guard viewModel.selectedTool != .fillBucket else { return }
-        Task {
-            _ = await viewModel.drawStroke(samples: samples, canvasSize: canvasSize)
-        }
+        _ = viewModel.beginLiveStroke(samples: samples, canvasSize: canvasSize)
+    }
+
+    private func handleStrokeChanged(samples: [StrokeSample], canvasSize: CGSize) {
+        guard viewModel.selectedTool != .fillBucket else { return }
+        _ = viewModel.updateLiveStroke(samples: samples, canvasSize: canvasSize)
+    }
+
+    private func handleStrokeEnded(samples: [StrokeSample], canvasSize: CGSize) {
+        guard viewModel.selectedTool != .fillBucket else { return }
+        _ = viewModel.endLiveStroke(samples: samples, canvasSize: canvasSize)
     }
 
     private func resetViewport() {
@@ -690,10 +698,6 @@ private struct NotebookCanvasRepresentable: UIViewRepresentable {
     let lineArtImage: UIImage?
     let freehandDrawing: PKDrawing
     let showsLineArt: Bool
-    let liveStrokeSamples: [StrokeSample]
-    let liveStrokeClip: StrokeRenderClip?
-    let liveStrokeColorHex: String
-    let liveStrokeSettings: ToolSettings
 
     func makeUIView(context: Context) -> NotebookCanvasUIView {
         let view = NotebookCanvasUIView()
@@ -709,11 +713,7 @@ private struct NotebookCanvasRepresentable: UIViewRepresentable {
             fillLayerImage: fillLayerImage,
             lineArtImage: lineArtImage,
             freehandDrawing: freehandDrawing,
-            showsLineArt: showsLineArt,
-            liveStrokeSamples: liveStrokeSamples,
-            liveStrokeClip: liveStrokeClip,
-            liveStrokeColorHex: liveStrokeColorHex,
-            liveStrokeSettings: liveStrokeSettings
+            showsLineArt: showsLineArt
         )
     }
 }
@@ -723,47 +723,25 @@ private final class NotebookCanvasUIView: UIView {
     private var lineArtImage: UIImage?
     private var freehandDrawing = PKDrawing()
     private var showsLineArt = true
-    private var liveStrokeSamples: [StrokeSample] = []
-    private var liveStrokeClip: StrokeRenderClip?
-    private var liveStrokeColorHex = SableTheme.progressPinkHex
-    private var liveStrokeSettings = ToolType.crayon.defaultSettings
 
     func configure(
         fillLayerImage: UIImage?,
         lineArtImage: UIImage?,
         freehandDrawing: PKDrawing,
-        showsLineArt: Bool,
-        liveStrokeSamples: [StrokeSample],
-        liveStrokeClip: StrokeRenderClip?,
-        liveStrokeColorHex: String,
-        liveStrokeSettings: ToolSettings
+        showsLineArt: Bool
     ) {
         let imageChanged = self.fillLayerImage !== fillLayerImage
             || self.lineArtImage !== lineArtImage
             || self.freehandDrawing.dataRepresentation() != freehandDrawing.dataRepresentation()
             || self.showsLineArt != showsLineArt
-        let changed = imageChanged
-            || self.liveStrokeSamples != liveStrokeSamples
-            || self.liveStrokeColorHex != liveStrokeColorHex
-            || self.liveStrokeSettings != liveStrokeSettings
-            || !sameClip(self.liveStrokeClip, liveStrokeClip)
-        let oldDirtyRect = dirtyRect(for: self.liveStrokeSamples, clip: self.liveStrokeClip)
 
         self.fillLayerImage = fillLayerImage
         self.lineArtImage = lineArtImage
         self.freehandDrawing = freehandDrawing
         self.showsLineArt = showsLineArt
-        self.liveStrokeSamples = liveStrokeSamples
-        self.liveStrokeClip = liveStrokeClip
-        self.liveStrokeColorHex = liveStrokeColorHex
-        self.liveStrokeSettings = liveStrokeSettings
 
-        if changed {
-            if imageChanged {
-                setNeedsDisplay()
-            } else {
-                setNeedsDisplay(oldDirtyRect.union(dirtyRect(for: liveStrokeSamples, clip: liveStrokeClip)))
-            }
+        if imageChanged {
+            setNeedsDisplay()
         }
     }
 
@@ -779,21 +757,6 @@ private final class NotebookCanvasUIView: UIView {
 
         if !freehandDrawing.bounds.isNull && !freehandDrawing.bounds.isEmpty {
             freehandDrawing.image(from: CGRect(origin: .zero, size: artRect.size), scale: 1).draw(in: artRect)
-        }
-
-        if liveStrokeSamples.count > 1 {
-            context.saveGState()
-            BrushRenderers.drawLiveStroke(
-                samples: liveStrokeSamples,
-                tool: liveStrokeSettings.tool,
-                colorHex: liveStrokeColorHex,
-                size: liveStrokeSettings.size,
-                opacity: CGFloat(liveStrokeSettings.opacity),
-                clipPath: liveStrokeClip?.path,
-                clipFillRule: liveStrokeClip?.fillRule ?? .winding,
-                in: context
-            )
-            context.restoreGState()
         }
 
         if showsLineArt, let lineArtImage {
@@ -817,35 +780,6 @@ private final class NotebookCanvasUIView: UIView {
             width: size.width,
             height: size.height
         )
-    }
-
-    private func dirtyRect(for samples: [StrokeSample], clip: StrokeRenderClip?) -> CGRect {
-        guard !samples.isEmpty else { return bounds }
-
-        let radius = max(CGFloat(liveStrokeSettings.size) * 2, 48)
-        var rect = samples
-            .map(\.cgPoint)
-            .reduce(CGRect.null) { partial, point in
-                partial.union(CGRect(x: point.x, y: point.y, width: 1, height: 1))
-            }
-            .insetBy(dx: -radius, dy: -radius)
-
-        if let clip {
-            rect = rect.intersection(clip.path.boundingBoxOfPath.insetBy(dx: -radius, dy: -radius))
-        }
-
-        return rect.isNull || rect.isEmpty ? bounds : rect.intersection(bounds)
-    }
-
-    private func sameClip(_ lhs: StrokeRenderClip?, _ rhs: StrokeRenderClip?) -> Bool {
-        switch (lhs, rhs) {
-        case (nil, nil):
-            return true
-        case let (lhs?, rhs?):
-            return lhs.path === rhs.path && lhs.fillRule == rhs.fillRule
-        default:
-            return false
-        }
     }
 }
 
@@ -924,8 +858,10 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
     var onViewportChanged: (CanvasViewport) -> Void
     var onViewportCommitted: () -> Void
     var onFill: (CGPoint) -> Void
+    var onStrokeBegan: ([StrokeSample]) -> Void
     var onStrokeChanged: ([StrokeSample]) -> Void
     var onStrokeEnded: ([StrokeSample]) -> Void
+    var onStrokeCancelled: () -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -1066,7 +1002,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             guard parent.selectedTool != .fillBucket,
                   let canvasPoint = canvasPoint(for: point) else { return }
             strokeSamples = [StrokeSample(point: canvasPoint, timestamp: CACurrentMediaTime())]
-            parent.onStrokeChanged(strokeSamples)
+            parent.onStrokeBegan(strokeSamples)
         }
 
         func appendStrokePoint(_ point: CGPoint) {
@@ -1083,23 +1019,22 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             }
 
             let completedSamples = strokeSamples
-            strokeSamples = []
-            parent.onStrokeChanged([])
             if completedSamples.count > 1 {
                 parent.onStrokeEnded(completedSamples)
             }
+            strokeSamples = []
         }
 
         func cancelStroke() {
             strokeSamples = []
-            parent.onStrokeChanged([])
+            parent.onStrokeCancelled()
         }
 
         func beginPencilStroke(with touch: UITouch, in view: UIView) {
             guard parent.selectedTool != .fillBucket,
                   let sample = strokeSample(for: touch, in: view) else { return }
             strokeSamples = [sample]
-            parent.onStrokeChanged(strokeSamples)
+            parent.onStrokeBegan(strokeSamples)
         }
 
         func appendPencilStroke(with touch: UITouch, in view: UIView) {
@@ -1113,11 +1048,10 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         func endPencilStroke(with touch: UITouch, in view: UIView) {
             appendPencilStroke(with: touch, in: view)
             let completedSamples = strokeSamples
-            strokeSamples = []
-            parent.onStrokeChanged([])
             if completedSamples.count > 1 {
                 parent.onStrokeEnded(completedSamples)
             }
+            strokeSamples = []
         }
 
         private func canvasPoint(for viewportPoint: CGPoint) -> CGPoint? {
@@ -1244,6 +1178,77 @@ private struct CanvasRenderTuningSlider: View {
 }
 #endif
 
+private struct ToolIconView: View {
+    let tool: ToolType
+    let color: Color
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if tool == .sprayPaint {
+                SprayToolIcon(color: color)
+                    .frame(width: size, height: size)
+            } else {
+                Image(systemName: tool.systemImageName)
+                    .font(.system(size: size * 0.9, weight: .black))
+                    .foregroundStyle(color)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private struct SprayToolIcon: View {
+    let color: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            let lineWidth = max(1.6, side * 0.08)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: side * 0.12)
+                    .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineJoin: .round))
+                    .frame(width: side * 0.36, height: side * 0.52)
+                    .rotationEffect(.degrees(-16))
+                    .offset(x: -side * 0.12, y: side * 0.08)
+
+                Path { path in
+                    path.move(to: CGPoint(x: side * 0.46, y: side * 0.31))
+                    path.addLine(to: CGPoint(x: side * 0.63, y: side * 0.25))
+                    path.addLine(to: CGPoint(x: side * 0.66, y: side * 0.33))
+                }
+                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+
+                ForEach(0..<5, id: \.self) { index in
+                    Circle()
+                        .fill(color)
+                        .frame(width: dotSize(side, index: index), height: dotSize(side, index: index))
+                        .position(dotPosition(side, index: index))
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+
+    private func dotSize(_ side: CGFloat, index: Int) -> CGFloat {
+        let scales: [CGFloat] = [0.10, 0.075, 0.085, 0.06, 0.07]
+        return side * scales[index]
+    }
+
+    private func dotPosition(_ side: CGFloat, index: Int) -> CGPoint {
+        let points: [CGPoint] = [
+            CGPoint(x: side * 0.78, y: side * 0.18),
+            CGPoint(x: side * 0.90, y: side * 0.30),
+            CGPoint(x: side * 0.76, y: side * 0.43),
+            CGPoint(x: side * 0.95, y: side * 0.48),
+            CGPoint(x: side * 0.66, y: side * 0.20)
+        ]
+        return points[index]
+    }
+}
+
 private struct ToolAdjustmentPanel: View {
     let tool: ToolType
     @Binding var size: CGFloat
@@ -1257,10 +1262,14 @@ private struct ToolAdjustmentPanel: View {
             }
 
             VStack(alignment: .leading, spacing: 9) {
-                Label(tool.rawValue, systemImage: tool.systemImageName)
-                    .font(.system(size: 12, weight: .black))
-                    .foregroundStyle(SableTheme.ink)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    ToolIconView(tool: tool, color: SableTheme.ink, size: 14)
+
+                    Text(tool.rawValue)
+                        .font(.system(size: 12, weight: .black))
+                        .foregroundStyle(SableTheme.ink)
+                        .lineLimit(1)
+                }
 
                 Text(tool.supportsSizeControl ? "\(Int(size.rounded())) pt" : "Tap to fill")
                     .font(.system(size: 18, weight: .black))
@@ -1474,15 +1483,17 @@ private struct ToolDockView: View {
                 Button {
                     viewModel.selectTool(tool)
                 } label: {
-                    Image(systemName: tool.systemImageName)
-                        .font(.system(size: 16, weight: .black))
-                        .foregroundStyle(viewModel.selectedTool == tool ? .white : SableTheme.ink)
+                    ToolIconView(
+                        tool: tool,
+                        color: viewModel.selectedTool == tool ? .white : SableTheme.ink,
+                        size: 18
+                    )
                         .frame(width: 34, height: 34)
                         .background(viewModel.selectedTool == tool ? SableTheme.cardBlack : Color.white.opacity(0.72), in: RoundedRectangle(cornerRadius: 7))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(tool.rawValue)
-                .accessibilityIdentifier("canvas.tool.\(tool.rawValue.normalizedIdentifier)")
+                .accessibilityLabel(tool.accessibilityLabel)
+                .accessibilityIdentifier(tool.accessibilityIdentifier)
             }
         }
         .padding(.horizontal, 4)

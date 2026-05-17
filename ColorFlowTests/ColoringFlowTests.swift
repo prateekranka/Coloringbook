@@ -611,6 +611,100 @@ final class ColoringFlowTests: XCTestCase {
         }
     }
 
+    func test_livePigmentBitmapDoesNotChangeWhenStrokeCommits() async throws {
+        let template = try uniqueTemplate()
+        let geometry = try CanvasTestFixture.makeGeometry()
+        let project = Project(template: template)
+        let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
+
+        await vm.loadIfNeeded()
+        vm.selectTool(.watercolor)
+        vm.selectColor(hex: "#4169E1")
+        vm.updateSelectedToolSize(18)
+        vm.updateSelectedToolOpacity(0.42)
+        vm.selectColoringMode(.clean)
+
+        let canvasSize = CGSize(width: 800, height: 800)
+        let documentPoint = try XCTUnwrap(CanvasTestFixture.representativeFillPoint(in: geometry))
+        let transform = TemplateRenderer.documentToViewTransform(
+            viewBox: geometry.viewBox,
+            viewSize: canvasSize
+        )
+        let canvasPoints = (0..<6).map { index in
+            CGPoint(
+                x: documentPoint.x + CGFloat(index) * 1.5,
+                y: documentPoint.y
+            ).applying(transform)
+        }
+        let samples = canvasPoints.enumerated().map { index, point in
+            StrokeSample(point: point, timestamp: Double(index) / 60.0)
+        }
+
+        XCTAssertTrue(vm.beginLiveStroke(samples: [samples[0]], canvasSize: canvasSize))
+        XCTAssertTrue(vm.updateLiveStroke(samples: samples, canvasSize: canvasSize))
+        let livePixels = try XCTUnwrap(vm.fillLayerImage?.pngData())
+
+        XCTAssertTrue(vm.endLiveStroke(samples: samples, canvasSize: canvasSize))
+        XCTAssertEqual(vm.fillLayerImage?.pngData(), livePixels)
+    }
+
+    func test_exportMatchesCanvasSnapshotRendererOutput() async throws {
+        let template = try uniqueTemplate()
+        let geometry = try CanvasTestFixture.makeGeometry()
+        var project = Project(template: template)
+        storage.save(project: &project, drawing: PKDrawing(), fillLayer: nil, templateImage: nil)
+        projectsToDelete.append(project)
+        let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
+
+        await vm.loadIfNeeded()
+        vm.selectTool(.fillBucket)
+        vm.selectColor(hex: "#00AAFF")
+        await vm.fill(atDocumentPoint: try representativeFillPoint())
+        vm.selectTool(.eraser)
+
+        let canvasSize = CGSize(width: 800, height: 800)
+        let documentPoint = try representativeFillPoint()
+        let transform = TemplateRenderer.documentToViewTransform(
+            viewBox: geometry.viewBox,
+            viewSize: canvasSize
+        )
+        let canvasSamples = [
+            StrokeSample(point: documentPoint.applying(transform), timestamp: 0),
+            StrokeSample(point: CGPoint(x: documentPoint.x + 12, y: documentPoint.y).applying(transform), timestamp: 1.0 / 60.0)
+        ]
+        _ = await vm.drawStroke(samples: canvasSamples, canvasSize: canvasSize)
+
+        let exported = try XCTUnwrap(vm.exportImage())
+        let expected = CanvasSnapshotRenderer().render(
+            lineArtImage: vm.lineArtImage,
+            pigmentLayer: vm.fillLayerImage,
+            drawing: vm.freehandDrawing,
+            size: geometry.viewBox.size
+        )
+
+        XCTAssertEqual(pixelDigest(exported), pixelDigest(expected))
+    }
+
+    func test_saveAndReloadPreservesCanonicalPigmentBitmap() async throws {
+        let template = try uniqueTemplate()
+        let project = Project(template: template)
+        let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
+
+        await vm.loadIfNeeded()
+        vm.selectTool(.fillBucket)
+        vm.selectColor(hex: "#00AAFF")
+        await vm.fill(atDocumentPoint: try representativeFillPoint())
+        vm.save()
+        let savedProject = try XCTUnwrap(storage.loadProject(id: project.id))
+        projectsToDelete.append(savedProject)
+        let savedDigest = pixelDigest(try XCTUnwrap(vm.fillLayerImage))
+
+        let reopened = ColoringSessionViewModel(project: savedProject, template: template, storageService: storage)
+        await reopened.loadIfNeeded()
+
+        XCTAssertEqual(pixelDigest(try XCTUnwrap(reopened.fillLayerImage)), savedDigest)
+    }
+
     func test_strokePreviewFrameRenderingPerformance() throws {
         let geometry = try CanvasTestFixture.makeGeometry()
         let canvasSize = CGSize(width: 800, height: 800)

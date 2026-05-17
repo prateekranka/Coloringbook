@@ -31,21 +31,34 @@ struct PigmentStroke: Identifiable, Codable, Equatable {
         self.points = points.map(CodablePoint.init)
         self.regionID = regionID
         self.timestamp = timestamp
-        self.seed = seed ?? PigmentStroke.makeSeed(tool: tool, colorHex: colorHex, points: points, timestamp: timestamp)
+        self.seed = seed ?? PigmentStroke.makeSeed(
+            tool: tool,
+            colorHex: colorHex,
+            opacity: opacity,
+            size: size,
+            points: points
+        )
     }
 
     var cgPoints: [CGPoint] {
         points.map(\.cgPoint)
     }
 
-    private static func makeSeed(tool: ToolType, colorHex: String, points: [CGPoint], timestamp: TimeInterval) -> UInt64 {
+    private static func makeSeed(
+        tool: ToolType,
+        colorHex: String,
+        opacity: Double,
+        size: Double,
+        points: [CGPoint]
+    ) -> UInt64 {
         var hasher = PigmentStableHasher()
         hasher.combine(tool.rawValue)
         hasher.combine(colorHex)
-        hasher.combine(timestamp)
-        if let first = points.first {
-            hasher.combine(Double(first.x))
-            hasher.combine(Double(first.y))
+        hasher.combine(opacity)
+        hasher.combine(size)
+        for point in points {
+            hasher.combine(Double(point.x))
+            hasher.combine(Double(point.y))
         }
         return hasher.value
     }
@@ -173,7 +186,7 @@ final class PigmentBitmap {
         case .eraser:
             return EraserPigmentRenderer()
         case .sprayPaint:
-            return PencilPigmentRenderer()
+            return SprayPigmentRenderer()
         case .fillBucket:
             return MarkerPigmentRenderer()
         }
@@ -199,33 +212,71 @@ final class RegionPigmentEngine {
         return bitmap.fill(regionMask: maskCache.mask(for: region, canvasSize: bitmap.size), colorHex: colorHex)
     }
 
-    func renderCleanStroke(tool: ToolType, colorHex: String, points: [CGPoint], size: CGFloat, opacity: Double) -> PigmentPatch? {
+    func renderCleanStroke(
+        tool: ToolType,
+        colorHex: String,
+        points: [CGPoint],
+        size: CGFloat,
+        opacity: Double,
+        seed: UInt64? = nil
+    ) -> PigmentPatch? {
         guard let first = points.first,
               let region = geometry.region(at: first) else {
             return nil
         }
+        return renderStroke(
+            tool: tool,
+            colorHex: colorHex,
+            points: points,
+            regionID: region.id,
+            size: size,
+            opacity: opacity,
+            seed: seed
+        )
+    }
+
+    func renderStroke(
+        tool: ToolType,
+        colorHex: String,
+        points: [CGPoint],
+        regionID: String?,
+        size: CGFloat,
+        opacity: Double,
+        seed: UInt64? = nil
+    ) -> PigmentPatch? {
+        guard tool != .fillBucket else { return nil }
         let stroke = PigmentStroke(
             tool: tool,
             colorHex: colorHex,
             opacity: opacity,
             size: Double(size),
             points: points,
-            regionID: region.id
+            regionID: regionID,
+            seed: seed
         )
-        let mask = maskCache.mask(for: region, canvasSize: bitmap.size)
+        let mask = regionID
+            .flatMap(region(withID:))
+            .map { maskCache.mask(for: $0, canvasSize: bitmap.size) }
         return bitmap.drawStroke(stroke, mask: mask)
     }
 
-    func renderFreeStroke(tool: ToolType, colorHex: String, points: [CGPoint], size: CGFloat, opacity: Double) -> PigmentPatch? {
-        let stroke = PigmentStroke(
+    func renderFreeStroke(
+        tool: ToolType,
+        colorHex: String,
+        points: [CGPoint],
+        size: CGFloat,
+        opacity: Double,
+        seed: UInt64? = nil
+    ) -> PigmentPatch? {
+        renderStroke(
             tool: tool,
             colorHex: colorHex,
-            opacity: opacity,
-            size: Double(size),
             points: points,
-            regionID: nil
+            regionID: nil,
+            size: size,
+            opacity: opacity,
+            seed: seed
         )
-        return bitmap.drawStroke(stroke, mask: nil)
     }
 
     func restore(_ image: UIImage) {
@@ -253,7 +304,6 @@ private struct WatercolorPigmentRenderer: PigmentBrushRenderer {
             stamp(points: points, spacing: max(2, CGFloat(stroke.size) * 0.22)) { center in
                 let radius = CGFloat(stroke.size) * CGFloat(0.42 + rng.nextUnit() * 0.16)
                 let alpha = CGFloat(stroke.opacity) * CGFloat(0.045 + rng.nextUnit() * 0.035)
-                let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
                 let colors = [
                     color.withAlphaComponent(alpha).cgColor,
                     color.withAlphaComponent(alpha * 0.38).cgColor,
@@ -305,6 +355,44 @@ private struct PencilPigmentRenderer: PigmentBrushRenderer {
         }
         bitmap.replace(with: rendered)
         return PigmentPatch(rect: dirtyRect(points: points, size: CGFloat(stroke.size) * 1.8), before: before, after: rendered)
+    }
+}
+
+private struct SprayPigmentRenderer: PigmentBrushRenderer {
+    func renderStroke(_ stroke: PigmentStroke, into bitmap: PigmentBitmap, mask: RegionMask?) -> PigmentPatch {
+        let before = bitmap.image
+        let points = stroke.cgPoints
+        let rendered = bitmap.render { context in
+            clip(mask, in: context)
+            var rng = PigmentSeededRandom(seed: stroke.seed)
+            let color = UIColor(hex: stroke.colorHex)
+            let radius = CGFloat(stroke.size) / 2
+
+            context.setBlendMode(.normal)
+            stamp(points: points, spacing: 3) { center in
+                let dotCount = 8 + Int(rng.nextUnit() * 8)
+                for _ in 0..<dotCount {
+                    let distance = radius * CGFloat(pow(rng.nextUnit(), 0.7))
+                    let angle = CGFloat(rng.nextUnit() * 2 * .pi)
+                    let dotSize = CGFloat(1.5 + rng.nextUnit() * 2)
+                    let alpha = CGFloat(stroke.opacity) * CGFloat(0.5 + rng.nextUnit() * 0.5)
+                    let dotCenter = CGPoint(
+                        x: center.x + distance * cos(angle),
+                        y: center.y + distance * sin(angle)
+                    )
+                    let rect = CGRect(
+                        x: dotCenter.x - dotSize / 2,
+                        y: dotCenter.y - dotSize / 2,
+                        width: dotSize,
+                        height: dotSize
+                    )
+                    context.setFillColor(color.withAlphaComponent(alpha).cgColor)
+                    context.fillEllipse(in: rect)
+                }
+            }
+        }
+        bitmap.replace(with: rendered)
+        return PigmentPatch(rect: dirtyRect(points: points, size: CGFloat(stroke.size)), before: before, after: rendered)
     }
 }
 

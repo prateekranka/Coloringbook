@@ -52,6 +52,34 @@ final class RegionPigmentEngineTests: XCTestCase {
         XCTAssertGreaterThan(engine.image.alpha(at: untouched), 180)
     }
 
+    func test_eraserDoesNotCreateGrayPixelsInErasedArea() throws {
+        let region = try XCTUnwrap(geometry.regions.first)
+        let interior = CanvasTestFixture.interiorPoint(of: region)
+
+        _ = engine.fill(regionID: region.id, colorHex: "#FF0000")
+        _ = engine.renderCleanStroke(
+            tool: .eraser,
+            colorHex: "#000000",
+            points: [CGPoint(x: interior.x - 8, y: interior.y), CGPoint(x: interior.x + 8, y: interior.y)],
+            size: 24,
+            opacity: 1
+        )
+
+        let pigmentPixel = try XCTUnwrap(engine.image.rgba(at: interior))
+        XCTAssertLessThan(pigmentPixel.a, 30)
+
+        let export = CanvasSnapshotRenderer().render(
+            lineArtImage: nil,
+            pigmentLayer: engine.image,
+            backgroundColor: .white,
+            size: geometry.viewBox.size
+        )
+        let exportPixel = try XCTUnwrap(export.rgba(at: interior))
+        XCTAssertGreaterThan(exportPixel.r, 245)
+        XCTAssertGreaterThan(exportPixel.g, 245)
+        XCTAssertGreaterThan(exportPixel.b, 245)
+    }
+
     func test_eraserDoesNotEraseLineArtOrBackgroundInExport() throws {
         let region = try XCTUnwrap(geometry.regions.first)
         let interior = CanvasTestFixture.interiorPoint(of: region)
@@ -138,17 +166,50 @@ final class RegionPigmentEngineTests: XCTestCase {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("pigment-\(UUID().uuidString).png")
         engine.bitmap.savePNG(to: url)
         let reopened = RegionPigmentEngine(geometry: geometry, existingImage: UIImage(contentsOfFile: url.path))
+        XCTAssertEqual(reopened.image.pngData(), engine.image.pngData())
         XCTAssertLessThan(reopened.image.alpha(at: interior), 40)
 
-        let export = TemplateRenderer.renderExport(
-            geometry: geometry,
-            fills: [:],
+        let export = CanvasSnapshotRenderer().render(
+            lineArtImage: TemplateRenderer.renderLineArt(geometry: geometry, size: geometry.viewBox.size),
             pigmentLayer: reopened.image,
-            pencilImage: nil,
             backgroundColor: .white,
             size: geometry.viewBox.size
         )
         XCTAssertGreaterThan(export.alpha(at: interior), 240)
+    }
+
+    func test_exportUsesCanonicalPigmentBitmapWithErasedFillStripe() throws {
+        let region = try XCTUnwrap(geometry.regions.first)
+        let erased = CanvasTestFixture.interiorPoint(of: region)
+        let colored = CGPoint(x: region.bounds.minX + 8, y: region.bounds.minY + 8)
+
+        _ = engine.fill(regionID: region.id, colorHex: "#00AAFF")
+        _ = engine.renderCleanStroke(tool: .eraser, colorHex: "#000000", points: [erased, CGPoint(x: erased.x + 12, y: erased.y)], size: 18, opacity: 1)
+
+        let lineArt = makeLineArtImage(size: geometry.viewBox.size)
+        let export = CanvasSnapshotRenderer().render(
+            lineArtImage: lineArt,
+            pigmentLayer: engine.image,
+            backgroundColor: .white,
+            size: geometry.viewBox.size
+        )
+
+        let erasedPixel = try XCTUnwrap(export.rgba(at: erased))
+        let coloredPixel = try XCTUnwrap(export.rgba(at: colored))
+        let linePixel = try XCTUnwrap(export.rgba(at: CGPoint(x: 10, y: 10)))
+
+        XCTAssertGreaterThan(erasedPixel.r, 245)
+        XCTAssertGreaterThan(erasedPixel.g, 245)
+        XCTAssertGreaterThan(erasedPixel.b, 245)
+        XCTAssertGreaterThan(coloredPixel.b, 180)
+        XCTAssertLessThan(linePixel.r, 20)
+        XCTAssertLessThan(linePixel.g, 20)
+        XCTAssertLessThan(linePixel.b, 20)
+    }
+
+    func test_sprayToolHasCustomIdentifierAndLabel() {
+        XCTAssertEqual(ToolType.sprayPaint.accessibilityIdentifier, "canvas.tool.spray")
+        XCTAssertEqual(ToolType.sprayPaint.accessibilityLabel, "Spray")
     }
 
     func test_paletteAndToolPickerChangeInstantly() throws {
@@ -172,9 +233,45 @@ final class RegionPigmentEngineTests: XCTestCase {
         XCTAssertGreaterThan(engine.image.alpha(at: start), 0)
         XCTAssertEqual(engine.image.alpha(at: end), 0)
     }
+
+    private func makeLineArtImage(size: CGSize) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor.clear.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            let cgContext = context.cgContext
+            cgContext.setStrokeColor(UIColor.black.cgColor)
+            cgContext.setLineWidth(3)
+            cgContext.move(to: CGPoint(x: 10, y: 0))
+            cgContext.addLine(to: CGPoint(x: 10, y: size.height))
+            cgContext.strokePath()
+        }
+    }
 }
 
 private extension UIImage {
+    func rgba(at point: CGPoint) -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8)? {
+        guard point.x >= 0, point.y >= 0, point.x < size.width, point.y < size.height else {
+            return nil
+        }
+        guard let cgImage else { return nil }
+        let x = min(max(Int(point.x), 0), cgImage.width - 1)
+        let y = min(max(Int(point.y), 0), cgImage.height - 1)
+        var pixel = [UInt8](repeating: 0, count: 4)
+        let context = CGContext(
+            data: &pixel,
+            width: 1,
+            height: 1,
+            bitsPerComponent: 8,
+            bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )
+        context?.draw(cgImage, in: CGRect(x: -x, y: y - cgImage.height + 1, width: cgImage.width, height: cgImage.height))
+        return (pixel[0], pixel[1], pixel[2], pixel[3])
+    }
+
     func alpha(at point: CGPoint) -> UInt8 {
         guard point.x >= 0, point.y >= 0, point.x < size.width, point.y < size.height else {
             return 0

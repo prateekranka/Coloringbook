@@ -92,13 +92,10 @@ class StorageService {
         let snapshot = project
         let drawingData = drawing.dataRepresentation()
         let fillData = fillLayer?.pngData()
-        let drawingImage = drawing.bounds.isNull || drawing.bounds.isEmpty
-            ? nil
-            : drawing.image(from: drawing.bounds, scale: 2.0)
         let thumbnailData = Self.composeThumbnail(
             template: templateImage,
             fill: fillLayer,
-            drawing: drawingImage
+            drawing: drawing
         )?.pngData()
 
         queue.sync {
@@ -129,32 +126,12 @@ class StorageService {
 
     /// Composite the line art + fills into a square 512×512 thumbnail.
     /// Returns nil if neither layer is available.
-    private static func composeThumbnail(template: UIImage?, fill: UIImage?, drawing: UIImage?) -> UIImage? {
-        guard template != nil || fill != nil else { return nil }
-        let size = CGSize(width: 512, height: 512)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { ctx in
-            UIColor.white.setFill()
-            ctx.fill(CGRect(origin: .zero, size: size))
-
-            let source = template?.size ?? fill?.size ?? size
-            let scale = min(size.width / source.width, size.height / source.height)
-            let scaled = CGSize(width: source.width * scale, height: source.height * scale)
-            let rect = CGRect(
-                x: (size.width - scaled.width) / 2,
-                y: (size.height - scaled.height) / 2,
-                width: scaled.width,
-                height: scaled.height
-            )
-
-            fill?.draw(in: rect)
-            drawing?.draw(in: rect)
-            let cg = ctx.cgContext
-            cg.saveGState()
-            cg.setBlendMode(.multiply)
-            template?.draw(in: rect)
-            cg.restoreGState()
-        }
+    private static func composeThumbnail(template: UIImage?, fill: UIImage?, drawing: PKDrawing) -> UIImage? {
+        CanvasSnapshotRenderer().thumbnail(
+            lineArtImage: template,
+            pigmentLayer: fill,
+            drawing: drawing
+        )
     }
 
     // MARK: - Load

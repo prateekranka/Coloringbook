@@ -58,6 +58,7 @@ jobs:
         run: ./dev gen
 
       - name: Run unit tests
+        if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip unit tests]') }}
         run: ./dev test
 
       - name: Prepare export options

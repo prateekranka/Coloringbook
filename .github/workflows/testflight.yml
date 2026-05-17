@@ -61,6 +61,54 @@ jobs:
         if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip unit tests]') }}
         run: ./dev test
 
+      - name: Clean stale CI signing certificates
+        run: |
+          bundle exec ruby <<'RUBY'
+          require "base64"
+          require "json"
+          require "net/http"
+          require "openssl"
+          require "time"
+          require "uri"
+          require "jwt"
+
+          key = OpenSSL::PKey::EC.new(Base64.decode64(ENV.fetch("ASC_KEY_P8_BASE64")))
+          token = JWT.encode(
+            { iss: ENV.fetch("ASC_ISSUER_ID"), iat: Time.now.to_i - 60, exp: Time.now.to_i + 900, aud: "appstoreconnect-v1" },
+            key,
+            "ES256",
+            kid: ENV.fetch("ASC_KEY_ID"),
+            typ: "JWT"
+          )
+
+          def request(uri, token, method: Net::HTTP::Get)
+            http = Net::HTTP.new(uri.host, uri.port)
+            http.use_ssl = true
+            req = method.new(uri)
+            req["Authorization"] = "Bearer #{token}"
+            http.request(req)
+          end
+
+          uri = URI("https://api.appstoreconnect.apple.com/v1/certificates")
+          uri.query = URI.encode_www_form("filter[certificateType]" => "IOS_DEVELOPMENT", "limit" => "200")
+          response = request(uri, token)
+          abort "Certificate list failed: #{response.code} #{response.body}" unless response.is_a?(Net::HTTPSuccess)
+
+          certificates = JSON.parse(response.body).fetch("data", [])
+          stale = certificates.select do |certificate|
+            attrs = certificate.fetch("attributes", {})
+            attrs.fetch("displayName", "").include?("Created via API")
+          end.sort_by { |certificate| certificate.fetch("attributes", {}).fetch("expirationDate", "") }
+
+          puts "Found #{stale.length} CI-created iOS development certificates to revoke."
+          stale.each do |certificate|
+            delete_uri = URI("https://api.appstoreconnect.apple.com/v1/certificates/#{certificate.fetch("id")}")
+            delete_response = request(delete_uri, token, method: Net::HTTP::Delete)
+            abort "Certificate revoke failed for #{certificate.fetch("id")}: #{delete_response.code} #{delete_response.body}" unless delete_response.code == "204"
+            puts "Revoked #{certificate.fetch("id")} #{certificate.fetch("attributes", {}).fetch("displayName", "")}"
+          end
+          RUBY
+
       - name: Prepare export options
         run: |
           EXPORT_OPTIONS="$RUNNER_TEMP/ExportOptions.plist"
@@ -85,7 +133,6 @@ jobs:
             -archivePath "$RUNNER_TEMP/ColorFlow.xcarchive" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$ASC_KEY_PATH" \

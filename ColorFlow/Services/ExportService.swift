@@ -11,6 +11,7 @@ final class ExportService {
     func compositeImage(
         geometry: TemplateGeometry,
         fills: [String: String],
+        pigmentLayer: UIImage? = nil,
         drawing: PKDrawing = PKDrawing(),
         backgroundColor: UIColor = .white,
         size: CGSize
@@ -22,6 +23,7 @@ final class ExportService {
         return TemplateRenderer.renderExport(
             geometry: geometry,
             fills: fills,
+            pigmentLayer: pigmentLayer,
             pencilImage: pencilImage,
             backgroundColor: backgroundColor,
             size: size

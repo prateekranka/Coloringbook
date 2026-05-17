@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import QuartzCore
+import PencilKit
 
 @MainActor
 struct ColoringCanvasView: View {
@@ -12,6 +13,17 @@ struct ColoringCanvasView: View {
     @State private var isUIHidden = false
     @State private var fingerPaints = false
     @State private var liveStrokeSamples: [StrokeSample] = []
+    @State private var showSettingsSheet = false
+    @State private var showColorPicker = false
+    @State private var showPalettePicker = false
+    @State private var precisionSlidersEnabled = true
+    @State private var eyedropperShortcutEnabled = true
+    @State private var colorHistoryEnabled = true
+    @State private var leftHandedMode = false
+    @State private var toolPreviewEnabled = true
+    @State private var brushSoundsEnabled = false
+    @State private var colorBlindMode = false
+    @State private var sharePayload: CanvasSharePayload?
     #if DEBUG
     @State private var showRenderTuning = false
     #endif
@@ -90,11 +102,7 @@ struct ColoringCanvasView: View {
     }
 
     private var readyBody: some View {
-        VStack(spacing: 16) {
-            if !isUIHidden {
-                canvasHeader
-            }
-
+        ZStack {
             GeometryReader { proxy in
                 let availableSize = proxy.size
                 let canvasSize = fittedCanvasSize(in: availableSize)
@@ -104,31 +112,50 @@ struct ColoringCanvasView: View {
                         .position(x: availableSize.width / 2, y: availableSize.height / 2)
                         .scaleEffect(viewModel.viewport.scale)
                         .offset(viewModel.viewport.offset)
-                        .allowsHitTesting(false)
+                        .allowsHitTesting(viewModel.coloringMode == .free && viewModel.selectedTool != .fillBucket)
 
-                    CanvasInteractionOverlay(
-                        selectedTool: viewModel.selectedTool,
-                        fingerPaints: fingerPaints,
-                        canvasSize: canvasSize,
-                        viewportSize: availableSize,
-                        viewport: viewModel.viewport,
-                        onViewportChanged: { viewport in
-                            viewModel.updateViewport(viewport)
-                        },
-                        onViewportCommitted: {
-                            viewModel.commitViewportChange()
-                        },
-                        onFill: { point in
-                            handleFill(atCanvasPoint: point, canvasSize: canvasSize)
-                        },
-                        onStrokeChanged: { samples in
-                            liveStrokeSamples = samples
-                        },
-                        onStrokeEnded: { samples in
-                            handleStroke(samples: samples, canvasSize: canvasSize)
-                        }
-                    )
-                    .frame(width: availableSize.width, height: availableSize.height)
+                    if viewModel.coloringMode == .clean || viewModel.selectedTool == .fillBucket {
+                        CanvasInteractionOverlay(
+                            selectedTool: viewModel.selectedTool,
+                            fingerPaints: fingerPaints,
+                            canvasSize: canvasSize,
+                            viewportSize: availableSize,
+                            viewport: viewModel.viewport,
+                            onViewportChanged: { viewport in
+                                viewModel.updateViewport(viewport)
+                            },
+                            onViewportCommitted: {
+                                viewModel.commitViewportChange()
+                            },
+                            onFill: { point in
+                                handleFill(atCanvasPoint: point, canvasSize: canvasSize)
+                            },
+                            onStrokeChanged: { samples in
+                                liveStrokeSamples = samples
+                            },
+                            onStrokeEnded: { samples in
+                                handleStroke(samples: samples, canvasSize: canvasSize)
+                            }
+                        )
+                        .frame(width: availableSize.width, height: availableSize.height)
+                    }
+
+                    if !isUIHidden && precisionSlidersEnabled {
+                        PrecisionSliderRail(
+                            tool: viewModel.selectedTool,
+                            size: Binding(
+                                get: { viewModel.selectedToolSettings.size },
+                                set: { viewModel.updateSelectedToolSize($0) }
+                            ),
+                            opacity: Binding(
+                                get: { viewModel.selectedToolSettings.opacity },
+                                set: { viewModel.updateSelectedToolOpacity($0) }
+                            )
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: leftHandedMode ? .leading : .trailing)
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 110)
+                    }
                 }
                 .clipped()
                 .contentShape(Rectangle())
@@ -139,13 +166,53 @@ struct ColoringCanvasView: View {
             }
 
             if !isUIHidden {
-                toolDock
-                colorDock
+                VStack {
+                    HStack {
+                        Spacer()
+                        CanvasTopControls(
+                            onSettings: { showSettingsSheet = true },
+                            onShare: { presentShareSheet() },
+                            onDone: { viewModel.saveNow() }
+                        )
+                    }
+                    Spacer()
+                    CanvasHUDView(
+                        viewModel: viewModel,
+                        showColorPicker: $showColorPicker,
+                        showPalettePicker: $showPalettePicker,
+                        fingerPaints: $fingerPaints,
+                        isUIHidden: $isUIHidden,
+                        resetViewport: resetViewport
+                    )
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 18)
             }
         }
-        .padding(.horizontal, 28)
-        .padding(.top, 18)
-        .padding(.bottom, 22)
+        .ignoresSafeArea(edges: .bottom)
+        .sheet(isPresented: $showSettingsSheet) {
+            CanvasSettingsSheet(
+                precisionSlidersEnabled: $precisionSlidersEnabled,
+                opacityEnabled: Binding(
+                    get: { viewModel.selectedTool.supportsOpacityControl },
+                    set: { _ in }
+                ),
+                eyedropperShortcutEnabled: $eyedropperShortcutEnabled,
+                colorHistoryEnabled: $colorHistoryEnabled,
+                leftHandedMode: $leftHandedMode,
+                toolPreviewEnabled: $toolPreviewEnabled,
+                brushSoundsEnabled: $brushSoundsEnabled,
+                colorBlindMode: $colorBlindMode,
+                onRestart: { showClearArtworkConfirmation = true },
+                onDuplicate: {},
+                onDelete: { showClearArtworkConfirmation = true }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $sharePayload) { payload in
+            CanvasShareSheet(image: payload.image)
+        }
         .task(id: renderTuning.canvasStrokeWidth) {
             await viewModel.updateCanvasStrokeWidth(renderTuning.canvasStrokeWidth)
         }
@@ -450,11 +517,34 @@ struct ColoringCanvasView: View {
             NotebookCanvasRepresentable(
                 fillLayerImage: viewModel.fillLayerImage,
                 lineArtImage: viewModel.lineArtImage,
+                freehandDrawing: viewModel.coloringMode == .free ? PKDrawing() : viewModel.freehandDrawing,
+                showsLineArt: viewModel.coloringMode == .clean,
                 liveStrokeSamples: liveStrokeSamples,
                 liveStrokeClip: liveClip,
                 liveStrokeColorHex: viewModel.selectedColorHex,
                 liveStrokeSettings: viewModel.selectedToolSettings
             )
+
+            if viewModel.coloringMode == .free, viewModel.selectedTool != .fillBucket {
+                FreehandCanvasRepresentable(
+                    drawing: Binding(
+                        get: { viewModel.freehandDrawing },
+                        set: { viewModel.updateFreehandDrawing($0) }
+                    ),
+                    selectedTool: viewModel.selectedTool,
+                    colorHex: viewModel.selectedColorHex,
+                    settings: viewModel.selectedToolSettings,
+                    fingerPaints: fingerPaints
+                )
+            }
+
+            if viewModel.coloringMode == .free, let lineArtImage = viewModel.lineArtImage {
+                Image(uiImage: lineArtImage)
+                    .resizable()
+                    .scaledToFit()
+                    .blendMode(.multiply)
+                    .allowsHitTesting(false)
+            }
 
             if fillFeedbackID != nil {
                 fillFeedback
@@ -573,11 +663,33 @@ struct ColoringCanvasView: View {
         viewModel.updateViewport(viewport)
         viewModel.commitViewportChange()
     }
+
+    private func presentShareSheet() {
+        guard let image = viewModel.exportImage() else { return }
+        sharePayload = CanvasSharePayload(image: image)
+    }
+}
+
+private struct CanvasSharePayload: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
+private struct CanvasShareSheet: UIViewControllerRepresentable {
+    let image: UIImage
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        ExportService().shareActivityController(image: image)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 private struct NotebookCanvasRepresentable: UIViewRepresentable {
     let fillLayerImage: UIImage?
     let lineArtImage: UIImage?
+    let freehandDrawing: PKDrawing
+    let showsLineArt: Bool
     let liveStrokeSamples: [StrokeSample]
     let liveStrokeClip: StrokeRenderClip?
     let liveStrokeColorHex: String
@@ -596,6 +708,8 @@ private struct NotebookCanvasRepresentable: UIViewRepresentable {
         uiView.configure(
             fillLayerImage: fillLayerImage,
             lineArtImage: lineArtImage,
+            freehandDrawing: freehandDrawing,
+            showsLineArt: showsLineArt,
             liveStrokeSamples: liveStrokeSamples,
             liveStrokeClip: liveStrokeClip,
             liveStrokeColorHex: liveStrokeColorHex,
@@ -607,6 +721,8 @@ private struct NotebookCanvasRepresentable: UIViewRepresentable {
 private final class NotebookCanvasUIView: UIView {
     private var fillLayerImage: UIImage?
     private var lineArtImage: UIImage?
+    private var freehandDrawing = PKDrawing()
+    private var showsLineArt = true
     private var liveStrokeSamples: [StrokeSample] = []
     private var liveStrokeClip: StrokeRenderClip?
     private var liveStrokeColorHex = SableTheme.progressPinkHex
@@ -615,6 +731,8 @@ private final class NotebookCanvasUIView: UIView {
     func configure(
         fillLayerImage: UIImage?,
         lineArtImage: UIImage?,
+        freehandDrawing: PKDrawing,
+        showsLineArt: Bool,
         liveStrokeSamples: [StrokeSample],
         liveStrokeClip: StrokeRenderClip?,
         liveStrokeColorHex: String,
@@ -622,6 +740,8 @@ private final class NotebookCanvasUIView: UIView {
     ) {
         let imageChanged = self.fillLayerImage !== fillLayerImage
             || self.lineArtImage !== lineArtImage
+            || self.freehandDrawing.dataRepresentation() != freehandDrawing.dataRepresentation()
+            || self.showsLineArt != showsLineArt
         let changed = imageChanged
             || self.liveStrokeSamples != liveStrokeSamples
             || self.liveStrokeColorHex != liveStrokeColorHex
@@ -631,6 +751,8 @@ private final class NotebookCanvasUIView: UIView {
 
         self.fillLayerImage = fillLayerImage
         self.lineArtImage = lineArtImage
+        self.freehandDrawing = freehandDrawing
+        self.showsLineArt = showsLineArt
         self.liveStrokeSamples = liveStrokeSamples
         self.liveStrokeClip = liveStrokeClip
         self.liveStrokeColorHex = liveStrokeColorHex
@@ -655,6 +777,10 @@ private final class NotebookCanvasUIView: UIView {
         let artRect = imageRect(for: fillLayerImage ?? lineArtImage, in: canvasBounds)
         fillLayerImage?.draw(in: artRect)
 
+        if !freehandDrawing.bounds.isNull && !freehandDrawing.bounds.isEmpty {
+            freehandDrawing.image(from: CGRect(origin: .zero, size: artRect.size), scale: 1).draw(in: artRect)
+        }
+
         if liveStrokeSamples.count > 1 {
             context.saveGState()
             BrushRenderers.drawLiveStroke(
@@ -670,7 +796,7 @@ private final class NotebookCanvasUIView: UIView {
             context.restoreGState()
         }
 
-        if let lineArtImage {
+        if showsLineArt, let lineArtImage {
             context.saveGState()
             context.setBlendMode(.multiply)
             lineArtImage.draw(in: imageRect(for: lineArtImage, in: canvasBounds))
@@ -719,6 +845,72 @@ private final class NotebookCanvasUIView: UIView {
             return lhs.path === rhs.path && lhs.fillRule == rhs.fillRule
         default:
             return false
+        }
+    }
+}
+
+private struct FreehandCanvasRepresentable: UIViewRepresentable {
+    @Binding var drawing: PKDrawing
+    var selectedTool: ToolType
+    var colorHex: String
+    var settings: ToolSettings
+    var fingerPaints: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIView(context: Context) -> PKCanvasView {
+        let canvas = PKCanvasView()
+        canvas.backgroundColor = .clear
+        canvas.isOpaque = false
+        canvas.drawingPolicy = fingerPaints ? .anyInput : .pencilOnly
+        canvas.delegate = context.coordinator
+        canvas.drawing = drawing
+        canvas.tool = makeTool()
+        canvas.minimumZoomScale = 1
+        canvas.maximumZoomScale = 1
+        canvas.bounces = false
+        return canvas
+    }
+
+    func updateUIView(_ uiView: PKCanvasView, context: Context) {
+        context.coordinator.parent = self
+        if uiView.drawing.dataRepresentation() != drawing.dataRepresentation() {
+            uiView.drawing = drawing
+        }
+        uiView.drawingPolicy = fingerPaints ? .anyInput : .pencilOnly
+        uiView.tool = makeTool()
+    }
+
+    private func makeTool() -> PKTool {
+        if selectedTool == .eraser {
+            return PKEraserTool(.bitmap)
+        }
+
+        let color = UIColor(hex: colorHex).withAlphaComponent(CGFloat(settings.opacity))
+        let width = max(1, settings.size)
+        let inkType: PKInkingTool.InkType
+        switch selectedTool {
+        case .marker, .watercolor, .sprayPaint:
+            inkType = .marker
+        case .crayon, .coloredPencil:
+            inkType = .pencil
+        case .eraser, .fillBucket:
+            inkType = .pen
+        }
+        return PKInkingTool(inkType, color: color, width: width)
+    }
+
+    final class Coordinator: NSObject, PKCanvasViewDelegate {
+        var parent: FreehandCanvasRepresentable
+
+        init(parent: FreehandCanvasRepresentable) {
+            self.parent = parent
+        }
+
+        func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+            parent.drawing = canvasView.drawing
         }
     }
 }
@@ -867,7 +1059,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            true
+            gestureRecognizer.view === otherGestureRecognizer.view
         }
 
         func beginStroke(at point: CGPoint) {
@@ -1207,6 +1399,302 @@ private struct OpacityScrubber: View {
                 .accessibilityValue("\(Int((opacity * 100).rounded())) percent")
                 .accessibilityIdentifier("canvas.opacity")
         }
+    }
+}
+
+private struct CanvasHUDView: View {
+    let viewModel: ColoringSessionViewModel
+    @Binding var showColorPicker: Bool
+    @Binding var showPalettePicker: Bool
+    @Binding var fingerPaints: Bool
+    @Binding var isUIHidden: Bool
+    let resetViewport: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button("Undo", systemImage: "arrow.uturn.backward") {
+                Task { await viewModel.undoLastFill() }
+            }
+            .labelStyle(.iconOnly)
+            .disabled(!viewModel.canUndo)
+            .accessibilityIdentifier(A11y.Canvas.undo)
+
+            Button("Redo", systemImage: "arrow.uturn.forward") {
+                Task { await viewModel.redoFill() }
+            }
+            .labelStyle(.iconOnly)
+            .disabled(!viewModel.canRedo)
+            .accessibilityIdentifier(A11y.Canvas.redo)
+
+            ToolDockView(viewModel: viewModel)
+
+            LinesModeToggle(viewModel: viewModel)
+
+            CompactColorControl(
+                viewModel: viewModel,
+                showColorPicker: $showColorPicker,
+                showPalettePicker: $showPalettePicker
+            )
+
+            Button("Finger", systemImage: fingerPaints ? "hand.draw.fill" : "hand.draw") {
+                fingerPaints.toggle()
+            }
+            .labelStyle(.iconOnly)
+
+            Button("Reset View", systemImage: "arrow.counterclockwise", action: resetViewport)
+                .labelStyle(.iconOnly)
+
+            Button(isUIHidden ? "Show UI" : "Hide UI", systemImage: isUIHidden ? "eye" : "eye.slash") {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isUIHidden.toggle()
+                }
+            }
+            .labelStyle(.iconOnly)
+        }
+        .font(.system(size: 16, weight: .bold))
+        .tint(SableTheme.progressPink)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.white.opacity(0.36), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
+        .accessibilityIdentifier("canvas.bottomHUD")
+    }
+}
+
+private struct ToolDockView: View {
+    let viewModel: ColoringSessionViewModel
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(ToolType.allCases) { tool in
+                Button {
+                    viewModel.selectTool(tool)
+                } label: {
+                    Image(systemName: tool.systemImageName)
+                        .font(.system(size: 16, weight: .black))
+                        .foregroundStyle(viewModel.selectedTool == tool ? .white : SableTheme.ink)
+                        .frame(width: 34, height: 34)
+                        .background(viewModel.selectedTool == tool ? SableTheme.cardBlack : Color.white.opacity(0.72), in: RoundedRectangle(cornerRadius: 7))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tool.rawValue)
+                .accessibilityIdentifier("canvas.tool.\(tool.rawValue.normalizedIdentifier)")
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+}
+
+private struct LinesModeToggle: View {
+    let viewModel: ColoringSessionViewModel
+
+    var body: some View {
+        Picker("Lines", selection: Binding(
+            get: { viewModel.coloringMode },
+            set: { viewModel.selectColoringMode($0) }
+        )) {
+            Text("Lines Closed").tag(CanvasColoringMode.clean)
+            Text("Lines Open").tag(CanvasColoringMode.free)
+        }
+        .pickerStyle(.segmented)
+        .frame(width: 226)
+        .accessibilityIdentifier("canvas.cleanFreeToggle")
+    }
+}
+
+private struct CompactColorControl: View {
+    let viewModel: ColoringSessionViewModel
+    @Binding var showColorPicker: Bool
+    @Binding var showPalettePicker: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button {
+                showColorPicker.toggle()
+            } label: {
+                Circle()
+                    .fill(Color(hex: viewModel.selectedColorHex))
+                    .frame(width: 32, height: 32)
+                    .overlay(Circle().stroke(Color.white, lineWidth: 2))
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showColorPicker, arrowEdge: .bottom) {
+                BottomColorWheelView(viewModel: viewModel)
+                    .presentationCompactAdaptation(.popover)
+            }
+            .accessibilityLabel("Color picker")
+            .accessibilityIdentifier("canvas.color.compact")
+
+            Button("Palette", systemImage: "paintpalette.fill") {
+                showPalettePicker.toggle()
+            }
+            .labelStyle(.iconOnly)
+            .popover(isPresented: $showPalettePicker, arrowEdge: .bottom) {
+                PalettePickerPopover(viewModel: viewModel)
+                    .presentationCompactAdaptation(.popover)
+            }
+            .accessibilityIdentifier("canvas.palette.popover")
+        }
+    }
+}
+
+private struct BottomColorWheelView: View {
+    let viewModel: ColoringSessionViewModel
+
+    private let colors = [
+        "#D4213D", "#F16A37", "#F5B84B", "#6F8E62",
+        "#2BBCB3", "#3F7BD9", "#7B68AE", "#111111"
+    ]
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(colors, id: \.self) { hex in
+                Button {
+                    viewModel.selectColor(hex: hex)
+                } label: {
+                    Circle()
+                        .fill(Color(hex: hex))
+                        .frame(width: 36, height: 36)
+                        .overlay {
+                            Circle().stroke(viewModel.selectedColorHex == hex ? SableTheme.cardBlack : Color.white, lineWidth: 3)
+                        }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .background(SableTheme.cream)
+    }
+}
+
+private struct PalettePickerPopover: View {
+    let viewModel: ColoringSessionViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(viewModel.palettes) { palette in
+                Button {
+                    viewModel.selectPalette(palette)
+                    if let first = palette.swatches.first {
+                        viewModel.selectColor(hex: first.hex)
+                    }
+                } label: {
+                    HStack(spacing: 10) {
+                        Text(palette.name)
+                            .font(.system(size: 14, weight: .black))
+                            .foregroundStyle(SableTheme.ink)
+                            .frame(width: 120, alignment: .leading)
+                        HStack(spacing: -4) {
+                            ForEach(palette.swatches.prefix(5)) { swatch in
+                                Circle()
+                                    .fill(Color(hex: swatch.hex))
+                                    .frame(width: 22, height: 22)
+                                    .overlay(Circle().stroke(Color.white, lineWidth: 1))
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier(A11y.Canvas.palette(palette.name))
+            }
+        }
+        .padding(16)
+        .background(SableTheme.cream)
+    }
+}
+
+private struct PrecisionSliderRail: View {
+    let tool: ToolType
+    @Binding var size: CGFloat
+    @Binding var opacity: Double
+
+    var body: some View {
+        VStack(spacing: 14) {
+            if tool.supportsSizeControl {
+                BrushSizeScrubber(size: $size)
+            }
+            if tool.supportsOpacityControl {
+                VStack(spacing: 8) {
+                    Text("\(Int((opacity * 100).rounded()))")
+                        .font(.system(size: 11, weight: .black))
+                        .foregroundStyle(SableTheme.ink)
+                    Slider(value: $opacity, in: ToolSettings.opacityRange)
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 104, height: 34)
+                }
+                .frame(width: 44, height: 120)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        .padding(10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityIdentifier("canvas.precisionSliders")
+    }
+}
+
+private struct CanvasTopControls: View {
+    let onSettings: () -> Void
+    let onShare: () -> Void
+    let onDone: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button("Settings", systemImage: "gearshape.fill", action: onSettings)
+            Button("Share", systemImage: "square.and.arrow.up", action: onShare)
+            Button("Done", systemImage: "checkmark", action: onDone)
+        }
+        .labelStyle(.iconOnly)
+        .font(.system(size: 17, weight: .bold))
+        .tint(SableTheme.ink)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityIdentifier("canvas.topControls")
+    }
+}
+
+private struct CanvasSettingsSheet: View {
+    @Binding var precisionSlidersEnabled: Bool
+    @Binding var opacityEnabled: Bool
+    @Binding var eyedropperShortcutEnabled: Bool
+    @Binding var colorHistoryEnabled: Bool
+    @Binding var leftHandedMode: Bool
+    @Binding var toolPreviewEnabled: Bool
+    @Binding var brushSoundsEnabled: Bool
+    @Binding var colorBlindMode: Bool
+    let onRestart: () -> Void
+    let onDuplicate: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Actions") {
+                    Button("Restart", systemImage: "arrow.counterclockwise", action: onRestart)
+                    Button("Duplicate", systemImage: "doc.on.doc", action: onDuplicate)
+                    Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+                }
+
+                Section("Coloring Settings") {
+                    Toggle("Precision Sliders", isOn: $precisionSlidersEnabled)
+                    Toggle("Opacity", isOn: $opacityEnabled)
+                    Toggle("Eyedropper Shortcut", isOn: $eyedropperShortcutEnabled)
+                    Toggle("Color History", isOn: $colorHistoryEnabled)
+                    Toggle("Left-Handed Mode", isOn: $leftHandedMode)
+                    Toggle("Tool Preview", isOn: $toolPreviewEnabled)
+                    Toggle("ASMR / Brush Sounds", isOn: $brushSoundsEnabled)
+                    Toggle("Color Blind Mode", isOn: $colorBlindMode)
+                    Button("Learn the Basics", systemImage: "questionmark.circle") {}
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .accessibilityIdentifier("canvas.settings.sheet")
     }
 }
 

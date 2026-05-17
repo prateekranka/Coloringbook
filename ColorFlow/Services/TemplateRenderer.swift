@@ -239,6 +239,7 @@ struct TemplateRenderer {
     static func renderExport(
         geometry: TemplateGeometry,
         fills: [String: String],
+        pigmentLayer: UIImage? = nil,
         pencilImage: UIImage?,
         backgroundColor: UIColor,
         size: CGSize
@@ -250,8 +251,12 @@ struct TemplateRenderer {
             backgroundColor.setFill()
             context.fill(bounds)
 
-            let fillLayer = renderFillLayer(geometry: geometry, fills: fills, size: size)
-            fillLayer.draw(in: bounds)
+            if let pigmentLayer {
+                pigmentLayer.draw(in: bounds)
+            } else {
+                let fillLayer = renderFillLayer(geometry: geometry, fills: fills, size: size)
+                fillLayer.draw(in: bounds)
+            }
 
             if let pencilImage = pencilImage {
                 pencilImage.draw(in: bounds)

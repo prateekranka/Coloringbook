@@ -108,6 +108,9 @@ enum ToolType: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+typealias PigmentTool = ToolType
+typealias StrokeContainmentMode = CanvasColoringMode
+
 struct ToolSettings: Codable, Equatable {
     static let sizeRange: ClosedRange<CGFloat> = 1...50
     static let opacityRange: ClosedRange<Double> = 0.1...1

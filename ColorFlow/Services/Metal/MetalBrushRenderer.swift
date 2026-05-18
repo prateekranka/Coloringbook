@@ -31,6 +31,19 @@ enum MetalBrushError: Error {
     case pipelineCreationFailed
 }
 
+extension MetalBrushRenderer {
+    static var isMetalAvailable: Bool {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let _ = device.makeCommandQueue(),
+              let library = device.makeDefaultLibrary(),
+              let _ = library.makeFunction(name: "brush_stroke_vertex"),
+              let _ = library.makeFunction(name: "brush_stroke_fragment") else {
+            return false
+        }
+        return true
+    }
+}
+
 @MainActor
 @Observable
 final class MetalBrushRenderer: NSObject, MTKViewDelegate {
@@ -63,23 +76,19 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
     private static let signpostLog = OSLog(subsystem: "com.prateekranka.colorflow", category: .pointsOfInterest)
 
     override init() {
-        guard let device = MTLCreateSystemDefaultDevice() else {
-            fatalError("MetalBrushRenderer: MTLCreateSystemDefaultDevice returned nil")
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let queue = device.makeCommandQueue() else {
+            fatalError("MetalBrushRenderer: Metal unavailable on this device")
         }
         self.device = device
-
-        guard let queue = device.makeCommandQueue() else {
-            fatalError("MetalBrushRenderer: failed to create command queue")
-        }
         self.commandQueue = queue
 
-        guard let library = device.makeDefaultLibrary() else {
-            fatalError("MetalBrushRenderer: failed to load default shader library")
-        }
-
-        guard let vertexFn = library.makeFunction(name: "brush_stroke_vertex"),
-              let fragmentFn = library.makeFunction(name: "brush_stroke_fragment") else {
-            fatalError("MetalBrushRenderer: brush_stroke_vertex or brush_stroke_fragment not found")
+        guard let library = device.makeDefaultLibrary(),
+              let vertexFn = library.makeFunction(name: "brush_stroke_vertex"),
+              let fragmentFn = library.makeFunction(name: "brush_stroke_fragment"),
+              let blitVertexFn = library.makeFunction(name: "brush_blit_vertex"),
+              let blitFragmentFn = library.makeFunction(name: "brush_blit_fragment") else {
+            fatalError("MetalBrushRenderer: shader library unavailable")
         }
 
         let pipelineDesc = MTLRenderPipelineDescriptor()
@@ -94,14 +103,9 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
         pipelineDesc.colorAttachments[0].writeMask = .all
 
         guard let pipeline = try? device.makeRenderPipelineState(descriptor: pipelineDesc) else {
-            fatalError("MetalBrushRenderer: failed to create stroke pipeline state")
+            fatalError("MetalBrushRenderer: pipeline creation failed")
         }
         self.pipelineState = pipeline
-
-        guard let blitVertexFn = library.makeFunction(name: "brush_blit_vertex"),
-              let blitFragmentFn = library.makeFunction(name: "brush_blit_fragment") else {
-            fatalError("MetalBrushRenderer: brush_blit_vertex or brush_blit_fragment not found")
-        }
 
         let blitDesc = MTLRenderPipelineDescriptor()
         blitDesc.vertexFunction = blitVertexFn
@@ -110,7 +114,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
         blitDesc.colorAttachments[0].isBlendingEnabled = false
 
         guard let blitPipeline = try? device.makeRenderPipelineState(descriptor: blitDesc) else {
-            fatalError("MetalBrushRenderer: failed to create blit pipeline state")
+            fatalError("MetalBrushRenderer: blit pipeline creation failed")
         }
         self.blitPipelineState = blitPipeline
 
@@ -250,7 +254,6 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
 
         commandBuffer.present(drawable)
         commandBuffer.commit()
-
         lastFrameLatencyMs = (CACurrentMediaTime() - frameStartTime) * 1000
         os_signpost(.end, log: Self.signpostLog, name: "MetalFrame")
     }
@@ -335,7 +338,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
         let perp = SIMD2<Float>(-tangent.y, tangent.x)
         let center = vertex.position
         let hw = vertex.halfWidth
-        let tangentExt = tangent * hw * 0.15
+        let tangentExt = tangent * hw * 0.6
 
         let corners: [(SIMD2<Float>, Float)] = [
             (center - perp * hw - tangentExt, -1.0),
@@ -450,7 +453,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
             mipmapped: false
         )
         descriptor.usage = [.renderTarget, .shaderRead]
-        descriptor.storageMode = .private
+        descriptor.storageMode = .shared
         accumulationTexture = device.makeTexture(descriptor: descriptor)
         accumulationTextureSize = size
 

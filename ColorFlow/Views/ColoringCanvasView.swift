@@ -13,7 +13,7 @@ struct ColoringCanvasView: View {
     @State private var showClearArtworkConfirmation = false
     @State private var fillFeedbackID: UUID?
     @State private var isUIHidden = false
-    @State private var fingerPaints = false
+    @State private var fingerPaints = true
     @State private var showSettingsSheet = false
     @State private var showColorPicker = false
     @State private var showPalettePicker = false
@@ -301,7 +301,11 @@ struct ColoringCanvasView: View {
         case .pencilKit:
             pencilKitCanvasArtwork(canvasSize: canvasSize)
         case .metalExperimental:
-            metalCanvasArtwork(canvasSize: canvasSize)
+            if MetalBrushRenderer.isMetalAvailable {
+                metalCanvasArtwork(canvasSize: canvasSize)
+            } else {
+                pencilKitCanvasArtwork(canvasSize: canvasSize)
+            }
         }
     }
 
@@ -364,7 +368,7 @@ struct ColoringCanvasView: View {
                         from: viewModel.selectedTool,
                         settings: viewModel.selectedToolSettings,
                         colorHex: viewModel.selectedColorHex
-                    )
+                    ),
                 )
             }
 

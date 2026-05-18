@@ -216,8 +216,8 @@ final class ColoringSessionViewModel {
 
     func selectDrawingEngineMode(_ mode: DrawingEngineMode) {
         drawingEngineMode = mode
-        if mode == .metalExperimental, metalRenderer == nil {
-            metalRenderer = MetalBrushRenderer()
+        if mode == .pencilKit {
+            metalRenderer = nil
         }
         paintState.canvasState.drawingEngine = mode
         markCanvasStateDirty()
@@ -329,20 +329,9 @@ final class ColoringSessionViewModel {
             selectedToolSettings = toolSettingsCache[selectedTool] ?? selectedTool.defaultSettings
             coloringMode = paintState.canvasState.coloringMode
             drawingEngineMode = paintState.canvasState.drawingEngine
-            if drawingEngineMode == .metalExperimental,
-               let filename = paintState.metalStrokeSnapshotFilename {
-                let url = StorageService.documentsURL.appendingPathComponent(filename)
-                if let data = try? Data(contentsOf: url),
-                   let image = UIImage(data: data) {
-                    metalRenderer?.restoreAccumulationTexture(from: image)
-                }
-            }
             viewport = CanvasViewport(canvasState: paintState.canvasState)
             lastSavedRegionFills = paintState.regionFills
             lastSavedStrokeActions = paintState.strokeActions
-            if metalRenderer == nil {
-                metalRenderer = MetalBrushRenderer()
-            }
             clearUndoHistory()
             saveState = .saved
             await renderImages(geometry: parsedGeometry)
@@ -991,7 +980,6 @@ final class ColoringSessionViewModel {
             ColorSwatch(id: UUID(uuidString: "22222222-0000-0000-0000-000000000107")!, name: "Ink", hex: "#111111")
         ]
     )
-}
 
 private struct CanvasStrokeHasher {
     private(set) var value: UInt64 = 0xcbf29ce484222325
@@ -1037,4 +1025,5 @@ private struct StrokePatchAction {
 private struct MetalStrokeAction {
     let beforeSnapshot: UIImage?
     let afterSnapshot: UIImage
+}
 }

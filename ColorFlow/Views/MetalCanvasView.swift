@@ -4,8 +4,11 @@ import MetalKit
 struct MetalCanvasView: UIViewRepresentable {
     var brush: BrushConfiguration
     var backgroundColor: UIColor = UIColor(red: 1.0, green: 0.992, blue: 0.973, alpha: 1.0)
+    var externalRenderer: MetalBrushRenderer?
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(externalRenderer: externalRenderer)
+    }
 
     func makeUIView(context: Context) -> MTKView {
         let mtkView = MetalStrokeInputView(frame: .zero, device: context.coordinator.renderer.device)
@@ -29,28 +32,31 @@ final class MetalStrokeInputView: MTKView {
     weak var coordinator: MetalCanvasView.Coordinator?
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        let touch = touches.first(where: { $0.type == .pencil }) ?? touches.first
+        guard let touch else { return }
         coordinator?.beginStroke(with: touch, in: self)
         setNeedsDisplay()
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        let touch = touches.first(where: { $0.type == .pencil }) ?? touches.first
+        guard let touch else { return }
         let coalescedTouches = event?.coalescedTouches(for: touch) ?? [touch]
-        for coalescedTouch in coalescedTouches where coalescedTouch.type == .pencil {
-            coordinator?.appendStroke(with: coalescedTouch, in: self)
+        for ct in coalescedTouches {
+            coordinator?.appendStroke(with: ct, in: self)
         }
         setNeedsDisplay()
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        let touch = touches.first(where: { $0.type == .pencil }) ?? touches.first
+        guard let touch else { return }
         coordinator?.endStroke(with: touch, in: self)
         setNeedsDisplay()
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard touches.contains(where: { $0.type == .pencil }) else { return }
+        guard touches.contains(where: { $0.type == .pencil }) || !touches.isEmpty else { return }
         coordinator?.cancelStroke()
         setNeedsDisplay()
     }
@@ -62,7 +68,12 @@ final class Coordinator: NSObject, MTKViewDelegate {
     var brush: BrushConfiguration = BrushConfiguration(brushType: .pencil)
 
     override init() {
-        self.renderer = try! MetalBrushRenderer()
+        self.renderer = (try? MetalBrushRenderer())!
+        super.init()
+    }
+
+    init(externalRenderer: MetalBrushRenderer?) {
+        self.renderer = externalRenderer ?? (try! MetalBrushRenderer())
         super.init()
     }
 

@@ -172,6 +172,7 @@ struct StrokeAction: Identifiable, Codable, Equatable {
     var clippedRegionID: String?
     var size: Double
     var opacity: Double
+    var engine: DrawingEngineMode
 
     init(
         id: UUID = UUID(),
@@ -181,7 +182,8 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         samples: [StrokeSample]? = nil,
         clippedRegionID: String?,
         size: Double,
-        opacity: Double
+        opacity: Double,
+        engine: DrawingEngineMode = .pencilKit
     ) {
         self.id = id
         self.tool = tool
@@ -191,6 +193,7 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         self.clippedRegionID = clippedRegionID
         self.size = size
         self.opacity = opacity
+        self.engine = engine
     }
 
     var renderSamples: [StrokeSample] {
@@ -206,6 +209,7 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         case clippedRegionID
         case size
         case opacity
+        case engine
     }
 
     init(from decoder: Decoder) throws {
@@ -221,6 +225,7 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         clippedRegionID = try container.decodeIfPresent(String.self, forKey: .clippedRegionID)
         size = try container.decode(Double.self, forKey: .size)
         opacity = try container.decode(Double.self, forKey: .opacity)
+        engine = try container.decodeIfPresent(DrawingEngineMode.self, forKey: .engine) ?? .pencilKit
     }
 
     func encode(to encoder: Encoder) throws {
@@ -235,6 +240,7 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(clippedRegionID, forKey: .clippedRegionID)
         try container.encode(size, forKey: .size)
         try container.encode(opacity, forKey: .opacity)
+        try container.encode(engine, forKey: .engine)
     }
 }
 

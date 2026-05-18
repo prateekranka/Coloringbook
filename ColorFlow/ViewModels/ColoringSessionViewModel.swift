@@ -233,6 +233,18 @@ final class ColoringSessionViewModel {
         for sample in samples {
             metalStrokes.append(StrokePoint(from: sample))
         }
+        let points = metalStrokes.map { CodablePoint(x: Double($0.position.x), y: Double($0.position.y)) }
+        let action = StrokeAction(
+            tool: selectedTool,
+            colorHex: selectedColorHex,
+            points: points,
+            samples: samples,
+            clippedRegionID: nil,
+            size: selectedToolSettings.size,
+            opacity: selectedToolSettings.opacity,
+            engine: .metalExperimental
+        )
+        paintState.strokeActions.append(action)
     }
 
     func cancelMetalStroke() {
@@ -411,10 +423,16 @@ final class ColoringSessionViewModel {
         storeViewportState()
         saveState = .saving
         storageService.savePaintState(paintState, for: mutableProject)
+        let fillLayerToSave: UIImage?
+        if drawingEngineMode == .metalExperimental {
+            fillLayerToSave = metalRenderer?.snapshotAccumulationTexture() ?? pigmentEngine?.image ?? fillLayerImage
+        } else {
+            fillLayerToSave = pigmentEngine?.image ?? fillLayerImage
+        }
         storageService.save(
             project: &mutableProject,
             drawing: freehandDrawing,
-            fillLayer: pigmentEngine?.image ?? fillLayerImage,
+            fillLayer: fillLayerToSave,
             templateImage: lineArtImage
         )
         project = mutableProject

@@ -160,6 +160,7 @@ struct CanvasState: Codable, Equatable {
     var offsetY: Double = 0
     var selectedTool: ToolType = .crayon
     var coloringMode: CanvasColoringMode = .clean
+    var drawingEngine: DrawingEngineMode = .pencilKit
 }
 
 struct StrokeAction: Identifiable, Codable, Equatable {

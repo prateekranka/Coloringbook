@@ -105,7 +105,9 @@ struct ColoringCanvasView: View {
                         .offset(viewModel.viewport.offset)
                         .allowsHitTesting(viewModel.coloringMode == .free && viewModel.selectedTool != .fillBucket)
 
-                    if viewModel.coloringMode == .clean || viewModel.selectedTool == .fillBucket {
+                    if viewModel.coloringMode == .clean
+                        || viewModel.selectedTool == .fillBucket
+                        || (viewModel.drawingEngineMode == .metalExperimental && viewModel.coloringMode == .free) {
                         CanvasInteractionOverlay(
                             selectedTool: viewModel.selectedTool,
                             fingerPaints: fingerPaints,
@@ -294,7 +296,17 @@ struct ColoringCanvasView: View {
         .accessibilityIdentifier("canvas.gestureTip")
     }
 
+    @ViewBuilder
     private func canvasArtwork(canvasSize: CGSize) -> some View {
+        switch viewModel.drawingEngineMode {
+        case .pencilKit:
+            pencilKitCanvasArtwork(canvasSize: canvasSize)
+        case .metalExperimental:
+            metalCanvasArtwork(canvasSize: canvasSize)
+        }
+    }
+
+    private func pencilKitCanvasArtwork(canvasSize: CGSize) -> some View {
         ZStack {
             NotebookCanvasRepresentable(
                 fillLayerImage: viewModel.fillLayerImage,
@@ -317,6 +329,48 @@ struct ColoringCanvasView: View {
             }
 
             if viewModel.coloringMode == .free, let lineArtImage = viewModel.lineArtImage {
+                Image(uiImage: lineArtImage)
+                    .resizable()
+                    .scaledToFit()
+                    .blendMode(.multiply)
+                    .allowsHitTesting(false)
+            }
+
+            if fillFeedbackID != nil {
+                fillFeedback
+            }
+        }
+        .frame(width: canvasSize.width, height: canvasSize.height)
+        .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
+        .overlay {
+            RoundedRectangle(cornerRadius: SableTheme.Radius.card)
+                .stroke(SableTheme.divider(for: colorScheme), lineWidth: 1)
+        }
+        .shadow(color: SableTheme.shadow(for: colorScheme), radius: 18, x: 0, y: 10)
+    }
+
+    private func metalCanvasArtwork(canvasSize: CGSize) -> some View {
+        ZStack {
+            Color(Color(UIColor(hex: "#FFFDF8")))
+
+            if let fillImage = viewModel.fillLayerImage {
+                Image(uiImage: fillImage)
+                    .resizable()
+                    .scaledToFit()
+            }
+
+            if viewModel.coloringMode == .free, viewModel.selectedTool != .fillBucket {
+                MetalCanvasView(
+                    strokePoints: $viewModel.metalStrokes,
+                    brush: BrushConfiguration(
+                        from: viewModel.selectedTool,
+                        settings: viewModel.selectedToolSettings,
+                        colorHex: viewModel.selectedColorHex
+                    )
+                )
+            }
+
+            if let lineArtImage = viewModel.lineArtImage {
                 Image(uiImage: lineArtImage)
                     .resizable()
                     .scaledToFit()
@@ -1203,6 +1257,13 @@ private struct MinimalCanvasDock: View {
             .labelStyle(.iconOnly)
             .font(.system(size: 17, weight: .bold))
             .accessibilityIdentifier("canvas.tools")
+
+            #if DEBUG
+            CanvasEngineToggleView(engine: Binding(
+                get: { viewModel.drawingEngineMode },
+                set: { viewModel.selectDrawingEngineMode($0) }
+            ))
+            #endif
         }
         .tint(SableTheme.progressPink)
         .foregroundStyle(SableTheme.primaryText(for: colorScheme))
@@ -1401,6 +1462,17 @@ private struct CanvasSettingsSheet: View {
                 Section("Artwork") {
                     Button("Restart Artwork", systemImage: "arrow.counterclockwise", action: onRestart)
                     Button("Clear Artwork", systemImage: "trash", role: .destructive, action: onDelete)
+                }
+
+                Section("Experimental") {
+                    Picker("Engine", selection: Binding(
+                        get: { viewModel.drawingEngineMode },
+                        set: { viewModel.selectDrawingEngineMode($0) }
+                    )) {
+                        Text("PencilKit").tag(DrawingEngineMode.pencilKit)
+                        Text("Metal").tag(DrawingEngineMode.metalExperimental)
+                    }
+                    .pickerStyle(.segmented)
                 }
             }
             .navigationTitle("Palette & Tools")

@@ -45,6 +45,7 @@ targets:
       - path: ColorFlow/Resources/TemplateLineArt
       - path: ColorFlow/Resources/Fonts
       - path: ColorFlow/PrivacyInfo.xcprivacy        # Required for App Store submission
+      - path: ColorFlow/Services/Metal/BrushShader.metal  # Metal shader for experimental drawing engine
       # CoreML model directory (populated after running Scripts/coreml/convert_informative_drawings.py)
       # - path: ColorFlow/Resources/Models            # Uncomment after model is converted
 

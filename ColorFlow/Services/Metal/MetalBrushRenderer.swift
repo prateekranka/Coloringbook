@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import Metal
 import MetalKit
+import UIKit
 import os.log
 import os.signpost
 import simd
@@ -37,6 +38,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
     @ObservationIgnored let device: MTLDevice
     @ObservationIgnored let commandQueue: MTLCommandQueue
     @ObservationIgnored private let pipelineState: MTLRenderPipelineState
+    @ObservationIgnored private let eraserPipelineState: MTLRenderPipelineState
     @ObservationIgnored private let blitPipelineState: MTLRenderPipelineState
 
     @ObservationIgnored private var vertexRingBuffers: [MTLBuffer] = []
@@ -52,7 +54,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
     @ObservationIgnored let smoother: StrokeSmoother
 
     @ObservationIgnored private var accumulationTexture: MTLTexture?
-    @ObservationIgnored private var accumulationTextureSize: CGSize = .zero
+    @ObservationIgnored var accumulationTextureSize: CGSize = .zero
 
     @ObservationIgnored private var viewportSize: CGSize = .zero
 
@@ -94,6 +96,22 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
             fatalError("MetalBrushRenderer: failed to create stroke pipeline state")
         }
         self.pipelineState = pipeline
+
+        let eraserDesc = MTLRenderPipelineDescriptor()
+        eraserDesc.vertexFunction = vertexFn
+        eraserDesc.fragmentFunction = fragmentFn
+        eraserDesc.colorAttachments[0].pixelFormat = .bgra8Unorm
+        eraserDesc.colorAttachments[0].isBlendingEnabled = true
+        eraserDesc.colorAttachments[0].sourceRGBBlendFactor = .zero
+        eraserDesc.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        eraserDesc.colorAttachments[0].sourceAlphaBlendFactor = .zero
+        eraserDesc.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        eraserDesc.colorAttachments[0].writeMask = .all
+
+        guard let eraserPipeline = try? device.makeRenderPipelineState(descriptor: eraserDesc) else {
+            fatalError("MetalBrushRenderer: failed to create eraser pipeline state")
+        }
+        self.eraserPipelineState = eraserPipeline
 
         guard let blitVertexFn = library.makeFunction(name: "brush_blit_vertex"),
               let blitFragmentFn = library.makeFunction(name: "brush_blit_fragment") else {
@@ -154,6 +172,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
 
     func addStrokePoint(_ point: StrokePoint, brush: BrushConfiguration) {
         currentBrushKind = brush.brushType
+        currentIsEraser = brush.brushType == .eraser
 
         let smoothed = smoother.addSample(point)
 
@@ -170,6 +189,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
         smoother.reset()
         currentStrokeVertices.removeAll()
         smoothedStrokePoints.removeAll()
+        currentIsEraser = false
     }
 
     func endStroke() -> [StrokePoint] {
@@ -184,7 +204,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
         return smoothedStrokePoints
     }
 
-    func commitStroke(brush: BrushConfiguration, viewportSize: CGSize) {
+    func commitStroke(brush: BrushConfiguration, viewportSize: CGSize, isEraser: Bool = false) {
         ensureAccumulationTexture(size: viewportSize)
         guard let accumulationTexture, !currentStrokeVertices.isEmpty else { return }
 
@@ -195,7 +215,8 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
             return
         }
 
-        renderStrokeVertices(encoder: encoder, brushKind: brush.brushType, viewportSize: viewportSize)
+        let pipelineToUse = isEraser ? eraserPipelineState : pipelineState
+        renderStrokeVertices(encoder: encoder, brushKind: brush.brushType, viewportSize: viewportSize, pipelineState: pipelineToUse)
         encoder.endEncoding()
         commandBuffer.commit()
         currentStrokeVertices.removeAll()
@@ -232,7 +253,8 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
            let strokeEncoder = commandBuffer.makeRenderCommandEncoder(
             descriptor: makeRenderPassDescriptor(texture: drawable.texture, loadAction: .load)
            ) {
-            renderStrokeVertices(encoder: strokeEncoder, brushKind: currentBrushKind, viewportSize: size)
+            let strokePipeline = currentIsEraser ? eraserPipelineState : pipelineState
+            renderStrokeVertices(encoder: strokeEncoder, brushKind: currentBrushKind, viewportSize: size, pipelineState: strokePipeline)
             strokeEncoder.endEncoding()
         }
 
@@ -255,6 +277,125 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
     func clearCanvas() {
         accumulationTexture = nil
         accumulationTextureSize = .zero
+    }
+
+    func snapshotAccumulationTexture() -> UIImage? {
+        guard let accumulationTexture,
+              accumulationTextureSize.width > 0,
+              accumulationTextureSize.height > 0 else { return nil }
+
+        let width = Int(accumulationTextureSize.width)
+        let height = Int(accumulationTextureSize.height)
+
+        let stagingDesc = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: width,
+            height: height,
+            mipmapped: false
+        )
+        stagingDesc.usage = [.shaderRead]
+        stagingDesc.storageMode = .shared
+
+        guard let stagingTexture = device.makeTexture(descriptor: stagingDesc),
+              let commandBuffer = commandQueue.makeCommandBuffer(),
+              let blitEncoder = commandBuffer.makeBlitCommandEncoder() else { return nil }
+
+        blitEncoder.copy(
+            from: accumulationTexture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
+            sourceSize: MTLSize(width: width, height: height, depth: 1),
+            to: stagingTexture,
+            destinationSlice: 0,
+            destinationLevel: 0,
+            destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0)
+        )
+        blitEncoder.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 0, count: height * bytesPerRow)
+        stagingTexture.getBytes(
+            &pixels,
+            bytesPerRow: bytesPerRow,
+            from: MTLRegionMake2D(0, 0, width, height),
+            mipmapLevel: 0
+        )
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ),
+              let cgImage = context.makeImage() else { return nil }
+
+        return UIImage(cgImage: cgImage)
+    }
+
+    func replaceAccumulationTexture(with image: UIImage) {
+        guard let cgImage = image.cgImage else { return }
+        let width = cgImage.width
+        let height = cgImage.height
+        let size = CGSize(width: CGFloat(width), height: CGFloat(height))
+
+        ensureAccumulationTexture(size: size)
+        guard let accumulationTexture else { return }
+
+        let stagingDesc = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: width,
+            height: height,
+            mipmapped: false
+        )
+        stagingDesc.usage = [.shaderRead]
+        stagingDesc.storageMode = .shared
+
+        guard let stagingTexture = device.makeTexture(descriptor: stagingDesc) else { return }
+
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 0, count: height * bytesPerRow)
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else { return }
+
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)))
+
+        stagingTexture.replace(
+            region: MTLRegionMake2D(0, 0, width, height),
+            mipmapLevel: 0,
+            withBytes: &pixels,
+            bytesPerRow: bytesPerRow
+        )
+
+        guard let commandBuffer = commandQueue.makeCommandBuffer(),
+              let blitEncoder = commandBuffer.makeBlitCommandEncoder() else { return }
+
+        blitEncoder.copy(
+            from: stagingTexture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
+            sourceSize: MTLSize(width: width, height: height, depth: 1),
+            to: accumulationTexture,
+            destinationSlice: 0,
+            destinationLevel: 0,
+            destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0)
+        )
+        blitEncoder.endEncoding()
+        commandBuffer.commit()
     }
 
     func clearLiveStroke() {
@@ -282,7 +423,8 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
            let strokeEncoder = commandBuffer.makeRenderCommandEncoder(
             descriptor: makeRenderPassDescriptor(texture: drawable.texture, loadAction: .load)
            ) {
-            renderStrokeVertices(encoder: strokeEncoder, brushKind: currentBrushKind, viewportSize: size)
+            let strokePipeline = currentIsEraser ? eraserPipelineState : pipelineState
+            renderStrokeVertices(encoder: strokeEncoder, brushKind: currentBrushKind, viewportSize: size, pipelineState: strokePipeline)
             strokeEncoder.endEncoding()
         }
 
@@ -291,6 +433,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
     }
 
     private var currentBrushKind: BrushType = .pencil
+    @ObservationIgnored private var currentIsEraser: Bool = false
 
     private func computeTangent(current: StrokePoint, prev: StrokePoint?, next: StrokePoint?) -> SIMD2<Float> {
         let cur = SIMD2<Float>(Float(current.position.x), Float(current.position.y))
@@ -338,7 +481,8 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
     private func renderStrokeVertices(
         encoder: MTLRenderCommandEncoder,
         brushKind: BrushType,
-        viewportSize: CGSize
+        viewportSize: CGSize,
+        pipelineState: MTLRenderPipelineState? = nil
     ) {
         let pointCount = currentStrokeVertices.count / 4
         guard pointCount > 0 else { return }
@@ -374,7 +518,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
             _pad0: 0
         )
 
-        encoder.setRenderPipelineState(pipelineState)
+        encoder.setRenderPipelineState(pipelineState ?? self.pipelineState)
         encoder.setVertexBuffer(vb, offset: 0, index: 0)
         encoder.setVertexBytes(&uniforms, length: MemoryLayout<StrokeUniforms>.stride, index: 1)
         encoder.drawIndexedPrimitives(
@@ -515,6 +659,8 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
                 case .acrylic:
                     let edge = smoothstep(0.75, 1.0, normalized)
                     alpha = (1.0 - edge) * 0.95
+                case .eraser:
+                    alpha = 1.0 - smoothstep(0.7, 1.0, normalized)
                 }
 
                 let idx = (y * size + x) * 4

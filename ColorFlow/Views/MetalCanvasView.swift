@@ -27,6 +27,7 @@ struct MetalCanvasView: UIViewRepresentable {
         interactionView.insertSubview(mtkView, at: 0)
 
         context.coordinator.mtkView = mtkView
+        viewModel.metalRenderer = context.coordinator.renderer
 
         return interactionView
     }
@@ -48,6 +49,7 @@ struct MetalCanvasView: UIViewRepresentable {
         var viewModel: ColoringSessionViewModel
         var brush: BrushConfiguration
         weak var mtkView: MTKView?
+        private var beforeImage: UIImage?
 
         init(viewModel: ColoringSessionViewModel) {
             self.viewModel = viewModel
@@ -74,6 +76,7 @@ struct MetalCanvasView: UIViewRepresentable {
         }
 
         func beginStroke() {
+            beforeImage = renderer.snapshotAccumulationTexture()
             renderer.beginStroke()
         }
 
@@ -89,7 +92,21 @@ struct MetalCanvasView: UIViewRepresentable {
                 )
             }
             viewModel.endMetalStroke(samples: samples)
-            renderer.commitStroke(brush: brush, viewportSize: mtkView?.drawableSize ?? .zero)
+            renderer.commitStroke(brush: brush, viewportSize: mtkView?.drawableSize ?? .zero, isEraser: brush.brushType == .eraser)
+
+            let afterImage = renderer.snapshotAccumulationTexture()
+            if let before = beforeImage, let after = afterImage {
+                viewModel.pushMetalStrokeUndo(
+                    before: before,
+                    after: after,
+                    tool: viewModel.selectedTool,
+                    colorHex: viewModel.selectedColorHex,
+                    size: viewModel.selectedToolSettings.size,
+                    opacity: viewModel.selectedToolSettings.opacity
+                )
+            }
+            beforeImage = nil
+
             mtkView?.setNeedsDisplay()
         }
     }
@@ -156,13 +173,15 @@ final class MetalCanvasInteractionView: UIView {
     private func handlePencilMoved(touch: UITouch, event: UIEvent?) {
         guard let coordinator else { return }
         let coalesced = event?.coalescedTouches(for: touch) ?? [touch]
+        var newSamples: [StrokeSample] = []
         for coalescedTouch in coalesced where coalescedTouch.type == .pencil {
             let point = strokePoint(from: coalescedTouch)
             coordinator.addStrokePoint(point)
             let sample = strokeSample(from: coalescedTouch)
+            newSamples.append(sample)
             strokeSamples.append(sample)
         }
-        coordinator.viewModel.appendMetalStroke(samples: strokeSamples)
+        coordinator.viewModel.appendMetalStroke(samples: newSamples)
     }
 
     private func handlePencilEnded(touch: UITouch) {

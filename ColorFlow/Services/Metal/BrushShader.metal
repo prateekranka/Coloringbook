@@ -111,6 +111,11 @@ fragment float4 brush_stroke_fragment(
             alpha *= in.color.a;
             break;
         }
+        case 5: {
+            float eraserAlpha = (1.0 - smoothstep(1.0 - in.softness, 1.0, absPerp));
+            alpha = eraserAlpha * in.color.a;
+            return float4(0.0, 0.0, 0.0, alpha);
+        }
         default:
             break;
     }

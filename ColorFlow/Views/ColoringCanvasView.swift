@@ -136,15 +136,19 @@ struct ColoringCanvasView: View {
                                 handleFill(atCanvasPoint: point, canvasSize: canvasSize)
                             },
                             onStrokeBegan: { samples in
+                                guard viewModel.drawingEngineMode == .pencilKit else { return }
                                 handleStrokeBegan(samples: samples, canvasSize: canvasSize)
                             },
                             onStrokeChanged: { samples in
+                                guard viewModel.drawingEngineMode == .pencilKit else { return }
                                 handleStrokeChanged(samples: samples, canvasSize: canvasSize)
                             },
                             onStrokeEnded: { samples in
+                                guard viewModel.drawingEngineMode == .pencilKit else { return }
                                 handleStrokeEnded(samples: samples, canvasSize: canvasSize)
                             },
                             onStrokeCancelled: {
+                                guard viewModel.drawingEngineMode == .pencilKit else { return }
                                 viewModel.cancelLiveStroke()
                             }
                         )

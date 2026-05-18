@@ -239,6 +239,20 @@ final class ColoringSessionViewModel {
         metalStrokes.removeAll()
     }
 
+    func pushMetalStrokeUndo(before: UIImage, after: UIImage, tool: ToolType, colorHex: String, size: Double, opacity: Double) {
+        let rect = CGRect(origin: .zero, size: after.size)
+        let patch = PigmentPatch(rect: rect, before: before, after: after)
+        let action = StrokeAction(tool: tool, colorHex: colorHex, points: [], samples: [], clippedRegionID: nil, size: size, opacity: opacity)
+        let isEraser = tool == .eraser
+        undoStack.append(isEraser ? .erasePatch(StrokePatchAction(action: action, patch: patch)) : .pigmentStrokePatch(StrokePatchAction(action: action, patch: patch)))
+        canUndo = true
+        canRedo = false
+        redoStack.removeAll()
+        markCanvasStateDirty()
+    }
+
+    var metalRenderer: MetalBrushRenderer?
+
     func loadIfNeeded() async {
         guard !hasLoaded else { return }
         await load()
@@ -804,18 +818,30 @@ final class ColoringSessionViewModel {
         switch action {
         case .fillPatch(let action):
             applyFill(regionID: action.regionID, hex: action.previousHex)
-            pigmentEngine?.restore(action.patch.before)
+            if drawingEngineMode == .metalExperimental {
+                metalRenderer?.replaceAccumulationTexture(with: action.patch.before)
+            } else {
+                pigmentEngine?.restore(action.patch.before)
+            }
             fillLayerImage = action.patch.before
             hasUnsavedPigmentChanges = !(paintState.regionFills == lastSavedRegionFills && paintState.strokeActions == lastSavedStrokeActions)
         case .pigmentStrokePatch(let action), .erasePatch(let action):
             paintState.strokeActions.removeAll { $0.id == action.action.id }
-            pigmentEngine?.restore(action.patch.before)
+            if drawingEngineMode == .metalExperimental {
+                metalRenderer?.replaceAccumulationTexture(with: action.patch.before)
+            } else {
+                pigmentEngine?.restore(action.patch.before)
+            }
             fillLayerImage = action.patch.before
             hasUnsavedPigmentChanges = true
         case .clear(let previousFills, let previousStrokes, let previousImage, _):
             paintState.regionFills = previousFills
             paintState.strokeActions = previousStrokes
-            pigmentEngine?.restore(previousImage)
+            if drawingEngineMode == .metalExperimental {
+                metalRenderer?.replaceAccumulationTexture(with: previousImage)
+            } else {
+                pigmentEngine?.restore(previousImage)
+            }
             fillLayerImage = previousImage
             hasUnsavedPigmentChanges = true
         }
@@ -825,18 +851,30 @@ final class ColoringSessionViewModel {
         switch action {
         case .fillPatch(let action):
             applyFill(regionID: action.regionID, hex: action.newHex)
-            pigmentEngine?.restore(action.patch.after)
+            if drawingEngineMode == .metalExperimental {
+                metalRenderer?.replaceAccumulationTexture(with: action.patch.after)
+            } else {
+                pigmentEngine?.restore(action.patch.after)
+            }
             fillLayerImage = action.patch.after
             hasUnsavedPigmentChanges = true
         case .pigmentStrokePatch(let action), .erasePatch(let action):
             paintState.strokeActions.append(action.action)
-            pigmentEngine?.restore(action.patch.after)
+            if drawingEngineMode == .metalExperimental {
+                metalRenderer?.replaceAccumulationTexture(with: action.patch.after)
+            } else {
+                pigmentEngine?.restore(action.patch.after)
+            }
             fillLayerImage = action.patch.after
             hasUnsavedPigmentChanges = true
         case .clear(_, _, _, let clearedImage):
             paintState.regionFills.removeAll()
             paintState.strokeActions.removeAll()
-            pigmentEngine?.restore(clearedImage)
+            if drawingEngineMode == .metalExperimental {
+                metalRenderer?.replaceAccumulationTexture(with: clearedImage)
+            } else {
+                pigmentEngine?.restore(clearedImage)
+            }
             fillLayerImage = clearedImage
             hasUnsavedPigmentChanges = true
         }

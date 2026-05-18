@@ -7,6 +7,7 @@ enum BrushType: String, CaseIterable, Identifiable {
     case watercolor = "Watercolor"
     case spray = "Spray"
     case acrylic = "Acrylic"
+    case eraser = "Eraser"
 
     var id: Self { self }
 }
@@ -80,7 +81,13 @@ struct BrushConfiguration: Equatable {
             resolvedNoise = 0.8
             resolvedPressure = 0.2
             resolvedSpacing = 1.5
-        case .eraser, .fillBucket:
+        case .eraser:
+            resolvedBrushType = .eraser
+            resolvedSoftness = 0.3
+            resolvedNoise = 0.0
+            resolvedPressure = 0.3
+            resolvedSpacing = 0.8
+        case .fillBucket:
             resolvedBrushType = .marker
             resolvedSoftness = 0.8
             resolvedNoise = 0.0
@@ -112,6 +119,8 @@ struct BrushConfiguration: Equatable {
             return BrushConfiguration(brushType: .spray, size: 16, opacity: 0.6, softness: 0.95, noiseIntensity: 0.8, pressureResponse: 0.2, vertexSpacing: 1.5)
         case .acrylic:
             return BrushConfiguration(brushType: .acrylic, size: 8, opacity: 1.0, softness: 0.25, noiseIntensity: 0.04, pressureResponse: 0.7, vertexSpacing: 0.7)
+        case .eraser:
+            return BrushConfiguration(brushType: .eraser, size: 20, opacity: 1.0, softness: 0.3, noiseIntensity: 0, pressureResponse: 0.3, vertexSpacing: 0.8)
         }
     }
 

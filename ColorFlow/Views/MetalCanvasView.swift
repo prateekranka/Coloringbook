@@ -2,43 +2,63 @@ import SwiftUI
 import MetalKit
 
 struct MetalCanvasView: UIViewRepresentable {
-    @Binding var strokePoints: [StrokePoint]
     var brush: BrushConfiguration
     var backgroundColor: UIColor = UIColor(red: 1.0, green: 0.992, blue: 0.973, alpha: 1.0)
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> MTKView {
-        let mtkView = MTKView(frame: .zero, device: context.coordinator.renderer.device)
+        let mtkView = MetalStrokeInputView(frame: .zero, device: context.coordinator.renderer.device)
         mtkView.delegate = context.coordinator
         mtkView.preferredFramesPerSecond = 120
         mtkView.isOpaque = false
         mtkView.framebufferOnly = false
-        mtkView.clearColor = MTLClearColor(
-            red: Double(backgroundColor.cgColor.components?[0] ?? 1.0),
-            green: Double(backgroundColor.cgColor.components?[1] ?? 0.992),
-            blue: Double(backgroundColor.cgColor.components?[2] ?? 0.973),
-            alpha: Double(backgroundColor.cgColor.alpha)
-        )
+        mtkView.clearColor = MTLClearColor(red: 0.996, green: 0.992, blue: 0.973, alpha: 1.0)
         mtkView.colorPixelFormat = .bgra8Unorm
         mtkView.enableSetNeedsDisplay = true
-        mtkView.isPaused = true
+        mtkView.coordinator = context.coordinator
         return mtkView
     }
 
     func updateUIView(_ uiView: MTKView, context: Context) {
-        context.coordinator.strokePoints = strokePoints
         context.coordinator.brush = brush
-        uiView.setNeedsDisplay()
+    }
+}
+
+final class MetalStrokeInputView: MTKView {
+    weak var coordinator: MetalCanvasView.Coordinator?
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        coordinator?.beginStroke(with: touch, in: self)
+        setNeedsDisplay()
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        let coalescedTouches = event?.coalescedTouches(for: touch) ?? [touch]
+        for coalescedTouch in coalescedTouches where coalescedTouch.type == .pencil {
+            coordinator?.appendStroke(with: coalescedTouch, in: self)
+        }
+        setNeedsDisplay()
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
+        coordinator?.endStroke(with: touch, in: self)
+        setNeedsDisplay()
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard touches.contains(where: { $0.type == .pencil }) else { return }
+        coordinator?.cancelStroke()
+        setNeedsDisplay()
     }
 }
 
 @MainActor
 final class Coordinator: NSObject, MTKViewDelegate {
     let renderer: MetalBrushRenderer
-    var strokePoints: [StrokePoint] = []
     var brush: BrushConfiguration = BrushConfiguration(brushType: .pencil)
 
     override init() {
@@ -47,16 +67,52 @@ final class Coordinator: NSObject, MTKViewDelegate {
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-        renderer.ensureAccumulationTexture(size: size)
+        renderer.mtkView(view, drawableSizeWillChange: size)
     }
 
     func draw(in view: MTKView) {
-        guard let drawable = view.currentDrawable else { return }
-        renderer.renderLiveStroke(
-            points: strokePoints,
-            brush: brush,
-            to: drawable,
-            viewportSize: view.drawableSize
+        renderer.draw(in: view)
+    }
+
+    func beginStroke(with touch: UITouch, in view: MetalStrokeInputView) {
+        renderer.beginStroke()
+        let point = strokePoint(from: touch, in: view)
+        renderer.addStrokePoint(point, brush: brush)
+    }
+
+    func appendStroke(with touch: UITouch, in view: MetalStrokeInputView) {
+        let point = strokePoint(from: touch, in: view)
+        renderer.addStrokePoint(point, brush: brush)
+    }
+
+    func endStroke(with touch: UITouch, in view: MetalStrokeInputView) {
+        let viewportSize = view.drawableSize
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+
+        let point = strokePoint(from: touch, in: view)
+        renderer.addStrokePoint(point, brush: brush)
+        _ = renderer.endStroke()
+        renderer.commitStroke(brush: brush, viewportSize: viewportSize)
+    }
+
+    func cancelStroke() {
+        renderer.beginStroke()
+    }
+
+    private func strokePoint(from touch: UITouch, in view: UIView) -> StrokePoint {
+        let force: Float
+        if touch.maximumPossibleForce > 0 {
+            force = Float(touch.force / touch.maximumPossibleForce)
+        } else {
+            force = 1.0
+        }
+        return StrokePoint(
+            position: touch.location(in: view),
+            pressure: force,
+            timestamp: touch.timestamp,
+            altitude: Float(touch.altitudeAngle),
+            azimuth: Float(touch.azimuthAngle(in: view)),
+            predicted: false
         )
     }
 }

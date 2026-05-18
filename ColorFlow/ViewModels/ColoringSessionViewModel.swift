@@ -3,6 +3,7 @@ import Observation
 import PencilKit
 import SwiftUI
 import UIKit
+import os.log
 
 @MainActor
 @Observable
@@ -70,6 +71,7 @@ final class ColoringSessionViewModel {
     @ObservationIgnored private let templateId: UUID?
     @ObservationIgnored private var geometry: TemplateGeometry?
     @ObservationIgnored private var pigmentEngine: RegionPigmentEngine?
+    @ObservationIgnored var metalRenderer: MetalBrushRenderer?
     @ObservationIgnored var paintState = ProjectPaintState()
     @ObservationIgnored private var hasLoaded = false
     @ObservationIgnored private var lastSavedRegionFills: [String: String] = [:]
@@ -206,11 +208,17 @@ final class ColoringSessionViewModel {
     func selectColoringMode(_ mode: CanvasColoringMode) {
         coloringMode = mode
         paintState.canvasState.coloringMode = mode
+        if mode == .clean && drawingEngineMode == .metalExperimental {
+            selectDrawingEngineMode(.pencilKit)
+        }
         markCanvasStateDirty()
     }
 
     func selectDrawingEngineMode(_ mode: DrawingEngineMode) {
         drawingEngineMode = mode
+        if mode == .metalExperimental, metalRenderer == nil {
+            metalRenderer = MetalBrushRenderer()
+        }
         paintState.canvasState.drawingEngine = mode
         markCanvasStateDirty()
     }
@@ -237,6 +245,35 @@ final class ColoringSessionViewModel {
 
     func cancelMetalStroke() {
         metalStrokes.removeAll()
+    }
+
+    func undoMetalStroke() async {
+        guard let action = undoStack.popLast() else { return }
+        redoStack.append(action)
+        syncUndoRedoState()
+        applyUndo(action)
+        hasUnsavedPigmentChanges = true
+    }
+
+    func redoMetalStroke() async {
+        guard let action = redoStack.popLast() else { return }
+        undoStack.append(action)
+        syncUndoRedoState()
+        applyRedo(action)
+        hasUnsavedPigmentChanges = true
+    }
+
+    func pushMetalStrokeUndo(before: UIImage?, after: UIImage) {
+        undoStack.append(.metalSnapshot(before, after))
+        redoStack.removeAll()
+        syncUndoRedoState()
+        hasUnsavedPigmentChanges = true
+    }
+
+    func configureMetalClipping(for point: CGPoint) -> MetalRegionClipper? {
+        guard coloringMode == .clean, let geometry else { return nil }
+        let region = geometry.region(at: point)
+        return MetalRegionClipper(region: region)
     }
 
     func loadIfNeeded() async {
@@ -292,9 +329,20 @@ final class ColoringSessionViewModel {
             selectedToolSettings = toolSettingsCache[selectedTool] ?? selectedTool.defaultSettings
             coloringMode = paintState.canvasState.coloringMode
             drawingEngineMode = paintState.canvasState.drawingEngine
+            if drawingEngineMode == .metalExperimental,
+               let filename = paintState.metalStrokeSnapshotFilename {
+                let url = StorageService.documentsURL.appendingPathComponent(filename)
+                if let data = try? Data(contentsOf: url),
+                   let image = UIImage(data: data) {
+                    metalRenderer?.restoreAccumulationTexture(from: image)
+                }
+            }
             viewport = CanvasViewport(canvasState: paintState.canvasState)
             lastSavedRegionFills = paintState.regionFills
             lastSavedStrokeActions = paintState.strokeActions
+            if metalRenderer == nil {
+                metalRenderer = MetalBrushRenderer()
+            }
             clearUndoHistory()
             saveState = .saved
             await renderImages(geometry: parsedGeometry)
@@ -352,6 +400,10 @@ final class ColoringSessionViewModel {
     }
 
     func undoLastFill() async {
+        if drawingEngineMode == .metalExperimental {
+            await undoMetalStroke()
+            return
+        }
         guard let action = undoStack.popLast() else { return }
         redoStack.append(action)
         syncUndoRedoState()
@@ -360,6 +412,10 @@ final class ColoringSessionViewModel {
     }
 
     func redoFill() async {
+        if drawingEngineMode == .metalExperimental {
+            await redoMetalStroke()
+            return
+        }
         guard let action = redoStack.popLast() else { return }
         undoStack.append(action)
         syncUndoRedoState()
@@ -379,6 +435,11 @@ final class ColoringSessionViewModel {
             )
             fillLayerImage = pigmentEngine?.image
         }
+        if let filename = paintState.metalStrokeSnapshotFilename {
+            try? FileManager.default.removeItem(at: StorageService.documentsURL.appendingPathComponent(filename))
+            paintState.metalStrokeSnapshotFilename = nil
+        }
+        metalRenderer?.clearCanvas()
         clearUndoHistory()
         hasUnsavedPigmentChanges = true
         refreshArtworkAfterEdit()
@@ -388,11 +449,26 @@ final class ColoringSessionViewModel {
     func save() {
         guard var mutableProject = project else { return }
         autosaveTask?.cancel()
+
+        if drawingEngineMode == .metalExperimental {
+            if let image = metalRenderer?.snapshotAccumulationTexture(),
+               let data = image.pngData() {
+                let filename = "\(mutableProject.id)_metal_stroke.png"
+                do {
+                    let url = StorageService.documentsURL.appendingPathComponent(filename)
+                    try data.write(to: url)
+                    paintState.metalStrokeSnapshotFilename = filename
+                } catch {
+                    os_log("Failed to save Metal stroke snapshot: %{public}@", log: .default, type: .error, error.localizedDescription)
+                }
+            }
+        }
+
         paintState.canvasState.selectedTool = selectedTool
         paintState.canvasState.coloringMode = coloringMode
         paintState.canvasState.drawingEngine = drawingEngineMode
         paintState.freehandDrawingData = freehandDrawing.dataRepresentation()
-        paintState.version = 2
+        paintState.version = 3
         paintState.pigmentLayerFilename = mutableProject.fillLayerPath
         storeViewportState()
         saveState = .saving
@@ -491,6 +567,10 @@ final class ColoringSessionViewModel {
             latestDocumentSamples: documentSamples
         )
 
+        if drawingEngineMode == .metalExperimental {
+            beginMetalStroke(samples: canvasSamples)
+        }
+
         if canvasSamples.count > 1 {
             return updateLiveStroke(samples: canvasSamples, canvasSize: canvasSize)
         }
@@ -536,6 +616,11 @@ final class ColoringSessionViewModel {
         activeStroke.latestDocumentSamples = documentSamples
         activePigmentStroke = activeStroke
         fillLayerImage = pigmentEngine.image
+
+        if drawingEngineMode == .metalExperimental {
+            appendMetalStroke(samples: canvasSamples)
+        }
+
         return true
     }
 
@@ -818,6 +903,20 @@ final class ColoringSessionViewModel {
             pigmentEngine?.restore(previousImage)
             fillLayerImage = previousImage
             hasUnsavedPigmentChanges = true
+        case .metalSnapshot(let before, _):
+            if let before {
+                metalRenderer?.restoreAccumulationTexture(from: before)
+            } else {
+                metalRenderer?.clearCanvas()
+            }
+            hasUnsavedPigmentChanges = true
+        case .eraseMetalSnapshot(let before, _):
+            if let before {
+                metalRenderer?.restoreAccumulationTexture(from: before)
+            } else {
+                metalRenderer?.clearCanvas()
+            }
+            hasUnsavedPigmentChanges = true
         }
     }
 
@@ -838,6 +937,12 @@ final class ColoringSessionViewModel {
             paintState.strokeActions.removeAll()
             pigmentEngine?.restore(clearedImage)
             fillLayerImage = clearedImage
+            hasUnsavedPigmentChanges = true
+        case .metalSnapshot(_, let after):
+            metalRenderer?.restoreAccumulationTexture(from: after)
+            hasUnsavedPigmentChanges = true
+        case .eraseMetalSnapshot(_, let after):
+            metalRenderer?.restoreAccumulationTexture(from: after)
             hasUnsavedPigmentChanges = true
         }
     }
@@ -913,6 +1018,8 @@ private enum CanvasEditAction {
     case pigmentStrokePatch(StrokePatchAction)
     case erasePatch(StrokePatchAction)
     case clear(previousFills: [String: String], previousStrokes: [StrokeAction], previousImage: UIImage, clearedImage: UIImage)
+    case metalSnapshot(UIImage?, UIImage)
+    case eraseMetalSnapshot(UIImage?, UIImage)
 }
 
 private struct FillPatchAction {
@@ -925,4 +1032,9 @@ private struct FillPatchAction {
 private struct StrokePatchAction {
     let action: StrokeAction
     let patch: PigmentPatch
+}
+
+private struct MetalStrokeAction {
+    let beforeSnapshot: UIImage?
+    let afterSnapshot: UIImage
 }

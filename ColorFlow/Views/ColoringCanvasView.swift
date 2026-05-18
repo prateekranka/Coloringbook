@@ -106,8 +106,7 @@ struct ColoringCanvasView: View {
                         .allowsHitTesting(viewModel.coloringMode == .free && viewModel.selectedTool != .fillBucket)
 
                     if viewModel.coloringMode == .clean
-                        || viewModel.selectedTool == .fillBucket
-                        || (viewModel.drawingEngineMode == .metalExperimental && viewModel.coloringMode == .free) {
+                        || viewModel.selectedTool == .fillBucket {
                         CanvasInteractionOverlay(
                             selectedTool: viewModel.selectedTool,
                             fingerPaints: fingerPaints,
@@ -361,7 +360,6 @@ struct ColoringCanvasView: View {
 
             if viewModel.coloringMode == .free, viewModel.selectedTool != .fillBucket {
                 MetalCanvasView(
-                    strokePoints: $viewModel.metalStrokes,
                     brush: BrushConfiguration(
                         from: viewModel.selectedTool,
                         settings: viewModel.selectedToolSettings,
@@ -1464,15 +1462,17 @@ private struct CanvasSettingsSheet: View {
                     Button("Clear Artwork", systemImage: "trash", role: .destructive, action: onDelete)
                 }
 
-                Section("Experimental") {
-                    Picker("Engine", selection: Binding(
-                        get: { viewModel.drawingEngineMode },
-                        set: { viewModel.selectDrawingEngineMode($0) }
-                    )) {
-                        Text("PencilKit").tag(DrawingEngineMode.pencilKit)
-                        Text("Metal").tag(DrawingEngineMode.metalExperimental)
+                if viewModel.coloringMode == .free {
+                    Section("Experimental") {
+                        Picker("Engine", selection: Binding(
+                            get: { viewModel.drawingEngineMode },
+                            set: { viewModel.selectDrawingEngineMode($0) }
+                        )) {
+                            Text("PencilKit").tag(DrawingEngineMode.pencilKit)
+                            Text("Metal").tag(DrawingEngineMode.metalExperimental)
+                        }
+                        .pickerStyle(.segmented)
                     }
-                    .pickerStyle(.segmented)
                 }
             }
             .navigationTitle("Palette & Tools")

@@ -50,12 +50,14 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
     @ObservationIgnored private var currentStrokeVertices: [StrokeVertex] = []
     @ObservationIgnored private var smoothedStrokePoints: [StrokePoint] = []
     @ObservationIgnored let smoother: StrokeSmoother
-    @ObservationIgnored let instrumentation: FrameInstrumentation
 
     @ObservationIgnored private var accumulationTexture: MTLTexture?
     @ObservationIgnored private var accumulationTextureSize: CGSize = .zero
 
     @ObservationIgnored private var viewportSize: CGSize = .zero
+
+    @ObservationIgnored private(set) var lastFrameLatencyMs: Double = 0
+    @ObservationIgnored private var frameStartTime: CFTimeInterval = 0
 
     private static let ringBufferCount = 3
     private static let signpostLog = OSLog(subsystem: "com.prateekranka.colorflow", category: .pointsOfInterest)
@@ -119,7 +121,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
             pressureSmoothing: 0.3,
             minDistance: 0.5
         ))
-        self.instrumentation = FrameInstrumentation(enabled: true)
+
 
         super.init()
 
@@ -154,26 +156,28 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
     }
 
     func addStrokePoint(_ point: StrokePoint, brush: BrushConfiguration) {
-        instrumentation.markRawInput(timestamp: point.timestamp)
         currentBrushKind = brush.brushType
-
         let smoothed = smoother.addSample(point)
-        instrumentation.markSmoothed(timestamp: CACurrentMediaTime())
-
         for sp in smoothed {
-            let prev = smoothedStrokePoints.last
-            let tangent = computeTangent(current: sp, prev: prev, next: nil)
-            let vertex = makeStrokeVertex(from: sp, brush: brush, prev: prev, next: nil)
-            smoothedStrokePoints.append(sp)
-            appendQuadVertices(for: vertex, tangent: tangent)
+            appendSmoothedPoint(sp, brush: brush)
         }
     }
 
+    private func appendSmoothedPoint(_ point: StrokePoint, brush: BrushConfiguration) {
+        let prev = smoothedStrokePoints.last
+        let tangent = computeTangent(current: point, prev: prev, next: nil)
+        let vertex = makeStrokeVertex(from: point, brush: brush, prev: prev, next: nil)
+        smoothedStrokePoints.append(point)
+        appendQuadVertices(for: vertex, tangent: tangent)
+    }
+
     func beginStroke() {
+        if !currentStrokeVertices.isEmpty {
+            currentStrokeVertices.removeAll()
+        }
         smoother.reset()
         currentStrokeVertices.removeAll()
         smoothedStrokePoints.removeAll()
-        instrumentation.resetMark()
     }
 
     func endStroke() -> [StrokePoint] {
@@ -207,8 +211,10 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
 
     func draw(in view: MTKView) {
         os_signpost(.begin, log: Self.signpostLog, name: "MetalFrame")
+        frameStartTime = CACurrentMediaTime()
 
         guard let drawable = view.currentDrawable else {
+            lastFrameLatencyMs = (CACurrentMediaTime() - frameStartTime) * 1000
             os_signpost(.end, log: Self.signpostLog, name: "MetalFrame")
             return
         }
@@ -217,6 +223,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
         ensureAccumulationTexture(size: size)
 
         guard let commandBuffer = commandQueue.makeCommandBuffer() else {
+            lastFrameLatencyMs = (CACurrentMediaTime() - frameStartTime) * 1000
             os_signpost(.end, log: Self.signpostLog, name: "MetalFrame")
             return
         }
@@ -225,6 +232,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
             guard let blitEncoder = commandBuffer.makeRenderCommandEncoder(
                 descriptor: makeRenderPassDescriptor(texture: drawable.texture, loadAction: .clear)
             ) else {
+                lastFrameLatencyMs = (CACurrentMediaTime() - frameStartTime) * 1000
                 os_signpost(.end, log: Self.signpostLog, name: "MetalFrame")
                 return
             }
@@ -240,13 +248,10 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
             strokeEncoder.endEncoding()
         }
 
-        instrumentation.markRenderSubmitted(timestamp: CACurrentMediaTime())
         commandBuffer.present(drawable)
         commandBuffer.commit()
 
-        instrumentation.markFrameDrawn(timestamp: CACurrentMediaTime())
-        instrumentation.logLatency()
-
+        lastFrameLatencyMs = (CACurrentMediaTime() - frameStartTime) * 1000
         os_signpost(.end, log: Self.signpostLog, name: "MetalFrame")
     }
 
@@ -264,6 +269,43 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
         accumulationTexture = nil
         accumulationTextureSize = .zero
     }
+
+    func snapshotAccumulationTexture() -> UIImage? {
+        guard let texture = accumulationTexture else { return nil }
+        return texture.toUIImage()
+    }
+
+    func restoreAccumulationTexture(from image: UIImage) {
+        guard let cgImage = image.cgImage else { return }
+        let size = CGSize(width: cgImage.width, height: cgImage.height)
+        ensureAccumulationTexture(size: size)
+        guard let texture = accumulationTexture else { return }
+
+        let region = MTLRegionMake2D(0, 0, cgImage.width, cgImage.height)
+        let bytesPerRow = cgImage.width * 4
+        let byteCount = cgImage.width * cgImage.height * 4
+        var pixelData = [UInt8](repeating: 0, count: byteCount)
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let context = CGContext(
+            data: &pixelData,
+            width: cgImage.width,
+            height: cgImage.height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return }
+
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height))
+        texture.replace(region: region, mipmapLevel: 0, withBytes: &pixelData, bytesPerRow: bytesPerRow)
+    }
+
+#if DEBUG
+    func logPerformance() {
+        print("[MetalRenderer] frame latency: \(String(format: "%.2f", lastFrameLatencyMs))ms")
+    }
+#endif
 
     private var currentBrushKind: BrushType = .pencil
 
@@ -323,8 +365,8 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
         ensureRingBufferCapacity(vertexCount: vertexCount, indexCount: indexCount)
 
         let ringIdx = currentRingIndex
-        guard let vb = vertexRingBuffers[ringIdx],
-              let ib = indexRingBuffers[ringIdx] else { return }
+        let vb = vertexRingBuffers[ringIdx]
+        let ib = indexRingBuffers[ringIdx]
 
         currentStrokeVertices.withUnsafeBytes { rawBuffer in
             guard let base = rawBuffer.baseAddress else { return }
@@ -474,7 +516,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
                 let radius = half - 0.5
                 let normalized = dist / radius
 
-                let alpha: Float
+                var alpha: Float
                 switch kind {
                 case .pencil:
                     let edge = smoothstep(0.7, 1.0, normalized)
@@ -513,4 +555,30 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
 private func smoothstep(_ edge0: Float, _ edge1: Float, _ x: Float) -> Float {
     let t = max(0, min(1, (x - edge0) / (edge1 - edge0)))
     return t * t * (3 - 2 * t)
+}
+
+extension MTLTexture {
+    func toUIImage() -> UIImage? {
+        let width = self.width
+        let height = self.height
+        guard width > 0, height > 0 else { return nil }
+        let bytesPerRow = width * 4
+        let byteCount = width * height * 4
+        var pixelData = [UInt8](repeating: 0, count: byteCount)
+        let region = MTLRegionMake2D(0, 0, width, height)
+        self.getBytes(&pixelData, bytesPerRow: bytesPerRow, from: region, mipmapLevel: 0)
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+        guard let context = CGContext(
+            data: &pixelData,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ), let cgImage = context.makeImage() else { return nil }
+        return UIImage(cgImage: cgImage)
+    }
 }

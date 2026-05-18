@@ -84,11 +84,17 @@ struct RegionMask {
 final class RegionMaskCache {
     private var masks: [String: RegionMask] = [:]
 
-    func mask(for region: RegionGeometry, canvasSize: CGSize) -> RegionMask {
+    func mask(
+        for region: RegionGeometry,
+        canvasSize: CGSize,
+        documentToBitmap: CGAffineTransform = .identity
+    ) -> RegionMask {
         let key = "\(region.id)-\(Int(canvasSize.width))x\(Int(canvasSize.height))"
         if let cached = masks[key] {
             return cached
         }
+        var documentToBitmap = documentToBitmap
+        let bitmapPath = region.path.copy(using: &documentToBitmap) ?? region.path
 
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
@@ -98,11 +104,11 @@ final class RegionMaskCache {
             UIColor.clear.setFill()
             context.fill(CGRect(origin: .zero, size: canvasSize))
             let cgContext = context.cgContext
-            cgContext.addPath(region.path)
+            cgContext.addPath(bitmapPath)
             cgContext.setFillColor(UIColor.white.cgColor)
             cgContext.fillPath(using: region.fillRule)
         }
-        let mask = RegionMask(regionID: region.id, path: region.path, fillRule: region.fillRule, image: image)
+        let mask = RegionMask(regionID: region.id, path: bitmapPath, fillRule: region.fillRule, image: image)
         masks[key] = mask
         return mask
     }
@@ -118,11 +124,11 @@ final class PigmentBitmap {
 
     init(size: CGSize, image: UIImage? = nil) {
         self.size = size
-        self.image = image ?? PigmentBitmap.emptyImage(size: size)
+        self.image = image.map { PigmentBitmap.normalizedImage($0, size: size) } ?? PigmentBitmap.emptyImage(size: size)
     }
 
     func replace(with image: UIImage) {
-        self.image = image
+        self.image = Self.normalizedImage(image, size: size)
     }
 
     func fill(regionMask mask: RegionMask, colorHex: String) -> PigmentPatch {
@@ -163,6 +169,15 @@ final class PigmentBitmap {
         PigmentBitmap(size: size, image: UIImage(contentsOfFile: url.path))
     }
 
+    static func normalizedImage(_ image: UIImage, size: CGSize) -> UIImage {
+        guard abs(image.size.width - size.width) > 0.5 || abs(image.size.height - size.height) > 0.5 else {
+            return image
+        }
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+
     static func emptyImage(size: CGSize) -> UIImage {
         UIGraphicsImageRenderer(size: size, format: format).image { _ in }
     }
@@ -197,10 +212,18 @@ final class RegionPigmentEngine {
     let bitmap: PigmentBitmap
     let geometry: TemplateGeometry
     private let maskCache = RegionMaskCache()
+    private let documentToBitmap: CGAffineTransform
+    private let bitmapToDocument: CGAffineTransform
 
-    init(geometry: TemplateGeometry, existingImage: UIImage? = nil) {
+    init(geometry: TemplateGeometry, bitmapSize: CGSize? = nil, existingImage: UIImage? = nil) {
         self.geometry = geometry
-        self.bitmap = PigmentBitmap(size: geometry.viewBox.size, image: existingImage)
+        let size = bitmapSize ?? geometry.viewBox.size
+        self.documentToBitmap = TemplateRenderer.documentToViewTransform(
+            viewBox: geometry.viewBox,
+            viewSize: size
+        )
+        self.bitmapToDocument = documentToBitmap.inverted()
+        self.bitmap = PigmentBitmap(size: size, image: existingImage)
     }
 
     var image: UIImage {
@@ -209,7 +232,11 @@ final class RegionPigmentEngine {
 
     func fill(regionID: String, colorHex: String) -> PigmentPatch? {
         guard let region = region(withID: regionID) else { return nil }
-        return bitmap.fill(regionMask: maskCache.mask(for: region, canvasSize: bitmap.size), colorHex: colorHex)
+        let patch = bitmap.fill(
+            regionMask: maskCache.mask(for: region, canvasSize: bitmap.size, documentToBitmap: documentToBitmap),
+            colorHex: colorHex
+        )
+        return patch.inDocumentSpace(using: bitmapToDocument)
     }
 
     func renderCleanStroke(
@@ -249,15 +276,15 @@ final class RegionPigmentEngine {
             tool: tool,
             colorHex: colorHex,
             opacity: opacity,
-            size: Double(size),
-            points: points,
+            size: Double(size * documentToBitmapScale),
+            points: points.map { $0.applying(documentToBitmap) },
             regionID: regionID,
             seed: seed
         )
         let mask = regionID
             .flatMap(region(withID:))
-            .map { maskCache.mask(for: $0, canvasSize: bitmap.size) }
-        return bitmap.drawStroke(stroke, mask: mask)
+            .map { maskCache.mask(for: $0, canvasSize: bitmap.size, documentToBitmap: documentToBitmap) }
+        return bitmap.drawStroke(stroke, mask: mask).inDocumentSpace(using: bitmapToDocument)
     }
 
     func renderFreeStroke(
@@ -284,11 +311,15 @@ final class RegionPigmentEngine {
     }
 
     func mask(for region: RegionGeometry) -> RegionMask {
-        maskCache.mask(for: region, canvasSize: bitmap.size)
+        maskCache.mask(for: region, canvasSize: bitmap.size, documentToBitmap: documentToBitmap)
     }
 
     private func region(withID id: String) -> RegionGeometry? {
         geometry.regions.first { $0.id == id }
+    }
+
+    private var documentToBitmapScale: CGFloat {
+        min(bitmap.size.width / geometry.viewBox.width, bitmap.size.height / geometry.viewBox.height)
     }
 }
 
@@ -417,6 +448,14 @@ private struct EraserPigmentRenderer: PigmentBrushRenderer {
 private extension PigmentPatch {
     func withBefore(_ before: UIImage) -> PigmentPatch {
         PigmentPatch(rect: rect, before: before, after: after)
+    }
+
+    func inDocumentSpace(using transform: CGAffineTransform) -> PigmentPatch {
+        PigmentPatch(
+            rect: rect.applying(transform).integral,
+            before: before,
+            after: after
+        )
     }
 }
 

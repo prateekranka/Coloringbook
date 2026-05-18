@@ -41,9 +41,19 @@ final class AppThemeStore {
     }
 
     init() {
-        let rawValue = UserDefaults.standard.string(forKey: Self.themeKey)
+        let launchTheme = ProcessInfo.processInfo.arguments.launchValue(after: "-gouacheTheme")
+        let rawValue = launchTheme ?? UserDefaults.standard.string(forKey: Self.themeKey)
         selectedTheme = rawValue.flatMap(AppTheme.init(rawValue:)) ?? .system
     }
 
     private static let themeKey = "gouache.appTheme"
+}
+
+private extension [String] {
+    func launchValue(after flag: String) -> String? {
+        guard let index = firstIndex(of: flag) else { return nil }
+        let nextIndex = self.index(after: index)
+        guard indices.contains(nextIndex) else { return nil }
+        return self[nextIndex]
+    }
 }

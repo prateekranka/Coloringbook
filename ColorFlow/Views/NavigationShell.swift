@@ -9,6 +9,7 @@ struct NavigationShell: View {
     @State private var profileFocus: ProfileFocus?
     @State private var renderTuning = RenderTuningStore()
     @State private var appThemeStore = AppThemeStore()
+    @State private var didApplyLaunchRoute = false
     private let repository = SableHomeRepository()
 
     var body: some View {
@@ -23,7 +24,7 @@ struct NavigationShell: View {
                     .padding(.bottom, 18)
             }
             .background(SableTheme.appBackground(for: colorScheme).ignoresSafeArea())
-            #if DEBUG
+            #if DEBUG && SHOW_RENDER_METRICS
             .overlay(alignment: .topTrailing) {
                 if path.isEmpty {
                     RenderTuningPanel(tuning: renderTuning)
@@ -36,6 +37,7 @@ struct NavigationShell: View {
             .navigationDestination(for: AppRoute.self) { route in
                 destination(for: route)
             }
+            .onAppear(perform: applyLaunchRouteIfNeeded)
         }
         .environment(renderTuning)
         .environment(appThemeStore)
@@ -109,6 +111,25 @@ struct NavigationShell: View {
         path.append(route)
     }
 
+    private func applyLaunchRouteIfNeeded() {
+        guard !didApplyLaunchRoute else { return }
+        didApplyLaunchRoute = true
+        guard let slug = ProcessInfo.processInfo.arguments.launchValue(after: "-gouacheOpenTemplate"),
+              let template = Template.loadAll().first(where: { $0.svgFilename == "\(slug).svg" }) else {
+            return
+        }
+        path = [
+            .coloringPage(
+                ColoringPage(
+                    templateId: template.id,
+                    title: template.name,
+                    progress: 0,
+                    thumbnailColorHex: SableTheme.progressPinkHex
+                )
+            )
+        ]
+    }
+
     private func openProfile() {
         path.removeAll()
         profileFocus = nil
@@ -134,7 +155,16 @@ struct NavigationShell: View {
     }
 }
 
-#if DEBUG
+private extension [String] {
+    func launchValue(after flag: String) -> String? {
+        guard let index = firstIndex(of: flag) else { return nil }
+        let nextIndex = self.index(after: index)
+        guard indices.contains(nextIndex) else { return nil }
+        return self[nextIndex]
+    }
+}
+
+#if DEBUG && SHOW_RENDER_METRICS
 private struct RenderTuningPanel: View {
     let tuning: RenderTuningStore
     @State private var isExpanded = false

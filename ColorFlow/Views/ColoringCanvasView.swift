@@ -6,6 +6,8 @@ import PencilKit
 @MainActor
 struct ColoringCanvasView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
     @Environment(RenderTuningStore.self) private var renderTuning
     @State private var viewModel: ColoringSessionViewModel
     @State private var showClearArtworkConfirmation = false
@@ -23,7 +25,8 @@ struct ColoringCanvasView: View {
     @State private var brushSoundsEnabled = false
     @State private var colorBlindMode = false
     @State private var sharePayload: CanvasSharePayload?
-    #if DEBUG
+    @AppStorage("gouache.canvasGestureTipDismissed") private var gestureTipDismissed = false
+    #if DEBUG && SHOW_RENDER_METRICS
     @State private var showRenderTuning = false
     #endif
 
@@ -51,7 +54,7 @@ struct ColoringCanvasView: View {
 
     var body: some View {
         ZStack {
-            SableTheme.cream.ignoresSafeArea()
+            SableTheme.canvasBackground(for: colorScheme).ignoresSafeArea()
 
             switch viewModel.state {
             case .idle, .loading:
@@ -64,19 +67,8 @@ struct ColoringCanvasView: View {
                 errorBody(message: message)
             }
         }
-        .navigationTitle(viewModel.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            #if DEBUG
-            ToolbarItem(placement: .topBarTrailing) {
-                renderTuningButton
-            }
-            #endif
-
-            ToolbarItem(placement: .topBarTrailing) {
-                toolbarActions
-            }
-        }
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .alert("Clear artwork?", isPresented: $showClearArtworkConfirmation) {
             Button("Clear Artwork", role: .destructive) {
                 Task {
@@ -126,6 +118,18 @@ struct ColoringCanvasView: View {
                             onViewportCommitted: {
                                 viewModel.commitViewportChange()
                             },
+                            onUndo: {
+                                Task { await viewModel.undoLastFill() }
+                            },
+                            onRedo: {
+                                Task { await viewModel.redoFill() }
+                            },
+                            onToggleFocus: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    isUIHidden.toggle()
+                                }
+                            },
+                            onFit: resetViewport,
                             onFill: { point in
                                 handleFill(atCanvasPoint: point, canvasSize: canvasSize)
                             },
@@ -145,21 +149,10 @@ struct ColoringCanvasView: View {
                         .frame(width: availableSize.width, height: availableSize.height)
                     }
 
-                    if !isUIHidden && precisionSlidersEnabled {
-                        PrecisionSliderRail(
-                            tool: viewModel.selectedTool,
-                            size: Binding(
-                                get: { viewModel.selectedToolSettings.size },
-                                set: { viewModel.updateSelectedToolSize($0) }
-                            ),
-                            opacity: Binding(
-                                get: { viewModel.selectedToolSettings.opacity },
-                                set: { viewModel.updateSelectedToolOpacity($0) }
-                            )
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: leftHandedMode ? .leading : .trailing)
-                        .padding(.horizontal, 18)
-                        .padding(.bottom, 110)
+                    if !gestureTipDismissed && !isUIHidden {
+                        gestureTip
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                            .padding(.top, 74)
                     }
                 }
                 .clipped()
@@ -171,45 +164,74 @@ struct ColoringCanvasView: View {
             }
 
             if !isUIHidden {
-                VStack {
-                    HStack {
-                        Spacer()
-                        CanvasTopControls(
-                            onSettings: { showSettingsSheet = true },
-                            onShare: { presentShareSheet() },
-                            onDone: { viewModel.saveNow() }
-                        )
-                    }
+                VStack(spacing: 0) {
+                    CanvasShellHeader(
+                        title: viewModel.title,
+                        canUndo: viewModel.canUndo,
+                        canRedo: viewModel.canRedo,
+                        canSave: viewModel.canSave,
+                        hasArtwork: viewModel.hasArtwork,
+                        saveLabel: viewModel.saveState.label,
+                        onBack: {
+                            viewModel.saveNow()
+                            dismiss()
+                        },
+                        onUndo: { Task { await viewModel.undoLastFill() } },
+                        onRedo: { Task { await viewModel.redoFill() } },
+                        onSettings: { showSettingsSheet = true },
+                        onShare: { presentShareSheet() },
+                        onSave: { viewModel.save() },
+                        onResetView: resetViewport,
+                        onFocus: {
+                            withAnimation(.easeInOut(duration: 0.22)) {
+                                isUIHidden = true
+                            }
+                        },
+                        onClear: { showClearArtworkConfirmation = true }
+                    )
+
                     Spacer()
-                    CanvasHUDView(
+
+                    MinimalCanvasDock(
                         viewModel: viewModel,
                         showColorPicker: $showColorPicker,
                         showPalettePicker: $showPalettePicker,
-                        fingerPaints: $fingerPaints,
-                        isUIHidden: $isUIHidden,
-                        resetViewport: resetViewport
+                        showSettingsSheet: $showSettingsSheet
                     )
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 18)
+                .padding(.horizontal, 22)
+                .padding(.top, 14)
+                .padding(.bottom, 18)
+            } else {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button("Show controls", systemImage: "eye") {
+                            withAnimation(.easeInOut(duration: 0.22)) {
+                                isUIHidden = false
+                            }
+                        }
+                        .labelStyle(.iconOnly)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                        .frame(width: 44, height: 44)
+                        .background(SableTheme.canvasChrome(for: colorScheme), in: Circle())
+                        .accessibilityIdentifier("canvas.showControls")
+                    }
+                    Spacer()
+                }
+                .padding(22)
             }
         }
         .ignoresSafeArea(edges: .bottom)
         .sheet(isPresented: $showSettingsSheet) {
             CanvasSettingsSheet(
+                viewModel: viewModel,
                 precisionSlidersEnabled: $precisionSlidersEnabled,
-                opacityEnabled: Binding(
-                    get: { viewModel.selectedTool.supportsOpacityControl },
-                    set: { _ in }
-                ),
                 eyedropperShortcutEnabled: $eyedropperShortcutEnabled,
-                colorHistoryEnabled: $colorHistoryEnabled,
                 leftHandedMode: $leftHandedMode,
-                toolPreviewEnabled: $toolPreviewEnabled,
-                brushSoundsEnabled: $brushSoundsEnabled,
                 colorBlindMode: $colorBlindMode,
                 onRestart: { showClearArtworkConfirmation = true },
-                onDuplicate: {},
                 onDelete: { showClearArtworkConfirmation = true }
             )
             .presentationDetents([.medium, .large])
@@ -223,144 +245,7 @@ struct ColoringCanvasView: View {
         }
     }
 
-    private var canvasHeader: some View {
-        HStack(spacing: 16) {
-            Text(viewModel.title)
-                .font(.system(size: 30, weight: .black))
-                .foregroundStyle(SableTheme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-
-            if fillFeedbackID != nil {
-                Label("Filled", systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 14, weight: .black))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(SableTheme.cardBlack, in: Capsule())
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Filled")
-                    .accessibilityIdentifier(A11y.Canvas.fillFeedback)
-            }
-
-            Spacer()
-
-            Picker("Coloring mode", selection: Binding(
-                get: { viewModel.coloringMode },
-                set: { viewModel.selectColoringMode($0) }
-            )) {
-                ForEach(CanvasColoringMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 170)
-            .accessibilityIdentifier("canvas.cleanFreeToggle")
-
-            Button {
-                fingerPaints.toggle()
-            } label: {
-                Image(systemName: fingerPaints ? "hand.draw.fill" : "hand.draw")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(fingerPaints ? Color.white : SableTheme.ink)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(fingerPaints ? SableTheme.cardBlack : Color.white.opacity(0.78), in: Capsule())
-            }
-            .accessibilityLabel(fingerPaints ? "Finger painting on" : "Finger painting off")
-            .accessibilityIdentifier("canvas.fingerPaint")
-
-            Text(viewModel.progressLabel)
-                .font(.system(size: 18, weight: .black))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 15)
-                .padding(.vertical, 8)
-                .background(SableTheme.cardBlack, in: Capsule())
-                .accessibilityIdentifier(A11y.Canvas.progress)
-
-            Label(viewModel.saveState.label, systemImage: viewModel.saveState.systemImageName)
-                .font(.system(size: 14, weight: .black))
-                .foregroundStyle(viewModel.saveState == .dirty ? SableTheme.crimson : SableTheme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(.white.opacity(0.78), in: Capsule())
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(viewModel.saveState.label)
-                .accessibilityIdentifier(A11y.Canvas.saveState)
-
-            Text("\(Int((viewModel.viewport.scale * 100).rounded()))%")
-                .font(.system(size: 16, weight: .black))
-                .foregroundStyle(SableTheme.ink)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(.white.opacity(0.78), in: Capsule())
-                .accessibilityLabel("Zoom \(Int((viewModel.viewport.scale * 100).rounded())) percent")
-                .accessibilityIdentifier(A11y.Canvas.zoom)
-
-            Button(isUIHidden ? "Show UI" : "Hide UI", systemImage: isUIHidden ? "eye" : "eye.slash") {
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    isUIHidden.toggle()
-                }
-            }
-            .labelStyle(.iconOnly)
-            .font(.system(size: 17, weight: .bold))
-            .foregroundStyle(SableTheme.ink)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(.white.opacity(0.78), in: Capsule())
-            .accessibilityIdentifier("canvas.hideUI")
-        }
-    }
-
-    private var toolbarActions: some View {
-        HStack(spacing: 12) {
-            Button("Undo", systemImage: "arrow.uturn.backward") {
-                Task {
-                    await viewModel.undoLastFill()
-                }
-            }
-            .labelStyle(.iconOnly)
-            .disabled(!viewModel.canUndo)
-            .accessibilityIdentifier(A11y.Canvas.undo)
-
-            Button("Redo", systemImage: "arrow.uturn.forward") {
-                Task {
-                    await viewModel.redoFill()
-                }
-            }
-            .labelStyle(.iconOnly)
-            .disabled(!viewModel.canRedo)
-            .accessibilityIdentifier(A11y.Canvas.redo)
-
-            Button("Clear Artwork", systemImage: "trash") {
-                showClearArtworkConfirmation = true
-            }
-            .labelStyle(.iconOnly)
-            .disabled(!viewModel.hasArtwork)
-            .accessibilityIdentifier(A11y.Canvas.clearArtwork)
-
-            Button("Reset View", systemImage: "arrow.counterclockwise", action: resetViewport)
-                .labelStyle(.iconOnly)
-                .accessibilityIdentifier(A11y.Canvas.resetView)
-
-            Button(
-                viewModel.canSave ? "Save" : viewModel.saveState.label,
-                systemImage: viewModel.canSave ? "square.and.arrow.down" : viewModel.saveState.systemImageName
-            ) {
-                viewModel.save()
-            }
-            .labelStyle(.iconOnly)
-            .disabled(!viewModel.canSave || viewModel.isSaving)
-            .accessibilityIdentifier(A11y.Canvas.save)
-        }
-        .font(.system(size: 18, weight: .bold))
-        .tint(SableTheme.progressPink)
-    }
-
-    #if DEBUG
+    #if DEBUG && SHOW_RENDER_METRICS
     private var renderTuningButton: some View {
         Button {
             showRenderTuning.toggle()
@@ -389,131 +274,24 @@ struct ColoringCanvasView: View {
     }
     #endif
 
-    private var colorDock: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 14) {
-                Label(viewModel.selectedColorName, systemImage: "paintpalette.fill")
-                    .font(.system(size: 15, weight: .black))
-                    .foregroundStyle(SableTheme.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .frame(minWidth: 150, alignment: .leading)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(viewModel.palettes) { palette in
-                            Button {
-                                viewModel.selectPalette(palette)
-                            } label: {
-                                Text(palette.name)
-                                    .font(.system(size: 13, weight: .black))
-                                    .foregroundStyle(viewModel.selectedPaletteID == palette.id ? .white : SableTheme.ink)
-                                    .lineLimit(1)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        viewModel.selectedPaletteID == palette.id ? SableTheme.cardBlack : Color.white.opacity(0.7),
-                                        in: Capsule()
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier(A11y.Canvas.palette(palette.name))
-                        }
-                    }
-                    .padding(.vertical, 1)
-                }
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                        ForEach(viewModel.selectedSwatches) { swatch in
-                            colorSwatchButton(swatch)
-                        }
-                }
-                .padding(.vertical, 3)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 13)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
-        .overlay {
-            RoundedRectangle(cornerRadius: SableTheme.Radius.card)
-                .stroke(SableTheme.hairline, lineWidth: 1)
-        }
-    }
-
-    private var toolDock: some View {
-        FloatingPanel {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(ToolType.allCases) { tool in
-                        Button {
-                            viewModel.selectTool(tool)
-                        } label: {
-                            let iconColor = viewModel.selectedTool == tool ? Color.white : SableTheme.ink
-                            VStack(spacing: 5) {
-                                ToolIconView(tool: tool, color: iconColor, size: 20)
-                                Text(tool.rawValue)
-                                    .font(.system(size: 9, weight: .black))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.6)
-                            }
-                            .foregroundStyle(viewModel.selectedTool == tool ? .white : SableTheme.ink)
-                            .frame(width: 74, height: 56)
-                            .background(viewModel.selectedTool == tool ? SableTheme.cardBlack : Color.white.opacity(0.65), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(tool.accessibilityLabel)
-                        .accessibilityIdentifier(tool.accessibilityIdentifier)
-                    }
-
-                    Divider()
-                        .frame(height: 96)
-
-                    ToolAdjustmentPanel(
-                        tool: viewModel.selectedTool,
-                        size: Binding(
-                            get: { viewModel.selectedToolSettings.size },
-                            set: { viewModel.updateSelectedToolSize($0) }
-                        ),
-                        opacity: Binding(
-                            get: { viewModel.selectedToolSettings.opacity },
-                            set: { viewModel.updateSelectedToolOpacity($0) }
-                        ),
-                        textureAmount: viewModel.selectedToolSettings.textureAmount
-                    )
-                }
-            }
-        }
-    }
-
-    private func colorSwatchButton(_ swatch: ColorSwatch) -> some View {
+    private var gestureTip: some View {
         Button {
-            viewModel.selectColor(hex: swatch.hex)
-        } label: {
-            VStack(spacing: 5) {
-                Circle()
-                    .fill(.clear)
-                    .overlay {
-                        PaintDab(
-                            color: Color(hex: swatch.hex),
-                            isSelected: viewModel.selectedColorHex == swatch.hex
-                        )
-                    }
-                    .frame(width: 54, height: 54)
-
-                Text(swatch.name)
-                    .font(.system(size: 10, weight: .black))
-                    .foregroundStyle(SableTheme.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
-                    .frame(width: 72)
+            withAnimation(.easeOut(duration: 0.18)) {
+                gestureTipDismissed = true
             }
-            .frame(width: 76)
+        } label: {
+            Text("Two-finger tap to undo • Pinch to zoom • Tap color to change")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                .padding(.horizontal, 14)
+                .frame(height: 36)
+                .background(SableTheme.canvasChrome(for: colorScheme), in: Capsule())
+                .overlay {
+                    Capsule().stroke(SableTheme.divider(for: colorScheme), lineWidth: 1)
+                }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(swatch.name)
-        .accessibilityIdentifier(A11y.Canvas.color(swatch.hex))
+        .accessibilityIdentifier("canvas.gestureTip")
     }
 
     private func canvasArtwork(canvasSize: CGSize) -> some View {
@@ -554,9 +332,9 @@ struct ColoringCanvasView: View {
         .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
         .overlay {
             RoundedRectangle(cornerRadius: SableTheme.Radius.card)
-                .stroke(SableTheme.cardBlack, lineWidth: 2)
+                .stroke(SableTheme.divider(for: colorScheme), lineWidth: 1)
         }
-        .shadow(color: Color.black.opacity(0.2), radius: 18, x: 0, y: 10)
+        .shadow(color: SableTheme.shadow(for: colorScheme), radius: 18, x: 0, y: 10)
     }
 
     private var fillFeedback: some View {
@@ -619,7 +397,7 @@ struct ColoringCanvasView: View {
     }
 
     private func fittedCanvasSize(in availableSize: CGSize) -> CGSize {
-        let inset: CGFloat = 18
+        let inset: CGFloat = 58
         let documentSize = viewModel.canvasDocumentSize
         let maxSize = CGSize(
             width: max(1, availableSize.width - inset * 2),
@@ -857,6 +635,10 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
     var viewport: CanvasViewport
     var onViewportChanged: (CanvasViewport) -> Void
     var onViewportCommitted: () -> Void
+    var onUndo: () -> Void
+    var onRedo: () -> Void
+    var onToggleFocus: () -> Void
+    var onFit: () -> Void
     var onFill: (CGPoint) -> Void
     var onStrokeBegan: ([StrokeSample]) -> Void
     var onStrokeChanged: ([StrokeSample]) -> Void
@@ -879,9 +661,38 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         tap.delegate = context.coordinator
         view.addGestureRecognizer(tap)
 
+        let doubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleDoubleTap(_:)))
+        doubleTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        doubleTap.numberOfTapsRequired = 2
+        doubleTap.delegate = context.coordinator
+        view.addGestureRecognizer(doubleTap)
+        tap.require(toFail: doubleTap)
+
+        let undoTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleUndoTap(_:)))
+        undoTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        undoTap.numberOfTouchesRequired = 2
+        undoTap.delegate = context.coordinator
+        view.addGestureRecognizer(undoTap)
+        tap.require(toFail: undoTap)
+
+        let redoTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleRedoTap(_:)))
+        redoTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        redoTap.numberOfTouchesRequired = 3
+        redoTap.delegate = context.coordinator
+        view.addGestureRecognizer(redoTap)
+        tap.require(toFail: redoTap)
+
+        let focusTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleFocusTap(_:)))
+        focusTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        focusTap.numberOfTouchesRequired = 4
+        focusTap.delegate = context.coordinator
+        view.addGestureRecognizer(focusTap)
+        tap.require(toFail: focusTap)
+
         let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         pan.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
-        pan.maximumNumberOfTouches = 1
+        pan.minimumNumberOfTouches = 1
+        pan.maximumNumberOfTouches = 2
         pan.delegate = context.coordinator
         view.addGestureRecognizer(pan)
 
@@ -918,8 +729,30 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             parent.onFill(canvasPoint)
         }
 
+        @objc func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
+            guard recognizer.state == .ended else { return }
+            parent.onFit()
+        }
+
+        @objc func handleUndoTap(_ recognizer: UITapGestureRecognizer) {
+            guard recognizer.state == .ended else { return }
+            parent.onUndo()
+        }
+
+        @objc func handleRedoTap(_ recognizer: UITapGestureRecognizer) {
+            guard recognizer.state == .ended else { return }
+            parent.onRedo()
+        }
+
+        @objc func handleFocusTap(_ recognizer: UITapGestureRecognizer) {
+            guard recognizer.state == .ended else { return }
+            parent.onToggleFocus()
+        }
+
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
-            if parent.fingerPaints && parent.selectedTool != .fillBucket {
+            if recognizer.numberOfTouches >= 2 {
+                handleViewportPan(recognizer)
+            } else if parent.selectedTool != .fillBucket {
                 handleFingerStroke(recognizer)
             } else {
                 handleViewportPan(recognizer)
@@ -1112,7 +945,7 @@ private final class CanvasInteractionUIView: UIView {
     }
 }
 
-#if DEBUG
+#if DEBUG && SHOW_RENDER_METRICS
 private struct CanvasRenderTuningPopover: View {
     let tuning: RenderTuningStore
 
@@ -1249,311 +1082,153 @@ private struct SprayToolIcon: View {
     }
 }
 
-private struct ToolAdjustmentPanel: View {
-    let tool: ToolType
-    @Binding var size: CGFloat
-    @Binding var opacity: Double
-    let textureAmount: Double
-
-    var body: some View {
-        HStack(spacing: 14) {
-            if tool.supportsSizeControl {
-                BrushSizeScrubber(size: $size)
-            }
-
-            VStack(alignment: .leading, spacing: 9) {
-                HStack(spacing: 6) {
-                    ToolIconView(tool: tool, color: SableTheme.ink, size: 14)
-
-                    Text(tool.rawValue)
-                        .font(.system(size: 12, weight: .black))
-                        .foregroundStyle(SableTheme.ink)
-                        .lineLimit(1)
-                }
-
-                Text(tool.supportsSizeControl ? "\(Int(size.rounded())) pt" : "Tap to fill")
-                    .font(.system(size: 18, weight: .black))
-                    .foregroundStyle(SableTheme.ink)
-                    .monospacedDigit()
-
-                if tool.supportsOpacityControl {
-                    OpacityScrubber(opacity: $opacity)
-                } else {
-                    Text("Texture \(Int((textureAmount * 100).rounded()))%")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(SableTheme.mutedInk)
-                }
-            }
-            .frame(width: 148, alignment: .leading)
-        }
-        .frame(height: 108)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("canvas.tool.adjustments")
-    }
-}
-
-private struct BrushSizeScrubber: View {
-    @Binding var size: CGFloat
-
-    private let trackHeight: CGFloat = 96
-    private let trackWidth: CGFloat = 14
-    private let thumbDisplayRange: ClosedRange<CGFloat> = 4...24
-
-    @State private var isDragging = false
-
-    var body: some View {
-        let fraction = normalize(size, in: ToolSettings.sizeRange)
-
-        ZStack(alignment: .bottom) {
-            Capsule()
-                .fill(.regularMaterial)
-                .frame(width: trackWidth, height: trackHeight)
-                .overlay {
-                    Capsule().stroke(Color.white.opacity(0.36), lineWidth: 1)
-                }
-
-            Capsule()
-                .fill(SableTheme.progressPink.opacity(0.76))
-                .frame(width: trackWidth, height: max(trackWidth, trackHeight * fraction))
-
-            Circle()
-                .fill(Color.white)
-                .frame(width: displayDiameter(for: size), height: displayDiameter(for: size))
-                .overlay {
-                    Circle().stroke(Color.black.opacity(0.16), lineWidth: 1)
-                }
-                .shadow(color: Color.black.opacity(0.24), radius: 4, y: 2)
-                .offset(y: -trackHeight * fraction + trackWidth / 2)
-                .overlay(alignment: .trailing) {
-                    if isDragging {
-                        Text("\(Int(size.rounded())) pt")
-                            .font(.system(size: 11, weight: .black))
-                            .foregroundStyle(SableTheme.ink)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.white.opacity(0.92), in: Capsule())
-                            .offset(x: 48, y: -trackHeight * fraction + trackWidth / 2)
-                            .transition(.opacity)
-                    }
-                }
-        }
-        .frame(width: 40, height: trackHeight)
-        .contentShape(Rectangle().inset(by: -14))
-        .gesture(dragGesture)
-        .sensoryFeedback(.selection, trigger: Int(size.rounded()))
-        .accessibilityLabel("Brush size")
-        .accessibilityValue("\(Int(size.rounded())) points")
-        .accessibilityIdentifier("canvas.brush.size")
-    }
-
-    private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                let clampedY = min(max(0, trackHeight - value.location.y), trackHeight)
-                let fraction = Double(clampedY / trackHeight)
-                let nextSize = apply(fraction: fraction, to: ToolSettings.sizeRange)
-                if !isDragging {
-                    withAnimation(.easeOut(duration: 0.12)) {
-                        isDragging = true
-                    }
-                }
-                size = nextSize
-            }
-            .onEnded { _ in
-                withAnimation(.easeOut(duration: 0.12)) {
-                    isDragging = false
-                }
-            }
-    }
-
-    private func apply(fraction: Double, to range: ClosedRange<CGFloat>) -> CGFloat {
-        let shaped = fraction * fraction
-        let lower = Double(range.lowerBound)
-        let upper = Double(range.upperBound)
-        return CGFloat(lower + (upper - lower) * shaped)
-    }
-
-    private func normalize(_ value: CGFloat, in range: ClosedRange<CGFloat>) -> CGFloat {
-        guard range.upperBound > range.lowerBound else { return 0 }
-        let linear = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
-        return CGFloat(sqrt(max(0, Double(linear))))
-    }
-
-    private func displayDiameter(for size: CGFloat) -> CGFloat {
-        let range = ToolSettings.sizeRange
-        let fraction = (size - range.lowerBound) / (range.upperBound - range.lowerBound)
-        return thumbDisplayRange.lowerBound + (thumbDisplayRange.upperBound - thumbDisplayRange.lowerBound) * fraction
-    }
-}
-
-private struct OpacityScrubber: View {
-    @Binding var opacity: Double
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Text("Opacity")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(SableTheme.mutedInk)
-                Text("\(Int((opacity * 100).rounded()))%")
-                    .font(.system(size: 11, weight: .black))
-                    .foregroundStyle(SableTheme.ink)
-                    .monospacedDigit()
-            }
-
-            Slider(value: $opacity, in: ToolSettings.opacityRange)
-                .tint(SableTheme.progressPink)
-                .frame(width: 126)
-                .accessibilityLabel("Opacity")
-                .accessibilityValue("\(Int((opacity * 100).rounded())) percent")
-                .accessibilityIdentifier("canvas.opacity")
-        }
-    }
-}
-
-private struct CanvasHUDView: View {
-    let viewModel: ColoringSessionViewModel
-    @Binding var showColorPicker: Bool
-    @Binding var showPalettePicker: Bool
-    @Binding var fingerPaints: Bool
-    @Binding var isUIHidden: Bool
-    let resetViewport: () -> Void
+private struct CanvasShellHeader: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let title: String
+    let canUndo: Bool
+    let canRedo: Bool
+    let canSave: Bool
+    let hasArtwork: Bool
+    let saveLabel: String
+    let onBack: () -> Void
+    let onUndo: () -> Void
+    let onRedo: () -> Void
+    let onSettings: () -> Void
+    let onShare: () -> Void
+    let onSave: () -> Void
+    let onResetView: () -> Void
+    let onFocus: () -> Void
+    let onClear: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            Button("Undo", systemImage: "arrow.uturn.backward") {
-                Task { await viewModel.undoLastFill() }
-            }
-            .labelStyle(.iconOnly)
-            .disabled(!viewModel.canUndo)
-            .accessibilityIdentifier(A11y.Canvas.undo)
-
-            Button("Redo", systemImage: "arrow.uturn.forward") {
-                Task { await viewModel.redoFill() }
-            }
-            .labelStyle(.iconOnly)
-            .disabled(!viewModel.canRedo)
-            .accessibilityIdentifier(A11y.Canvas.redo)
-
-            ToolDockView(viewModel: viewModel)
-
-            LinesModeToggle(viewModel: viewModel)
-
-            CompactColorControl(
-                viewModel: viewModel,
-                showColorPicker: $showColorPicker,
-                showPalettePicker: $showPalettePicker
-            )
-
-            Button("Finger", systemImage: fingerPaints ? "hand.draw.fill" : "hand.draw") {
-                fingerPaints.toggle()
-            }
-            .labelStyle(.iconOnly)
-
-            Button("Reset View", systemImage: "arrow.counterclockwise", action: resetViewport)
+            Button("Back", systemImage: "chevron.left", action: onBack)
                 .labelStyle(.iconOnly)
+                .accessibilityIdentifier("canvas.back")
 
-            Button(isUIHidden ? "Show UI" : "Hide UI", systemImage: isUIHidden ? "eye" : "eye.slash") {
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    isUIHidden.toggle()
-                }
+            Text(title)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .frame(maxWidth: .infinity)
+
+            Menu {
+                Button("Save", systemImage: "square.and.arrow.down", action: onSave)
+                    .disabled(!canSave)
+                Button("Share", systemImage: "square.and.arrow.up", action: onShare)
+                Button("Fit Artwork", systemImage: "arrow.up.left.and.down.right.magnifyingglass", action: onResetView)
+                Button("Focus Mode", systemImage: "eye.slash", action: onFocus)
+                Button("Undo", systemImage: "arrow.uturn.backward", action: onUndo)
+                    .disabled(!canUndo)
+                Button("Redo", systemImage: "arrow.uturn.forward", action: onRedo)
+                    .disabled(!canRedo)
+                Button("Palette & Tools", systemImage: "paintpalette", action: onSettings)
+                Button("Clear Artwork", systemImage: "trash", role: .destructive, action: onClear)
+                    .disabled(!hasArtwork)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 18, weight: .bold))
+                    .frame(width: 44, height: 44)
             }
-            .labelStyle(.iconOnly)
+            .accessibilityLabel("Canvas options")
+            .accessibilityIdentifier("canvas.more")
         }
-        .font(.system(size: 16, weight: .bold))
-        .tint(SableTheme.progressPink)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .font(.system(size: 17, weight: .bold))
+        .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+        .padding(.horizontal, 8)
+        .frame(height: 52)
+        .background(SableTheme.canvasChrome(for: colorScheme), in: Capsule())
         .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.white.opacity(0.36), lineWidth: 1)
+            Capsule().stroke(SableTheme.divider(for: colorScheme), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
-        .accessibilityIdentifier("canvas.bottomHUD")
+        .shadow(color: SableTheme.shadow(for: colorScheme), radius: 12, y: 5)
     }
 }
 
-private struct ToolDockView: View {
-    let viewModel: ColoringSessionViewModel
-
-    var body: some View {
-        HStack(spacing: 6) {
-            ForEach(ToolType.allCases) { tool in
-                Button {
-                    viewModel.selectTool(tool)
-                } label: {
-                    ToolIconView(
-                        tool: tool,
-                        color: viewModel.selectedTool == tool ? .white : SableTheme.ink,
-                        size: 18
-                    )
-                        .frame(width: 34, height: 34)
-                        .background(viewModel.selectedTool == tool ? SableTheme.cardBlack : Color.white.opacity(0.72), in: RoundedRectangle(cornerRadius: 7))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tool.accessibilityLabel)
-                .accessibilityIdentifier(tool.accessibilityIdentifier)
-            }
-        }
-        .padding(.horizontal, 4)
-    }
-}
-
-private struct LinesModeToggle: View {
-    let viewModel: ColoringSessionViewModel
-
-    var body: some View {
-        Picker("Lines", selection: Binding(
-            get: { viewModel.coloringMode },
-            set: { viewModel.selectColoringMode($0) }
-        )) {
-            Text("Lines Closed").tag(CanvasColoringMode.clean)
-            Text("Lines Open").tag(CanvasColoringMode.free)
-        }
-        .pickerStyle(.segmented)
-        .frame(width: 226)
-        .accessibilityIdentifier("canvas.cleanFreeToggle")
-    }
-}
-
-private struct CompactColorControl: View {
+private struct MinimalCanvasDock: View {
+    @Environment(\.colorScheme) private var colorScheme
     let viewModel: ColoringSessionViewModel
     @Binding var showColorPicker: Bool
     @Binding var showPalettePicker: Bool
+    @Binding var showSettingsSheet: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 14) {
             Button {
                 showColorPicker.toggle()
             } label: {
-                Circle()
-                    .fill(Color(hex: viewModel.selectedColorHex))
-                    .frame(width: 32, height: 32)
-                    .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                HStack(spacing: 10) {
+                    Circle()
+                        .fill(Color(hex: viewModel.selectedColorHex))
+                        .frame(width: 30, height: 30)
+                        .overlay(Circle().stroke(SableTheme.divider(for: colorScheme), lineWidth: 1))
+
+                    recentColors
+                }
             }
             .buttonStyle(.plain)
             .popover(isPresented: $showColorPicker, arrowEdge: .bottom) {
                 BottomColorWheelView(viewModel: viewModel)
                     .presentationCompactAdaptation(.popover)
             }
-            .accessibilityLabel("Color picker")
+            .accessibilityLabel("Change color")
             .accessibilityIdentifier("canvas.color.compact")
 
             Button("Palette", systemImage: "paintpalette.fill") {
                 showPalettePicker.toggle()
             }
             .labelStyle(.iconOnly)
+            .font(.system(size: 17, weight: .bold))
             .popover(isPresented: $showPalettePicker, arrowEdge: .bottom) {
                 PalettePickerPopover(viewModel: viewModel)
                     .presentationCompactAdaptation(.popover)
             }
             .accessibilityIdentifier("canvas.palette.popover")
+
+            Picker("Coloring mode", selection: Binding(
+                get: { viewModel.coloringMode },
+                set: { viewModel.selectColoringMode($0) }
+            )) {
+                Text("Clean").tag(CanvasColoringMode.clean)
+                Text("Free").tag(CanvasColoringMode.free)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 138)
+            .accessibilityIdentifier("canvas.cleanFreeToggle")
+
+            Button("Tools", systemImage: "slider.horizontal.3") {
+                showSettingsSheet = true
+            }
+            .labelStyle(.iconOnly)
+            .font(.system(size: 17, weight: .bold))
+            .accessibilityIdentifier("canvas.tools")
+        }
+        .tint(SableTheme.progressPink)
+        .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+        .padding(.horizontal, 14)
+        .frame(height: 58)
+        .background(SableTheme.canvasChrome(for: colorScheme), in: Capsule())
+        .overlay {
+            Capsule().stroke(SableTheme.divider(for: colorScheme), lineWidth: 1)
+        }
+        .shadow(color: SableTheme.shadow(for: colorScheme), radius: 14, y: 7)
+    }
+
+    private var recentColors: some View {
+        HStack(spacing: -3) {
+            ForEach(Array(viewModel.recentColorHexes.prefix(5)), id: \.self) { hex in
+                Circle()
+                    .fill(Color(hex: hex))
+                    .frame(width: 22, height: 22)
+                    .overlay(Circle().stroke(SableTheme.canvasChrome(for: colorScheme), lineWidth: 1))
+            }
         }
     }
 }
 
 private struct BottomColorWheelView: View {
+    @Environment(\.colorScheme) private var colorScheme
     let viewModel: ColoringSessionViewModel
 
     private let colors = [
@@ -1571,18 +1246,21 @@ private struct BottomColorWheelView: View {
                         .fill(Color(hex: hex))
                         .frame(width: 36, height: 36)
                         .overlay {
-                            Circle().stroke(viewModel.selectedColorHex == hex ? SableTheme.cardBlack : Color.white, lineWidth: 3)
+                            Circle().stroke(viewModel.selectedColorHex == hex ? SableTheme.selectedSurface(for: colorScheme) : SableTheme.divider(for: colorScheme), lineWidth: 3)
                         }
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Color \(hex)")
+                .accessibilityIdentifier(A11y.Canvas.color(hex))
             }
         }
         .padding(14)
-        .background(SableTheme.cream)
+        .background(SableTheme.canvasChrome(for: colorScheme))
     }
 }
 
 private struct PalettePickerPopover: View {
+    @Environment(\.colorScheme) private var colorScheme
     let viewModel: ColoringSessionViewModel
 
     var body: some View {
@@ -1597,7 +1275,7 @@ private struct PalettePickerPopover: View {
                     HStack(spacing: 10) {
                         Text(palette.name)
                             .font(.system(size: 14, weight: .black))
-                            .foregroundStyle(SableTheme.ink)
+                            .foregroundStyle(SableTheme.primaryText(for: colorScheme))
                             .frame(width: 120, alignment: .leading)
                         HStack(spacing: -4) {
                             ForEach(palette.swatches.prefix(5)) { swatch in
@@ -1614,96 +1292,124 @@ private struct PalettePickerPopover: View {
             }
         }
         .padding(16)
-        .background(SableTheme.cream)
-    }
-}
-
-private struct PrecisionSliderRail: View {
-    let tool: ToolType
-    @Binding var size: CGFloat
-    @Binding var opacity: Double
-
-    var body: some View {
-        VStack(spacing: 14) {
-            if tool.supportsSizeControl {
-                BrushSizeScrubber(size: $size)
-            }
-            if tool.supportsOpacityControl {
-                VStack(spacing: 8) {
-                    Text("\(Int((opacity * 100).rounded()))")
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundStyle(SableTheme.ink)
-                    Slider(value: $opacity, in: ToolSettings.opacityRange)
-                        .rotationEffect(.degrees(-90))
-                        .frame(width: 104, height: 34)
-                }
-                .frame(width: 44, height: 120)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
-            }
-        }
-        .padding(10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .accessibilityIdentifier("canvas.precisionSliders")
-    }
-}
-
-private struct CanvasTopControls: View {
-    let onSettings: () -> Void
-    let onShare: () -> Void
-    let onDone: () -> Void
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Button("Settings", systemImage: "gearshape.fill", action: onSettings)
-            Button("Share", systemImage: "square.and.arrow.up", action: onShare)
-            Button("Done", systemImage: "checkmark", action: onDone)
-        }
-        .labelStyle(.iconOnly)
-        .font(.system(size: 17, weight: .bold))
-        .tint(SableTheme.ink)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .accessibilityIdentifier("canvas.topControls")
+        .background(SableTheme.canvasChrome(for: colorScheme))
     }
 }
 
 private struct CanvasSettingsSheet: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
+    let viewModel: ColoringSessionViewModel
     @Binding var precisionSlidersEnabled: Bool
-    @Binding var opacityEnabled: Bool
     @Binding var eyedropperShortcutEnabled: Bool
-    @Binding var colorHistoryEnabled: Bool
     @Binding var leftHandedMode: Bool
-    @Binding var toolPreviewEnabled: Bool
-    @Binding var brushSoundsEnabled: Bool
     @Binding var colorBlindMode: Bool
     let onRestart: () -> Void
-    let onDuplicate: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
         NavigationStack {
             List {
-                Section("Actions") {
-                    Button("Restart", systemImage: "arrow.counterclockwise", action: onRestart)
-                    Button("Duplicate", systemImage: "doc.on.doc", action: onDuplicate)
-                    Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+                Section("Tools") {
+                    ForEach(ToolType.allCases) { tool in
+                        Button {
+                            viewModel.selectTool(tool)
+                        } label: {
+                            HStack(spacing: 12) {
+                                ToolIconView(
+                                    tool: tool,
+                                    color: viewModel.selectedTool == tool ? SableTheme.selectedText(for: colorScheme) : SableTheme.primaryText(for: colorScheme),
+                                    size: 20
+                                )
+                                .frame(width: 36, height: 36)
+                                .background(
+                                    viewModel.selectedTool == tool ? SableTheme.selectedSurface(for: colorScheme) : SableTheme.surface(for: colorScheme),
+                                    in: RoundedRectangle(cornerRadius: 8)
+                                )
+
+                                Text(tool.rawValue)
+                                    .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+
+                                Spacer()
+
+                                if viewModel.selectedTool == tool {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(SableTheme.progressPink)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(tool.accessibilityLabel)
+                        .accessibilityIdentifier(tool.accessibilityIdentifier)
+                    }
                 }
 
-                Section("Coloring Settings") {
+                Section("Brush") {
+                    if viewModel.selectedTool.supportsSizeControl {
+                        Slider(
+                            value: Binding(
+                                get: { viewModel.selectedToolSettings.size },
+                                set: { viewModel.updateSelectedToolSize($0) }
+                            ),
+                            in: ToolSettings.sizeRange
+                        ) {
+                            Text("Size")
+                        }
+                    }
+                    if viewModel.selectedTool.supportsOpacityControl {
+                        Slider(
+                            value: Binding(
+                                get: { viewModel.selectedToolSettings.opacity },
+                                set: { viewModel.updateSelectedToolOpacity($0) }
+                            ),
+                            in: ToolSettings.opacityRange
+                        ) {
+                            Text("Opacity")
+                        }
+                    }
+                }
+
+                Section("Colors") {
+                    ForEach(viewModel.selectedSwatches) { swatch in
+                        Button {
+                            viewModel.selectColor(hex: swatch.hex)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(Color(hex: swatch.hex))
+                                    .frame(width: 28, height: 28)
+                                    .overlay(Circle().stroke(SableTheme.divider(for: colorScheme), lineWidth: 1))
+                                Text(swatch.name)
+                                Spacer()
+                                if viewModel.selectedColorHex == swatch.hex {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(SableTheme.progressPink)
+                                }
+                            }
+                        }
+                        .accessibilityIdentifier(A11y.Canvas.color(swatch.hex))
+                    }
+                }
+
+                Section("Preferences") {
                     Toggle("Precision Sliders", isOn: $precisionSlidersEnabled)
-                    Toggle("Opacity", isOn: $opacityEnabled)
                     Toggle("Eyedropper Shortcut", isOn: $eyedropperShortcutEnabled)
-                    Toggle("Color History", isOn: $colorHistoryEnabled)
                     Toggle("Left-Handed Mode", isOn: $leftHandedMode)
-                    Toggle("Tool Preview", isOn: $toolPreviewEnabled)
-                    Toggle("ASMR / Brush Sounds", isOn: $brushSoundsEnabled)
                     Toggle("Color Blind Mode", isOn: $colorBlindMode)
-                    Button("Learn the Basics", systemImage: "questionmark.circle") {}
+                }
+
+                Section("Artwork") {
+                    Button("Restart Artwork", systemImage: "arrow.counterclockwise", action: onRestart)
+                    Button("Clear Artwork", systemImage: "trash", role: .destructive, action: onDelete)
                 }
             }
-            .navigationTitle("Settings")
+            .navigationTitle("Palette & Tools")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
         .accessibilityIdentifier("canvas.settings.sheet")
     }

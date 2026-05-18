@@ -2,7 +2,7 @@ import CoreGraphics
 
 struct CanvasViewport: Equatable {
     static let minimumScale: CGFloat = 1
-    static let maximumScale: CGFloat = 4
+    static let maximumScale: CGFloat = 6
 
     var scale: CGFloat = minimumScale
     var offset: CGSize = .zero

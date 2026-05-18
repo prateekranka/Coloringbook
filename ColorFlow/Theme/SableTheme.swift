@@ -97,6 +97,42 @@ enum SableTheme {
         colorScheme == .dark ? Color.black.opacity(0.42) : Color.black.opacity(0.12)
     }
 
+    static func warmPaper(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#151614") : Color(hex: gouachePaperHex)
+    }
+
+    static func canvasBackground(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#0F1110") : Color(hex: "#F4ECDF")
+    }
+
+    static func canvasChrome(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#1D1E1B").opacity(0.92) : Color(hex: "#FFF8ED").opacity(0.94)
+    }
+
+    static func cardSurface(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#20211E") : Color(hex: "#FFF9F0")
+    }
+
+    static func divider(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.13) : Color.black.opacity(0.12)
+    }
+
+    static func selectedSurface(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#EFE1D0") : Color(hex: "#2C2A27")
+    }
+
+    static func selectedText(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#171615") : Color.white
+    }
+
+    static func disabledText(for colorScheme: ColorScheme) -> Color {
+        secondaryText(for: colorScheme).opacity(0.48)
+    }
+
+    static func shadow(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.black.opacity(0.45) : Color.black.opacity(0.14)
+    }
+
     static func fraunces(_ size: CGFloat, weight: SwiftUI.Font.Weight = .regular) -> SwiftUI.Font {
         SwiftUI.Font.custom("Fraunces", size: size).weight(weight)
     }

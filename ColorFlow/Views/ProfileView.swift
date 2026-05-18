@@ -109,7 +109,7 @@ struct ProfileView: View {
                 }
             }
 
-            ProfileSettingRow(title: "Theme", detail: "System, Light, or Dark") {
+            ProfileSettingRow(title: "Appearance", detail: "Follow the system, stay light, or stay dark.") {
                 Picker("Theme", selection: Binding(
                     get: { themeStore.selectedTheme },
                     set: { themeStore.selectedTheme = $0 }
@@ -122,16 +122,15 @@ struct ProfileView: View {
                 .frame(width: 310)
             }
 
-            ProfileSettingRow(title: "Gesture & Input", detail: "Apple Pencil colors; finger drag pans; pinch zooms") {
-                Text("Configured")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
-                    .padding(.horizontal, 12)
-                    .frame(height: 34)
-                    .background(SableTheme.surface(for: colorScheme), in: Capsule())
+            ProfileSettingRow(title: "Apple Pencil & Touch", detail: "Two-finger undo, three-finger redo, pinch zoom, and clean color regions.") {
+                Image(systemName: "hand.point.up.left.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(SableTheme.progressPink)
+                    .frame(width: 34, height: 34)
+                    .background(SableTheme.surface(for: colorScheme), in: Circle())
             }
 
-            ProfileSettingRow(title: "Saved Palettes", detail: "Custom palette structure is ready for the next pass") {
+            ProfileSettingRow(title: "My Palettes", detail: "A quick view of your current Gouache colors.") {
                 HStack(spacing: -4) {
                     ForEach(["#D4213D", "#2BBCB3", "#F6CF85", "#7B68AE"], id: \.self) { hex in
                         Circle()
@@ -140,6 +139,30 @@ struct ProfileView: View {
                             .overlay(Circle().stroke(.white.opacity(0.8), lineWidth: 1))
                     }
                 }
+            }
+
+            ProfileSettingRow(title: "Storage & Sync", detail: "Artwork is saved on this iPad as you color.") {
+                Image(systemName: "externaldrive.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                    .frame(width: 34, height: 34)
+                    .background(SableTheme.surface(for: colorScheme), in: Circle())
+            }
+
+            ProfileSettingRow(title: "Help", detail: "Gesture tips, coloring basics, and support.") {
+                Image(systemName: "questionmark.circle.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                    .frame(width: 34, height: 34)
+                    .background(SableTheme.surface(for: colorScheme), in: Circle())
+            }
+
+            ProfileSettingRow(title: "About Gouache", detail: "A quiet iPad studio for coloring and keeping a daily art practice.") {
+                Image(systemName: "paintbrush.pointed.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                    .frame(width: 34, height: 34)
+                    .background(SableTheme.surface(for: colorScheme), in: Circle())
             }
         }
         .padding(20)

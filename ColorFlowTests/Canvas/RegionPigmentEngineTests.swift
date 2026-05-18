@@ -34,6 +34,42 @@ final class RegionPigmentEngineTests: XCTestCase {
         XCTAssertEqual(engine.image.alpha(at: CanvasTestFixture.pointOutsideAllRegions), 0)
     }
 
+    func test_highResolutionBitmapFillsTransformedRegionMask() throws {
+        engine = RegionPigmentEngine(geometry: geometry, bitmapSize: CGSize(width: 1000, height: 1000))
+        let region = try XCTUnwrap(geometry.regions.first)
+        let documentInterior = CanvasTestFixture.interiorPoint(of: region)
+        let bitmapInterior = documentInterior.applying(documentToBitmapTransform(for: engine))
+        let outside = CanvasTestFixture.pointOutsideAllRegions.applying(documentToBitmapTransform(for: engine))
+
+        let patch = try XCTUnwrap(engine.fill(regionID: region.id, colorHex: "#FF0000"))
+
+        XCTAssertEqual(engine.image.size, CGSize(width: 1000, height: 1000))
+        XCTAssertGreaterThan(engine.image.alpha(at: bitmapInterior), 200)
+        XCTAssertEqual(engine.image.alpha(at: outside), 0)
+        XCTAssertTrue(patch.rect.intersects(region.bounds))
+    }
+
+    func test_highResolutionBitmapScalesCleanStrokeAndKeepsItClipped() throws {
+        engine = RegionPigmentEngine(geometry: geometry, bitmapSize: CGSize(width: 1000, height: 1000))
+        let regionA = try XCTUnwrap(geometry.regions.first)
+        let regionB = try XCTUnwrap(geometry.regions.dropFirst().first)
+        let start = CanvasTestFixture.interiorPoint(of: regionA)
+        let end = CanvasTestFixture.interiorPoint(of: regionB)
+        let transform = documentToBitmapTransform(for: engine)
+
+        let patch = engine.renderCleanStroke(
+            tool: .marker,
+            colorHex: "#00FF00",
+            points: [start, end],
+            size: 18,
+            opacity: 1
+        )
+
+        XCTAssertNotNil(patch)
+        XCTAssertGreaterThan(engine.image.alpha(at: start.applying(transform)), 0)
+        XCTAssertEqual(engine.image.alpha(at: end.applying(transform)), 0)
+    }
+
     func test_eraserPartiallyErasesTapFillOnlyWhereItTouches() throws {
         let region = try XCTUnwrap(geometry.regions.first)
         let interior = CanvasTestFixture.interiorPoint(of: region)
@@ -247,6 +283,13 @@ final class RegionPigmentEngineTests: XCTestCase {
             cgContext.addLine(to: CGPoint(x: 10, y: size.height))
             cgContext.strokePath()
         }
+    }
+
+    private func documentToBitmapTransform(for engine: RegionPigmentEngine) -> CGAffineTransform {
+        TemplateRenderer.documentToViewTransform(
+            viewBox: geometry.viewBox,
+            viewSize: engine.bitmap.size
+        )
     }
 }
 

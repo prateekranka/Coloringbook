@@ -44,6 +44,10 @@ struct Template: Identifiable, Codable, Hashable {
         Self.expectedCatalogSlugs.firstIndex(of: slug) ?? -1
     }
 
+    var displayAspectRatio: Double {
+        Self.catalogAspectRatios[slug] ?? 1
+    }
+
     var svgURL: URL? {
         if let dirPath = userTemplateDirectoryPath {
             let url = StorageService.documentsURL
@@ -113,6 +117,19 @@ extension Template {
         "rainy-library",
         "mediterranean-kitchen-window",
         "florist-window"
+    ]
+
+    static let catalogAspectRatios: [String: Double] = [
+        "wildflowers": 1122.0 / 1402.0,
+        "lemon-branch": 1122.0 / 1402.0,
+        "sunday-light": 1122.0 / 1402.0,
+        "amalfi-afternoon": 1122.0 / 1402.0,
+        "toucan-canopy": 1,
+        "lemon-balcony": 1376.0 / 768.0,
+        "quiet-balcony-room": 1408.0 / 768.0,
+        "rainy-library": 928.0 / 1152.0,
+        "mediterranean-kitchen-window": 1376.0 / 768.0,
+        "florist-window": 928.0 / 1152.0
     ]
 
     static let bundledTemplates: [Template] = [

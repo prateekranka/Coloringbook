@@ -49,7 +49,7 @@ struct TemplateListView: View {
                 }
                 .padding(.horizontal, SableTheme.Spacing.pageInset)
                 .padding(.top, 28)
-                .padding(.bottom, 32)
+                .padding(.bottom, 132)
             }
         }
         .navigationTitle(viewModel.source.title)
@@ -112,14 +112,10 @@ struct TemplateListView: View {
                 sectionTitle("All Templates")
             }
 
-            LazyVGrid(columns: columns, spacing: 18) {
-                ForEach(Array(viewModel.filteredTemplates.enumerated()), id: \.element.id) { index, template in
-                    TemplateCard(template: template, isTall: index % 5 == 1 || index % 5 == 3) {
-                        Task {
-                            let route = await viewModel.routeForTemplate(template)
-                            navigate(route)
-                        }
-                    }
+            MasonryTemplateGrid(templates: viewModel.filteredTemplates) { template in
+                Task {
+                    let route = await viewModel.routeForTemplate(template)
+                    navigate(route)
                 }
             }
         }
@@ -242,9 +238,70 @@ private struct LibraryCollectionCard: View {
     }
 }
 
+private struct MasonryTemplateGrid: View {
+    let templates: [Template]
+    let onTap: (Template) -> Void
+    @State private var measuredHeight: CGFloat = 320
+
+    var body: some View {
+        GeometryReader { proxy in
+            let columnCount = proxy.size.width > 980 ? 4 : (proxy.size.width > 640 ? 3 : 2)
+            let columns = balancedColumns(count: columnCount, width: proxy.size.width)
+            let height = gridHeight(columnCount: columnCount, width: proxy.size.width)
+
+            HStack(alignment: .top, spacing: 18) {
+                ForEach(columns.indices, id: \.self) { columnIndex in
+                    LazyVStack(spacing: 18) {
+                        ForEach(columns[columnIndex]) { template in
+                            TemplateCard(template: template) {
+                                onTap(template)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .onAppear {
+                measuredHeight = height
+            }
+            .onChange(of: proxy.size.width) { _, _ in
+                measuredHeight = height
+            }
+        }
+        .frame(height: measuredHeight)
+        .frame(minHeight: 320)
+    }
+
+    private func balancedColumns(count: Int, width: CGFloat) -> [[Template]] {
+        var columns = Array(repeating: [Template](), count: count)
+        var heights = Array(repeating: CGFloat.zero, count: count)
+        let columnWidth = (width - CGFloat(count - 1) * 18) / CGFloat(count)
+
+        for template in templates {
+            let index = heights.enumerated().min(by: { $0.element < $1.element })?.offset ?? 0
+            columns[index].append(template)
+            heights[index] += estimatedHeight(for: template, columnWidth: columnWidth) + 18
+        }
+
+        return columns
+    }
+
+    private func gridHeight(columnCount: Int, width: CGFloat) -> CGFloat {
+        let columns = balancedColumns(count: columnCount, width: width)
+        let columnWidth = (width - CGFloat(columnCount - 1) * 18) / CGFloat(columnCount)
+        return max(320, columns.map { column in
+            column.reduce(CGFloat.zero) { $0 + estimatedHeight(for: $1, columnWidth: columnWidth) + 18 }
+        }.max() ?? 320)
+    }
+
+    private func estimatedHeight(for template: Template, columnWidth: CGFloat) -> CGFloat {
+        let artworkHeight = columnWidth / CGFloat(max(0.64, min(1.85, template.displayAspectRatio)))
+        return artworkHeight + 76
+    }
+}
+
 private struct TemplateCard: View {
     let template: Template
-    let isTall: Bool
     let onTap: () -> Void
     @Environment(\.colorScheme) private var colorScheme
 
@@ -252,7 +309,7 @@ private struct TemplateCard: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 0) {
                 TemplateThumbnailView(template: template)
-                    .aspectRatio(isTall ? 0.82 : 1.12, contentMode: .fit)
+                    .aspectRatio(template.displayAspectRatio, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                     .clipped()
 
@@ -260,8 +317,8 @@ private struct TemplateCard: View {
                     Text(template.name)
                         .font(.system(size: 20, weight: .black))
                         .foregroundStyle(SableTheme.primaryText(for: colorScheme))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     HStack(spacing: 8) {
                         Text(template.category.rawValue.uppercased())

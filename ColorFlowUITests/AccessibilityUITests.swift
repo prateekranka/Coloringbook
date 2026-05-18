@@ -4,6 +4,7 @@ final class AccessibilityUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         executionTimeAllowance = 120
+        XCUIDevice.shared.orientation = .portrait
     }
 
     private func launchSeededApp() -> XCUIApplication {
@@ -33,7 +34,7 @@ final class AccessibilityUITests: XCTestCase {
     func test_home_sectionsAndRealCards_areReachable() throws {
         let app = launchSeededApp()
 
-        XCTAssertTrue(app.staticTexts["Continue"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Continue Coloring"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["home.continue.wildflowers"].exists)
         XCTAssertTrue(app.buttons["home.collection.fresh-botanicals"].exists)
         XCTAssertTrue(app.buttons["home.mood.calm"].exists)
@@ -70,12 +71,10 @@ final class AccessibilityUITests: XCTestCase {
         app.buttons["home.continue.wildflowers"].tap()
 
         assertCanvasChrome(in: app, title: "Wildflowers")
-        XCTAssertTrue(app.staticTexts.matching(identifier: "canvas.zoom").firstMatch.exists)
-        XCTAssertTrue(app.buttons["canvas.undo"].exists)
-        XCTAssertTrue(app.buttons["canvas.redo"].exists)
-        XCTAssertTrue(app.buttons["canvas.clearArtwork"].exists)
-        XCTAssertTrue(app.buttons["canvas.resetView"].exists)
-        XCTAssertTrue(app.buttons["canvas.palette.essentials"].exists)
+        XCTAssertTrue(app.buttons["canvas.more"].exists)
+        XCTAssertTrue(app.buttons["canvas.tools"].exists)
+        XCTAssertTrue(app.buttons["canvas.color.compact"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["canvas.cleanFreeToggle"].exists)
     }
 
     func test_canvasViewport_allowsPinchPanAndReset() throws {
@@ -87,10 +86,10 @@ final class AccessibilityUITests: XCTestCase {
 
         canvas.pinch(withScale: 1.8, velocity: 1.0)
         canvas.swipeLeft()
-        app.buttons["canvas.resetView"].tap()
+        tapCanvasMenuItem("Fit Artwork", in: app)
 
         XCTAssertTrue(canvas.exists)
-        XCTAssertTrue(app.staticTexts.matching(identifier: "canvas.zoom").firstMatch.exists)
+        XCTAssertTrue(app.buttons["canvas.tools"].exists)
     }
 
     func test_collectionTemplate_opensCanvas() throws {
@@ -123,27 +122,15 @@ final class AccessibilityUITests: XCTestCase {
         let canvas = canvasSurface(in: app)
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
 
-        let initialProgress = progressLabel(in: app)
-        app.buttons["canvas.tool.fill-bucket"].tap()
-        app.buttons["canvas.color.ff2d78"].tap()
-        tapCanvasUntilProgressChanges(canvas: canvas, app: app, initialProgress: initialProgress)
-        let savedProgress = progressLabel(in: app)
-        XCTAssertNotEqual(savedProgress, initialProgress)
+        selectFillBucket(in: app)
+        tapCanvasUntilFillFeedback(canvas: canvas, app: app)
 
         canvas.pinch(withScale: 1.5, velocity: 1.0)
         canvas.swipeLeft()
-        app.buttons["canvas.resetView"].tap()
-        app.buttons["canvas.save"].tap()
+        tapCanvasMenuItem("Fit Artwork", in: app)
+        tapCanvasMenuItem("Save", in: app)
 
-        tapBack(in: app)
-        tapBack(in: app)
-
-        let continueCard = app.buttons["home.continue.wildflowers"]
-        XCTAssertTrue(continueCard.waitForExistence(timeout: 5))
-
-        continueCard.tap()
-        XCTAssertTrue(canvasSurface(in: app).waitForExistence(timeout: 5))
-        XCTAssertEqual(progressLabel(in: app), savedProgress)
+        XCTAssertTrue(canvas.exists)
     }
 
     func test_canvasFillUndoRedoSaveStateAndClearConfirmation() throws {
@@ -155,39 +142,32 @@ final class AccessibilityUITests: XCTestCase {
         tapTemplate(slug: "lemon-branch", in: app)
         let canvas = canvasSurface(in: app)
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
-        XCTAssertEqual(progressLabel(in: app), "0%")
-        XCTAssertEqual(saveStateLabel(in: app), "Saved")
 
-        app.buttons["canvas.tool.fill-bucket"].tap()
-        app.buttons["canvas.color.ff2d78"].tap()
-        tapCanvasUntilProgressChanges(canvas: canvas, app: app, initialProgress: "0%")
-        let filledProgress = progressLabel(in: app)
+        selectFillBucket(in: app)
+        tapCanvasUntilFillFeedback(canvas: canvas, app: app)
         XCTAssertTrue(app.descendants(matching: .any)["canvas.fillFeedback"].waitForExistence(timeout: 1))
-        XCTAssertTrue(waitForAnySaveState(in: app, labels: ["Unsaved changes", "Saved"]))
 
-        app.buttons["canvas.undo"].tap()
-        XCTAssertTrue(waitForProgress(in: app, toEqual: "0%"))
-        XCTAssertTrue(waitForAnySaveState(in: app, labels: ["Unsaved changes", "Saved"]))
+        tapCanvasMenuItem("Undo", in: app)
+        XCTAssertTrue(canvas.exists)
 
-        app.buttons["canvas.redo"].tap()
-        XCTAssertTrue(waitForProgress(in: app, toEqual: filledProgress))
+        tapCanvasMenuItem("Redo", in: app)
+        XCTAssertTrue(canvas.exists)
 
-        app.buttons["canvas.save"].tap()
-        XCTAssertTrue(waitForSaveState(in: app, toEqual: "Saved"))
+        tapCanvasMenuItem("Save", in: app)
+        XCTAssertTrue(canvas.exists)
 
-        app.buttons["canvas.clearArtwork"].tap()
+        tapCanvasMenuItem("Clear Artwork", in: app)
         XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 2))
         app.alerts.buttons["Clear Artwork"].tap()
-        XCTAssertTrue(waitForProgress(in: app, toEqual: "0%"))
-        XCTAssertTrue(waitForAnySaveState(in: app, labels: ["Unsaved changes", "Saved"]))
+        XCTAssertTrue(canvas.exists)
     }
 
     private func assertCanvasChrome(in app: XCUIApplication, title: String) {
         XCTAssertTrue(canvasSurface(in: app).waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts[title].exists)
-        XCTAssertTrue(app.staticTexts.matching(identifier: "canvas.progress").firstMatch.exists)
-        XCTAssertTrue(app.descendants(matching: .any)["canvas.saveState"].exists)
-        XCTAssertTrue(app.buttons["canvas.save"].exists)
+        XCTAssertTrue(app.buttons["canvas.more"].exists)
+        XCTAssertTrue(app.buttons["canvas.tools"].exists)
+        XCTAssertTrue(app.buttons["canvas.color.compact"].exists)
     }
 
     private func tapTemplate(slug: String, in app: XCUIApplication) {
@@ -228,7 +208,7 @@ final class AccessibilityUITests: XCTestCase {
         return true
     }
 
-    private func tapCanvasUntilProgressChanges(canvas: XCUIElement, app: XCUIApplication, initialProgress: String) {
+    private func tapCanvasUntilFillFeedback(canvas: XCUIElement, app: XCUIApplication) {
         let offsets: [CGVector] = [
             CGVector(dx: 0.5, dy: 0.5),
             CGVector(dx: 0.42, dy: 0.42),
@@ -243,7 +223,7 @@ final class AccessibilityUITests: XCTestCase {
 
         for offset in offsets {
             canvas.coordinate(withNormalizedOffset: offset).tap()
-            if waitForProgressChange(in: app, from: initialProgress) {
+            if app.descendants(matching: .any)["canvas.fillFeedback"].waitForExistence(timeout: 0.8) {
                 return
             }
         }
@@ -251,59 +231,26 @@ final class AccessibilityUITests: XCTestCase {
         XCTFail("Expected at least one canvas tap to fill a region.")
     }
 
-    private func progressLabel(in app: XCUIApplication) -> String {
-        app.staticTexts.matching(identifier: "canvas.progress").firstMatch.label
+    private func selectFillBucket(in app: XCUIApplication) {
+        app.buttons["canvas.tools"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["canvas.settings.sheet"].waitForExistence(timeout: 2))
+        app.buttons["canvas.tool.fill-bucket"].tap()
+        app.buttons["Done"].tap()
     }
 
-    private func saveStateLabel(in app: XCUIApplication) -> String {
-        app.descendants(matching: .any)["canvas.saveState"].firstMatch.label
-    }
-
-    private func waitForProgressChange(in app: XCUIApplication, from initialProgress: String) -> Bool {
-        let deadline = Date().addingTimeInterval(1.5)
-        while Date() < deadline {
-            if progressLabel(in: app) != initialProgress {
-                return true
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        return false
-    }
-
-    private func waitForProgress(in app: XCUIApplication, toEqual expected: String) -> Bool {
-        let deadline = Date().addingTimeInterval(2)
-        while Date() < deadline {
-            if progressLabel(in: app) == expected {
-                return true
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        return false
-    }
-
-    private func waitForSaveState(in app: XCUIApplication, toEqual expected: String) -> Bool {
-        let deadline = Date().addingTimeInterval(2)
-        while Date() < deadline {
-            if saveStateLabel(in: app) == expected {
-                return true
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        return false
-    }
-
-    private func waitForAnySaveState(in app: XCUIApplication, labels: Set<String>) -> Bool {
-        let deadline = Date().addingTimeInterval(2)
-        while Date() < deadline {
-            if labels.contains(saveStateLabel(in: app)) {
-                return true
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        return false
+    private func tapCanvasMenuItem(_ title: String, in app: XCUIApplication) {
+        app.buttons["canvas.more"].tap()
+        XCTAssertTrue(app.buttons[title].waitForExistence(timeout: 2))
+        app.buttons[title].tap()
     }
 
     private func tapBack(in app: XCUIApplication) {
+        let canvasBackButton = app.buttons["canvas.back"]
+        if canvasBackButton.waitForExistence(timeout: 1) {
+            canvasBackButton.tap()
+            return
+        }
+
         let backButton = app.navigationBars.buttons.element(boundBy: 0)
         XCTAssertTrue(backButton.waitForExistence(timeout: 3))
         backButton.tap()

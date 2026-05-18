@@ -238,10 +238,15 @@ final class ColoringSessionViewModel {
         case .success(let parsedGeometry):
             geometry = parsedGeometry
             canvasDocumentSize = parsedGeometry.viewBox.size
+            let pigmentBitmapSize = premiumPigmentBitmapSize(for: parsedGeometry.viewBox.size)
             paintState = storageService.loadPaintState(for: seed.project)
             let storedPigment = storageService.loadFillLayer(for: seed.project)
             if let storedPigment {
-                pigmentEngine = RegionPigmentEngine(geometry: parsedGeometry, existingImage: storedPigment)
+                pigmentEngine = RegionPigmentEngine(
+                    geometry: parsedGeometry,
+                    bitmapSize: pigmentBitmapSize,
+                    existingImage: storedPigment
+                )
             } else {
                 pigmentEngine = nil
             }
@@ -335,7 +340,10 @@ final class ColoringSessionViewModel {
         paintState.strokeActions.removeAll()
         freehandDrawing = PKDrawing()
         if let geometry {
-            pigmentEngine = RegionPigmentEngine(geometry: geometry)
+            pigmentEngine = RegionPigmentEngine(
+                geometry: geometry,
+                bitmapSize: premiumPigmentBitmapSize(for: geometry.viewBox.size)
+            )
             fillLayerImage = pigmentEngine?.image
         }
         clearUndoHistory()
@@ -623,7 +631,7 @@ final class ColoringSessionViewModel {
     }
 
     private func renderImages(geometry: TemplateGeometry) async {
-        let size = geometry.viewBox.size
+        let size = premiumPigmentBitmapSize(for: geometry.viewBox.size)
         let lineArtURL = template?.lineArtURL
 
         async let lineArtTask = renderLineArtImage(
@@ -637,12 +645,12 @@ final class ColoringSessionViewModel {
         if let engineImage = pigmentEngine?.image {
             fillLayerImage = engineImage
         } else if let project, let storedImage = storageService.loadFillLayer(for: project) {
-            pigmentEngine = RegionPigmentEngine(geometry: geometry, existingImage: storedImage)
-            fillLayerImage = storedImage
+            pigmentEngine = RegionPigmentEngine(geometry: geometry, bitmapSize: size, existingImage: storedImage)
+            fillLayerImage = pigmentEngine?.image
         } else {
             let renderedFillLayer = TemplateRenderer.renderFillLayer(geometry: geometry, fills: paintState.regionFills, size: size)
             let legacyLayer = renderStrokeActions(on: renderedFillLayer, geometry: geometry)
-            pigmentEngine = RegionPigmentEngine(geometry: geometry, existingImage: legacyLayer)
+            pigmentEngine = RegionPigmentEngine(geometry: geometry, bitmapSize: size, existingImage: legacyLayer)
             fillLayerImage = legacyLayer
         }
     }
@@ -652,12 +660,12 @@ final class ColoringSessionViewModel {
         lineArtURL: URL?,
         strokeWidthPixels: CGFloat
     ) async -> UIImage {
-        let size = geometry.viewBox.size
+        let size = premiumLineArtSize(for: geometry.viewBox.size)
         if let lineArtURL {
             let image = await Task.detached(priority: .userInitiated) {
                 UIImage(contentsOfFile: lineArtURL.path)
             }.value
-            if let image {
+            if let image, max(image.size.width, image.size.height) >= max(size.width, size.height) {
                 return image
             }
         }
@@ -669,6 +677,21 @@ final class ColoringSessionViewModel {
                 strokeWidthPixels: strokeWidthPixels
             )
         }.value
+    }
+
+    private func premiumLineArtSize(for documentSize: CGSize) -> CGSize {
+        premiumPixelSize(for: documentSize, targetLongestSide: 4096)
+    }
+
+    private func premiumPigmentBitmapSize(for documentSize: CGSize) -> CGSize {
+        premiumPixelSize(for: documentSize, targetLongestSide: 4096)
+    }
+
+    private func premiumPixelSize(for documentSize: CGSize, targetLongestSide: CGFloat) -> CGSize {
+        let longestSide = max(documentSize.width, documentSize.height)
+        guard longestSide > 0 else { return documentSize }
+        let scale = max(1, targetLongestSide / longestSide)
+        return CGSize(width: documentSize.width * scale, height: documentSize.height * scale)
     }
 
     private func storeViewportState() {
@@ -793,9 +816,17 @@ final class ColoringSessionViewModel {
         return renderer.image { context in
             baseImage.draw(in: CGRect(origin: .zero, size: baseImage.size))
             let cgContext = context.cgContext
+            cgContext.saveGState()
+            cgContext.concatenate(
+                TemplateRenderer.documentToViewTransform(
+                    viewBox: geometry.viewBox,
+                    viewSize: baseImage.size
+                )
+            )
             for action in paintState.strokeActions {
                 draw(action: action, geometry: geometry, in: cgContext)
             }
+            cgContext.restoreGState()
         }
     }
 

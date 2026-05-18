@@ -68,16 +68,16 @@ struct HomeView: View {
                             navigate: { navigate(.coloringPage($0)) }
                         )
 
-                        MoodSection(metrics: metrics) { mood in
-                            navigate(.mood(mood.routeMood))
-                        }
-
                         FeaturedCollectionsSection(
                             collections: displayCollections,
                             metrics: metrics,
                             seeAll: openCollections,
                             navigate: { navigate(.collection($0)) }
                         )
+
+                        MoodSection(metrics: metrics) { mood in
+                            navigate(.mood(mood.routeMood))
+                        }
 
                         RecentlyAddedSection(
                             pages: displayRecentlyAddedPages,
@@ -87,6 +87,7 @@ struct HomeView: View {
                         )
                     }
                     .padding(.horizontal, metrics.horizontalInset)
+                    .padding(.top, metrics.topContentPadding)
                     .padding(.bottom, metrics.bottomContentPadding)
                 }
             }
@@ -203,6 +204,10 @@ private struct GouacheHomeMetrics {
 
     var bottomContentPadding: CGFloat {
         122
+    }
+
+    var topContentPadding: CGFloat {
+        isLandscape ? 10 : 14
     }
 }
 

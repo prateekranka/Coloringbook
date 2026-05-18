@@ -2,6 +2,7 @@ import SwiftUI
 
 @MainActor
 struct MyLibraryView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @State private var viewModel: MyLibraryViewModel
     let navigate: (AppRoute) -> Void
 
@@ -23,7 +24,7 @@ struct MyLibraryView: View {
 
     var body: some View {
         ZStack {
-            SableTheme.cream.ignoresSafeArea()
+            SableTheme.appBackground(for: colorScheme).ignoresSafeArea()
 
             if viewModel.isLoading {
                 ProgressView()
@@ -59,7 +60,7 @@ struct MyLibraryView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("My Library")
                 .font(.system(size: 46, weight: .black))
-                .foregroundStyle(SableTheme.ink)
+                .foregroundStyle(SableTheme.primaryText(for: colorScheme))
 
             Text("\(viewModel.pages.count) SAVED")
                 .font(.system(size: 15, weight: .black))
@@ -79,11 +80,11 @@ struct MyLibraryView: View {
 
             Text("My Library")
                 .font(.system(size: 36, weight: .black))
-                .foregroundStyle(SableTheme.ink)
+                .foregroundStyle(SableTheme.primaryText(for: colorScheme))
 
             Text("Saved projects appear here")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(SableTheme.mutedInk)
+                .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -97,6 +98,7 @@ struct MyLibraryView: View {
 }
 
 private struct LibraryProjectCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let page: ColoringPage
     let onTap: () -> Void
 
@@ -112,7 +114,7 @@ private struct LibraryProjectCard: View {
                     HStack {
                         Text(page.title)
                             .font(.system(size: 22, weight: .black))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(SableTheme.primaryText(for: colorScheme))
                             .lineLimit(1)
                             .minimumScaleFactor(0.72)
 
@@ -120,16 +122,16 @@ private struct LibraryProjectCard: View {
 
                         Text(progressText)
                             .font(.system(size: 16, weight: .black))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(SableTheme.primaryText(for: colorScheme))
                     }
 
                     ProgressTrack(progress: page.progress)
                 }
                 .padding(15)
-                .background(SableTheme.cardBlack)
+                .background(SableTheme.elevatedSurface(for: colorScheme))
             }
             .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
-            .shadow(color: SableTheme.cardShadow, radius: 8, x: 0, y: 5)
+            .shadow(color: SableTheme.shadow(for: colorScheme), radius: 8, x: 0, y: 5)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(page.title), \(progressText) complete")

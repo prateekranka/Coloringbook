@@ -1,7 +1,7 @@
-# ColorFlow Template Catalog Pipeline — Operator Runbook
+# Gouache Template Catalog Pipeline — Operator Runbook
 
 This directory contains the host-side Python pipeline that takes AI-generated
-raster images and produces parser-compliant SVG templates for the ColorFlow app.
+raster images and produces parser-compliant SVG templates for the Gouache app.
 
 The pipeline does **not** run on-device and is never bundled into the app binary.
 Outputs (validated SVGs + updated `templates.json`) are committed to the repo and
@@ -54,6 +54,56 @@ python3 -c "import yaml; print('yaml OK')"
     ↓
 [Step 6]  Move SVGs to ColorFlow/Resources/Templates/ + commit
 ```
+
+## Premium zoom requirements
+
+Gouache templates should be authored and validated for deep iPad zoom, not just
+thumbnail display.
+
+Source quality tiers:
+- Standard source: at least 3000 px on the longest side.
+- Preferred premium source: 4096-6000 px on the longest side.
+- Complex/pro source: up to 8000 px on the longest side only when the app can
+  use a tile pyramid or equivalent downsampled levels.
+
+Each production template should have metadata for:
+- original pixel width and height for raster sources, or SVG coordinate size for vector sources
+- app render pixel width and height
+- aspect ratio
+- content/art bounds
+- smallest fillable region bounds
+- recommended initial fit scale
+- maximum safe zoom scale
+- vector source availability
+- high-resolution raster source availability
+- mask resolution
+- tile pyramid availability
+
+Fillable SVG paths should render to at least 24 px on their narrowest side at
+the app's premium mask scale. Keep thinner slivers as decorative paths without
+`id` attributes so they remain visible in line art but do not become tiny color
+targets or completion regions.
+
+Run the zoom-readiness report before accepting new templates:
+
+```bash
+python3 Scripts/pipeline/validate_template_zoom.py \
+    ColorFlow/Resources/Templates \
+    --json artifacts/template-zoom-report.json
+```
+
+The report classifies templates as:
+- `PASS`: suitable for premium zoom
+- `WARN`: acceptable but may soften at high zoom
+- `FAIL`: too low resolution, mask too small, or likely to pixelate before the
+  desired zoom level
+
+SVG-backed templates render line art and pigment masks at a premium 4096 px
+longest-side backing resolution in the app while preserving SVG document
+coordinates for hit-testing and saved strokes.
+Raster-only templates should provide a thumbnail, medium preview, high-resolution
+line layer, region mask layer, region ID map, and tile pyramid when the longest
+side is large enough to create memory pressure.
 
 ---
 
@@ -252,6 +302,15 @@ likely came from a manually-edited or non-VTracer SVG.
 2. Path → Simplify (Ctrl+L) — reduces node count
 3. If still over 300, manually delete small decorative paths or
    merge thin strokes into regions using Union (Ctrl++).
+
+### Tiny fillable slivers
+
+If `validate_template_zoom.py` warns that the smallest fillable region is below
+the premium threshold, inspect the narrowest `id="region-N"` paths. When they
+are visual seams, frames, stems, or other line-art slivers rather than real
+coloring areas, remove the `id` attribute and keep the path as decorative art.
+If the shape is meant to be colored, enlarge or merge it until its rendered mask
+side is at least 24 px at 4096 px longest-side output.
 
 ---
 

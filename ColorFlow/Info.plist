@@ -83,12 +83,12 @@
 	<!-- ── Privacy ─────────────────────────────────────────────── -->
 	<!-- Write: save finished artwork to Photos (used today). -->
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>ColorFlow needs permission to save your artwork to the Photos library.</string>
+	<string>Gouache needs permission to save your artwork to the Photos library.</string>
 
 	<!-- Read: import a photo and turn it into a coloring page (Phase C). -->
 	<!-- Shipped early so the string is reviewed once, not twice. -->
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>ColorFlow can turn a photo from your library into a hand-drawn coloring page. The photo stays on your device and is never uploaded.</string>
+	<string>Gouache can turn a photo from your library into a hand-drawn coloring page. The photo stays on your device and is never uploaded.</string>
 
 	<!-- Camera capture → coloring page (Phase C). Same early-ship rationale. -->
 	<key>NSCameraUsageDescription</key>

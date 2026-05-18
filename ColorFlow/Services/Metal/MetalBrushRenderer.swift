@@ -169,10 +169,15 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
 
     private func appendSmoothedPoint(_ point: StrokePoint, brush: BrushConfiguration) {
         let prev = smoothedStrokePoints.last
+        let distanceToPrev: Float = prev.map {
+            let dx = Float(point.position.x - $0.position.x)
+            let dy = Float(point.position.y - $0.position.y)
+            return sqrt(dx * dx + dy * dy)
+        } ?? 0
         let tangent = computeTangent(current: point, prev: prev, next: nil)
         let vertex = makeStrokeVertex(from: point, brush: brush, prev: prev, next: nil)
         smoothedStrokePoints.append(point)
-        appendQuadVertices(for: vertex, tangent: tangent)
+        appendQuadVertices(for: vertex, tangent: tangent, distanceToPrev: distanceToPrev)
     }
 
     func beginStroke() {
@@ -334,11 +339,12 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
         return SIMD2<Float>(1, 0)
     }
 
-    private func appendQuadVertices(for vertex: StrokeVertex, tangent: SIMD2<Float>) {
+    private func appendQuadVertices(for vertex: StrokeVertex, tangent: SIMD2<Float>, distanceToPrev: Float = 0) {
         let perp = SIMD2<Float>(-tangent.y, tangent.x)
         let center = vertex.position
         let hw = vertex.halfWidth
-        let tangentExt = tangent * hw * 0.6
+        let spacingExt = distanceToPrev * 0.55
+        let tangentExt = tangent * max(hw * 0.6, spacingExt)
 
         let corners: [(SIMD2<Float>, Float)] = [
             (center - perp * hw - tangentExt, -1.0),

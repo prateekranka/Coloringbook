@@ -301,11 +301,7 @@ struct ColoringCanvasView: View {
         case .pencilKit:
             pencilKitCanvasArtwork(canvasSize: canvasSize)
         case .metalExperimental:
-            if MetalBrushRenderer.isMetalAvailable {
-                metalCanvasArtwork(canvasSize: canvasSize)
-            } else {
-                pencilKitCanvasArtwork(canvasSize: canvasSize)
-            }
+            metalCanvasArtwork(canvasSize: canvasSize)
         }
     }
 

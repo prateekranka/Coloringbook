@@ -329,6 +329,9 @@ final class ColoringSessionViewModel {
             selectedToolSettings = toolSettingsCache[selectedTool] ?? selectedTool.defaultSettings
             coloringMode = paintState.canvasState.coloringMode
             drawingEngineMode = paintState.canvasState.drawingEngine
+            if drawingEngineMode == .metalExperimental {
+                drawingEngineMode = .pencilKit
+            }
             viewport = CanvasViewport(canvasState: paintState.canvasState)
             lastSavedRegionFills = paintState.regionFills
             lastSavedStrokeActions = paintState.strokeActions

@@ -111,6 +111,8 @@ final class Coordinator: NSObject, MTKViewDelegate {
     }
 
     private func strokePoint(from touch: UITouch, in view: UIView) -> StrokePoint {
+        let loc = touch.location(in: view)
+        let scale = view.contentScaleFactor
         let force: Float
         if touch.maximumPossibleForce > 0 {
             force = Float(touch.force / touch.maximumPossibleForce)
@@ -118,7 +120,7 @@ final class Coordinator: NSObject, MTKViewDelegate {
             force = 1.0
         }
         return StrokePoint(
-            position: touch.location(in: view),
+            position: CGPoint(x: loc.x * scale, y: loc.y * scale),
             pressure: force,
             timestamp: touch.timestamp,
             altitude: Float(touch.altitudeAngle),

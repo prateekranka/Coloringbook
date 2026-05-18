@@ -53,6 +53,8 @@ final class ColoringSessionViewModel {
     var selectedTool: ToolType = .crayon
     var selectedToolSettings = ToolType.crayon.defaultSettings
     var coloringMode: CanvasColoringMode = .clean
+    var drawingEngineMode: DrawingEngineMode = .pencilKit
+    var metalStrokes: [StrokePoint] = []
     var recentColorHexes: [String] = [SableTheme.progressPinkHex]
     var canvasDocumentSize = CGSize(width: 800, height: 800)
     var viewport = CanvasViewport()
@@ -207,6 +209,36 @@ final class ColoringSessionViewModel {
         markCanvasStateDirty()
     }
 
+    func selectDrawingEngineMode(_ mode: DrawingEngineMode) {
+        drawingEngineMode = mode
+        paintState.canvasState.drawingEngine = mode
+        markCanvasStateDirty()
+    }
+
+    func toggleDrawingEngine() {
+        selectDrawingEngineMode(drawingEngineMode == .pencilKit ? .metalExperimental : .pencilKit)
+    }
+
+    func beginMetalStroke(samples: [StrokeSample]) {
+        metalStrokes = samples.map { StrokePoint(from: $0) }
+    }
+
+    func appendMetalStroke(samples: [StrokeSample]) {
+        for sample in samples {
+            metalStrokes.append(StrokePoint(from: sample))
+        }
+    }
+
+    func endMetalStroke(samples: [StrokeSample]) {
+        for sample in samples {
+            metalStrokes.append(StrokePoint(from: sample))
+        }
+    }
+
+    func cancelMetalStroke() {
+        metalStrokes.removeAll()
+    }
+
     func loadIfNeeded() async {
         guard !hasLoaded else { return }
         await load()
@@ -259,6 +291,7 @@ final class ColoringSessionViewModel {
             selectedTool = paintState.canvasState.selectedTool
             selectedToolSettings = toolSettingsCache[selectedTool] ?? selectedTool.defaultSettings
             coloringMode = paintState.canvasState.coloringMode
+            drawingEngineMode = paintState.canvasState.drawingEngine
             viewport = CanvasViewport(canvasState: paintState.canvasState)
             lastSavedRegionFills = paintState.regionFills
             lastSavedStrokeActions = paintState.strokeActions
@@ -357,6 +390,7 @@ final class ColoringSessionViewModel {
         autosaveTask?.cancel()
         paintState.canvasState.selectedTool = selectedTool
         paintState.canvasState.coloringMode = coloringMode
+        paintState.canvasState.drawingEngine = drawingEngineMode
         paintState.freehandDrawingData = freehandDrawing.dataRepresentation()
         paintState.version = 2
         paintState.pigmentLayerFilename = mutableProject.fillLayerPath

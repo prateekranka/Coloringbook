@@ -131,6 +131,24 @@ final class DesignSystemTests: XCTestCase {
         }
     }
 
+    func test_boldMoodIncludesBoldTemplateSet() async {
+        let repository = SableHomeRepository(templates: Template.loadAll())
+
+        let templates = await repository.fetchTemplates(for: .bold)
+
+        XCTAssertTrue(
+            Set(templates.map(\.svgFilename)).isSuperset(of: [
+                "radiant-peaks.svg",
+                "art-deco-bloom.svg",
+                "compass-bloom.svg",
+                "lion-crest.svg",
+                "sunburst-bloom.svg",
+                "lotus-crown.svg",
+                "electric-starburst.svg"
+            ])
+        )
+    }
+
     func test_templateListViewModel_loadsCollectionIndex() async {
         let viewModel = TemplateListViewModel(source: .collections, repository: MockHomeRepository())
 
@@ -160,6 +178,13 @@ final class DesignSystemTests: XCTestCase {
         XCTAssertEqual(
             viewModel.templates.map(\.name),
             [
+                "Electric Starburst",
+                "Lotus Crown",
+                "Sunburst Bloom",
+                "Lion Crest",
+                "Compass Bloom",
+                "Art Deco Bloom",
+                "Radiant Peaks",
                 "Florist Window",
                 "Mediterranean Kitchen Window",
                 "Rainy Library",

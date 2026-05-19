@@ -639,13 +639,14 @@ final class ColoringFlowTests: XCTestCase {
         let samples = canvasPoints.enumerated().map { index, point in
             StrokeSample(point: point, timestamp: Double(index) / 60.0)
         }
+        let beforePixels = try XCTUnwrap(vm.fillLayerImage?.pngData())
 
         XCTAssertTrue(vm.beginLiveStroke(samples: [samples[0]], canvasSize: canvasSize))
         XCTAssertTrue(vm.updateLiveStroke(samples: samples, canvasSize: canvasSize))
-        let livePixels = try XCTUnwrap(vm.fillLayerImage?.pngData())
+        XCTAssertEqual(vm.fillLayerImage?.pngData(), beforePixels)
 
         XCTAssertTrue(vm.endLiveStroke(samples: samples, canvasSize: canvasSize))
-        XCTAssertEqual(vm.fillLayerImage?.pngData(), livePixels)
+        XCTAssertNotEqual(vm.fillLayerImage?.pngData(), beforePixels)
     }
 
     func test_exportMatchesCanvasSnapshotRendererOutput() async throws {

@@ -90,16 +90,27 @@ class StorageService {
     ) {
         project.modifiedAt = .now
         let snapshot = project
-        let drawingData = drawing.dataRepresentation()
-        let fillData = fillLayer?.pngData()
-        let thumbnailData = Self.composeThumbnail(
-            template: templateImage,
-            fill: fillLayer,
-            drawing: drawing
-        )?.pngData()
 
         queue.sync {
             createSubdirectories()
+
+            let drawingData = CanvasPerformanceProbe.measure(.pencilKitSerialization) {
+                drawing.dataRepresentation()
+            }
+            let fillData = CanvasPerformanceProbe.measure(.pngEncoding) {
+                fillLayer?.pngData()
+            }
+            let thumbnailData = CanvasPerformanceProbe.measure(.thumbnailComposition) {
+                Self.composeThumbnail(
+                    template: templateImage,
+                    fill: fillLayer,
+                    drawing: drawing
+                )
+            }.flatMap { thumbnail in
+                CanvasPerformanceProbe.measure(.pngEncoding) {
+                    thumbnail.pngData()
+                }
+            }
 
             let drawingURL = Self.documentsURL.appendingPathComponent(snapshot.drawingDataPath)
             try? drawingData.write(to: drawingURL, options: .atomic)

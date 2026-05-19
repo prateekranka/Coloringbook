@@ -1,5 +1,6 @@
 import CoreGraphics
 import Observation
+import os.signpost
 import PencilKit
 import SwiftUI
 import UIKit
@@ -48,6 +49,7 @@ final class ColoringSessionViewModel {
     var lineArtImage: UIImage?
     var fillLayerImage: UIImage?
     var freehandDrawing = PKDrawing()
+    var freehandDrawingRevision = 0
     var selectedColorHex = SableTheme.progressPinkHex
     var selectedPaletteID = ColoringSessionViewModel.essentialsPalette.id
     var selectedTool: ToolType = .crayon
@@ -77,6 +79,7 @@ final class ColoringSessionViewModel {
     @ObservationIgnored private var undoStack: [CanvasEditAction] = []
     @ObservationIgnored private var redoStack: [CanvasEditAction] = []
     @ObservationIgnored private var autosaveTask: Task<Void, Never>?
+    @ObservationIgnored private var isLiveDrawing = false
     @ObservationIgnored private var toolSettingsCache: [ToolType: ToolSettings] = Dictionary(
         uniqueKeysWithValues: ToolType.allCases.map { ($0, $0.defaultSettings) }
     )
@@ -252,9 +255,11 @@ final class ColoringSessionViewModel {
             }
             if let drawing = storageService.loadDrawing(for: seed.project) {
                 freehandDrawing = drawing
+                freehandDrawingRevision += 1
             } else if let data = paintState.freehandDrawingData,
                       let drawing = try? PKDrawing(data: data) {
                 freehandDrawing = drawing
+                freehandDrawingRevision += 1
             }
             selectedTool = paintState.canvasState.selectedTool
             selectedToolSettings = toolSettingsCache[selectedTool] ?? selectedTool.defaultSettings
@@ -339,6 +344,7 @@ final class ColoringSessionViewModel {
         paintState.regionFills.removeAll()
         paintState.strokeActions.removeAll()
         freehandDrawing = PKDrawing()
+        freehandDrawingRevision += 1
         if let geometry {
             pigmentEngine = RegionPigmentEngine(
                 geometry: geometry,
@@ -357,7 +363,7 @@ final class ColoringSessionViewModel {
         autosaveTask?.cancel()
         paintState.canvasState.selectedTool = selectedTool
         paintState.canvasState.coloringMode = coloringMode
-        paintState.freehandDrawingData = freehandDrawing.dataRepresentation()
+        paintState.freehandDrawingData = nil
         paintState.version = 2
         paintState.pigmentLayerFilename = mutableProject.fillLayerPath
         storeViewportState()
@@ -456,6 +462,7 @@ final class ColoringSessionViewModel {
             ),
             latestDocumentSamples: documentSamples
         )
+        isLiveDrawing = true
 
         if canvasSamples.count > 1 {
             return updateLiveStroke(samples: canvasSamples, canvasSize: canvasSize)
@@ -466,42 +473,30 @@ final class ColoringSessionViewModel {
     @discardableResult
     func updateLiveStroke(samples canvasSamples: [StrokeSample], canvasSize: CGSize) -> Bool {
         guard var activeStroke = activePigmentStroke,
-              let geometry,
-              let pigmentEngine else {
+              let geometry else {
             return false
         }
 
-        let documentSamples = documentSamples(from: canvasSamples, canvasSize: canvasSize, geometry: geometry)
-        let documentPoints = documentSamples.map(\.cgPoint)
-        guard documentPoints.count > 1 else {
-            activeStroke.latestDocumentSamples = documentSamples
+        let startIndex = max(0, activeStroke.latestDocumentSamples.count - 1)
+        guard startIndex < canvasSamples.count else { return true }
+        let nextDocumentSamples = documentSamples(
+            from: Array(canvasSamples[startIndex...]),
+            canvasSize: canvasSize,
+            geometry: geometry
+        )
+        if activeStroke.latestDocumentSamples.isEmpty {
+            activeStroke.latestDocumentSamples = nextDocumentSamples
+        } else {
+            activeStroke.latestDocumentSamples.append(contentsOf: nextDocumentSamples.dropFirst())
+        }
+
+        guard activeStroke.latestDocumentSamples.count > 1 else {
             activePigmentStroke = activeStroke
             return true
         }
 
-        pigmentEngine.restore(activeStroke.beforeImage)
-        guard let patch = pigmentEngine.renderStroke(
-            tool: activeStroke.tool,
-            colorHex: activeStroke.colorHex,
-            points: documentPoints,
-            regionID: activeStroke.regionID,
-            size: activeStroke.size,
-            opacity: activeStroke.opacity,
-            seed: activeStroke.seed
-        ) else {
-            pigmentEngine.restore(activeStroke.beforeImage)
-            fillLayerImage = activeStroke.beforeImage
-            return false
-        }
-
-        activeStroke.latestPatch = PigmentPatch(
-            rect: patch.rect,
-            before: activeStroke.beforeImage,
-            after: patch.after
-        )
-        activeStroke.latestDocumentSamples = documentSamples
         activePigmentStroke = activeStroke
-        fillLayerImage = pigmentEngine.image
+        CanvasPerformanceProbe.count(.cleanLiveStrokeUpdate)
         return true
     }
 
@@ -512,14 +507,37 @@ final class ColoringSessionViewModel {
         }
 
         _ = updateLiveStroke(samples: canvasSamples, canvasSize: canvasSize)
-        guard let activeStroke = activePigmentStroke,
-              let patch = activeStroke.latestPatch,
+        guard var activeStroke = activePigmentStroke,
+              let pigmentEngine,
               activeStroke.latestDocumentSamples.count > 1 else {
             activePigmentStroke = nil
+            isLiveDrawing = false
             return false
         }
 
         let documentPoints = activeStroke.latestDocumentSamples.map(\.cgPoint)
+        pigmentEngine.restore(activeStroke.beforeImage)
+        guard let renderedPatch = pigmentEngine.renderStroke(
+            tool: activeStroke.tool,
+            colorHex: activeStroke.colorHex,
+            points: documentPoints,
+            regionID: activeStroke.regionID,
+            size: activeStroke.size,
+            opacity: activeStroke.opacity,
+            seed: activeStroke.seed
+        ) else {
+            pigmentEngine.restore(activeStroke.beforeImage)
+            fillLayerImage = activeStroke.beforeImage
+            activePigmentStroke = nil
+            isLiveDrawing = false
+            return false
+        }
+        let patch = PigmentPatch(
+            rect: renderedPatch.rect,
+            before: activeStroke.beforeImage,
+            after: renderedPatch.after
+        )
+        activeStroke.latestPatch = patch
         let action = StrokeAction(
             tool: activeStroke.tool,
             colorHex: activeStroke.colorHex,
@@ -536,9 +554,11 @@ final class ColoringSessionViewModel {
                 : .pigmentStrokePatch(StrokePatchAction(action: action, patch: patch))
         )
         activePigmentStroke = nil
+        isLiveDrawing = false
         redoStack.removeAll()
         syncUndoRedoState()
-        fillLayerImage = pigmentEngine?.image
+        fillLayerImage = pigmentEngine.image
+        CanvasPerformanceProbe.count(.fillLayerPublish)
         hasUnsavedPigmentChanges = true
         refreshArtworkAfterEdit()
         HapticService.shared.impact(.light)
@@ -550,6 +570,7 @@ final class ColoringSessionViewModel {
         pigmentEngine?.restore(activeStroke.beforeImage)
         fillLayerImage = activeStroke.beforeImage
         activePigmentStroke = nil
+        isLiveDrawing = false
     }
 
     private func documentSamples(
@@ -597,9 +618,9 @@ final class ColoringSessionViewModel {
     }
 
     func updateFreehandDrawing(_ drawing: PKDrawing) {
-        guard drawing.dataRepresentation() != freehandDrawing.dataRepresentation() else { return }
+        CanvasPerformanceProbe.count(.pencilKitDelegateSync)
         freehandDrawing = drawing
-        paintState.freehandDrawingData = drawing.dataRepresentation()
+        freehandDrawingRevision += 1
         markCanvasStateDirty()
     }
 
@@ -758,6 +779,7 @@ final class ColoringSessionViewModel {
     }
 
     private func scheduleAutosave() {
+        guard !isLiveDrawing else { return }
         autosaveTask?.cancel()
         autosaveTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_100_000_000)
@@ -879,6 +901,36 @@ private enum CanvasEditAction {
     case pigmentStrokePatch(StrokePatchAction)
     case erasePatch(StrokePatchAction)
     case clear(previousFills: [String: String], previousStrokes: [StrokeAction], previousImage: UIImage, clearedImage: UIImage)
+}
+
+enum CanvasPerformanceProbe {
+    enum Counter: String {
+        case cleanLiveStrokeUpdate = "CleanLiveStrokeUpdate"
+        case fillLayerPublish = "FillLayerPublish"
+        case pencilKitDelegateSync = "PencilKitDelegateSync"
+        case pencilKitSerialization = "PencilKitSerialization"
+        case pngEncoding = "PNGEncoding"
+        case thumbnailComposition = "ThumbnailComposition"
+    }
+
+    #if DEBUG
+    private static let log = OSLog(subsystem: "com.prateekranka.colorflow", category: "CanvasHotPath")
+
+    static func count(_ counter: Counter) {
+        os_signpost(.event, log: log, name: "Counter", "%{public}s", counter.rawValue)
+    }
+
+    static func measure<T>(_ counter: Counter, _ work: () -> T) -> T {
+        let id = OSSignpostID(log: log)
+        os_signpost(.begin, log: log, name: "Measure", signpostID: id, "%{public}s", counter.rawValue)
+        let result = work()
+        os_signpost(.end, log: log, name: "Measure", signpostID: id, "%{public}s", counter.rawValue)
+        return result
+    }
+    #else
+    static func count(_ counter: Counter) {}
+    static func measure<T>(_ counter: Counter, _ work: () -> T) -> T { work() }
+    #endif
 }
 
 private struct FillPatchAction {

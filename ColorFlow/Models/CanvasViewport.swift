@@ -98,6 +98,18 @@ struct CanvasViewport: Equatable {
         )
     }
 
+    func viewportPoint(
+        forCanvasPoint point: CGPoint,
+        canvasSize: CGSize,
+        viewportSize: CGSize
+    ) -> CGPoint {
+        let center = CGPoint(x: viewportSize.width / 2, y: viewportSize.height / 2)
+        return CGPoint(
+            x: (point.x - canvasSize.width / 2) * scale + center.x + offset.width,
+            y: (point.y - canvasSize.height / 2) * scale + center.y + offset.height
+        )
+    }
+
     func containsCanvasPoint(
         _ point: CGPoint,
         canvasSize: CGSize

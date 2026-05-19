@@ -144,4 +144,38 @@ final class CanvasViewportTests: XCTestCase {
         XCTAssertEqual(viewport.scale, 1)
         XCTAssertEqual(viewport.offset, .zero)
     }
+
+    func test_viewportPoint_forCanvasPoint_roundTrip() {
+        var viewport = CanvasViewport()
+        let canvasSize = CGSize(width: 400, height: 300)
+        let viewportSize = CGSize(width: 300, height: 200)
+
+        viewport.updateScale(
+            from: 1,
+            magnification: 2,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+        viewport.updateOffset(
+            from: .zero,
+            translation: CGSize(width: 40, height: -20),
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+
+        let canvasPoint = CGPoint(x: 150, y: 100)
+        let viewportPoint = viewport.viewportPoint(
+            forCanvasPoint: canvasPoint,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+        let roundTripped = viewport.canvasPoint(
+            forViewportPoint: viewportPoint,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+
+        XCTAssertEqual(roundTripped.x, canvasPoint.x, accuracy: 0.5)
+        XCTAssertEqual(roundTripped.y, canvasPoint.y, accuracy: 0.5)
+    }
 }

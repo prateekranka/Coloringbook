@@ -518,7 +518,7 @@ private func dirtyRect(points: [CGPoint], size: CGFloat) -> CGRect {
     return rect.insetBy(dx: -size, dy: -size).integral
 }
 
-private struct PigmentSeededRandom {
+struct PigmentSeededRandom {
     private var state: UInt64
 
     init(seed: UInt64) {

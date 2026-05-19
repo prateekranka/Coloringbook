@@ -29,14 +29,14 @@ struct ProfileView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 26) {
+                VStack(alignment: .leading, spacing: SableTheme.Spacing.xxxl) {
                     header
                     settingsPanel
                     myWorkSection
                         .id(ProfileFocus.myWork)
                 }
                 .padding(.horizontal, SableTheme.Spacing.pageInset)
-                .padding(.top, 30)
+                .padding(.top, SableTheme.Spacing.xxxl)
                 .padding(.bottom, 110)
             }
             .background(SableTheme.appBackground(for: colorScheme).ignoresSafeArea())
@@ -78,33 +78,33 @@ struct ProfileView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: SableTheme.Spacing.xs) {
             Text("Profile")
                 .font(.system(size: 46, weight: .black))
-                .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
 
             Text("A calm desk for your artwork, preferences, and palettes.")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                .font(SableTheme.Typography.bodyMedium.weight(.semibold))
+                .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
         }
     }
 
     private var settingsPanel: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: SableTheme.Spacing.xxl) {
+            HStack(spacing: SableTheme.Spacing.xl) {
                 ProfileAvatarBadge(name: displayName)
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: SableTheme.Spacing.xs) {
                     Text("Display Name")
-                        .font(.system(size: 13, weight: .black))
-                        .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                        .font(SableTheme.Typography.labelMedium.weight(.black))
+                        .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
 
                     TextField("Display name", text: $displayName)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                        .font(SableTheme.Typography.fraunces(22, weight: .bold))
+                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                         .textFieldStyle(.plain)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 12)
+                        .padding(.vertical, SableTheme.Spacing.sm)
+                        .padding(.horizontal, SableTheme.Spacing.md)
                         .background(SableTheme.surface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
                 }
             }
@@ -124,61 +124,61 @@ struct ProfileView: View {
 
             ProfileSettingRow(title: "Apple Pencil & Touch", detail: "Two-finger undo, three-finger redo, pinch zoom, and clean color regions.") {
                 Image(systemName: "hand.point.up.left.fill")
-                    .font(.system(size: 17, weight: .bold))
+                    .font(SableTheme.Typography.bodyLarge.weight(.bold))
                     .foregroundStyle(SableTheme.progressPink)
                     .frame(width: 34, height: 34)
                     .background(SableTheme.surface(for: colorScheme), in: Circle())
             }
 
             ProfileSettingRow(title: "My Palettes", detail: "A quick view of your current Gouache colors.") {
-                HStack(spacing: -4) {
-                    ForEach(["#D4213D", "#2BBCB3", "#F6CF85", "#7B68AE"], id: \.self) { hex in
+                HStack(spacing: -SableTheme.Spacing.xxxs) {
+                    ForEach([SableTheme.crimson, SableTheme.mist, SableTheme.butter, SableTheme.lavender], id: \.self) { color in
                         Circle()
-                            .fill(Color(hex: hex))
+                            .fill(color)
                             .frame(width: 28, height: 28)
-                            .overlay(Circle().stroke(.white.opacity(0.8), lineWidth: 1))
+                            .overlay(Circle().stroke(.white.opacity(0.8), lineWidth: SableTheme.Border.hairlineWidth))
                     }
                 }
             }
 
             ProfileSettingRow(title: "Storage & Sync", detail: "Artwork is saved on this iPad as you color.") {
                 Image(systemName: "externaldrive.fill")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                    .font(SableTheme.Typography.bodyLarge.weight(.bold))
+                    .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
                     .frame(width: 34, height: 34)
                     .background(SableTheme.surface(for: colorScheme), in: Circle())
             }
 
             ProfileSettingRow(title: "Help", detail: "Gesture tips, coloring basics, and support.") {
                 Image(systemName: "questionmark.circle.fill")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                    .font(SableTheme.Typography.bodyLarge.weight(.bold))
+                    .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
                     .frame(width: 34, height: 34)
                     .background(SableTheme.surface(for: colorScheme), in: Circle())
             }
 
             ProfileSettingRow(title: "About Gouache", detail: "A quiet iPad studio for coloring and keeping a daily art practice.") {
                 Image(systemName: "paintbrush.pointed.fill")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                    .font(SableTheme.Typography.bodyLarge.weight(.bold))
+                    .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
                     .frame(width: 34, height: 34)
                     .background(SableTheme.surface(for: colorScheme), in: Circle())
             }
         }
-        .padding(20)
-        .background(SableTheme.elevatedSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
+        .padding(SableTheme.Spacing.xl)
+        .background(SableTheme.cardSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
         .overlay {
             RoundedRectangle(cornerRadius: SableTheme.Radius.card)
-                .stroke(SableTheme.hairline(for: colorScheme), lineWidth: 1)
+                .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
         }
     }
 
     private var myWorkSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: SableTheme.Spacing.xl) {
             HStack {
                 Text("My Work")
-                    .font(SableTheme.Font.sectionTitle)
-                    .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                    .font(SableTheme.Typography.sectionTitle)
+                    .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
 
                 Spacer()
 
@@ -193,7 +193,7 @@ struct ProfileView: View {
             } else if filteredPages.isEmpty {
                 emptyWork
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300, maximum: 440), spacing: 18)], spacing: 18) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300, maximum: 440), spacing: SableTheme.Spacing.xxl)], spacing: SableTheme.Spacing.xxl) {
                     ForEach(filteredPages) { page in
                         MyWorkCard(
                             page: page,
@@ -220,18 +220,18 @@ struct ProfileView: View {
     }
 
     private var emptyWork: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: SableTheme.Spacing.md) {
             Image(systemName: "paintpalette")
                 .font(.system(size: 44, weight: .semibold))
                 .foregroundStyle(SableTheme.progressPink)
 
             Text("Your saved artwork will appear here.")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                .font(SableTheme.Typography.bodyMedium.weight(.semibold))
+                .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
         }
         .frame(maxWidth: .infinity)
         .frame(height: 220)
-        .background(SableTheme.elevatedSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
+        .background(SableTheme.cardSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
     }
 }
 
@@ -261,15 +261,15 @@ private struct ProfileSettingRow<Accessory: View>: View {
     @ViewBuilder let accessory: Accessory
 
     var body: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: SableTheme.Spacing.xl) {
+            VStack(alignment: .leading, spacing: SableTheme.Spacing.xxxs) {
                 Text(title)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                    .font(SableTheme.Typography.bodyLarge.weight(.bold))
+                    .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
 
                 Text(detail)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                    .font(SableTheme.Typography.labelMedium)
+                    .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
             }
 
             Spacer()
@@ -291,7 +291,7 @@ private struct ProfileAvatarBadge: View {
         }
         .frame(width: 72, height: 72)
         .overlay {
-            Circle().stroke(SableTheme.ink.opacity(0.14), lineWidth: 1)
+            Circle().stroke(SableTheme.ink.opacity(0.14), lineWidth: SableTheme.Border.hairlineWidth)
         }
     }
 }
@@ -315,36 +315,36 @@ private struct MyWorkCard: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("profile.project.\(page.title.normalizedIdentifier)")
 
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: SableTheme.Spacing.md) {
+                HStack(spacing: SableTheme.Spacing.md) {
                     Text(page.title)
-                        .font(.system(size: 21, weight: .black))
-                        .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                        .font(SableTheme.Typography.fraunces(21, weight: .black))
+                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
 
                     Spacer()
 
                     Text("\(Int((page.progress * 100).rounded()))%")
-                        .font(.system(size: 15, weight: .black))
-                        .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                        .font(SableTheme.Typography.labelLarge.weight(.black))
+                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                 }
 
                 ProgressTrack(progress: page.progress)
 
-                HStack(spacing: 10) {
+                HStack(spacing: SableTheme.Spacing.sm) {
                     actionButton("Duplicate", systemImage: "plus.square.on.square", action: duplicate)
                     actionButton("Share", systemImage: "square.and.arrow.up", action: share)
                     actionButton("Reset", systemImage: "arrow.counterclockwise", role: .destructive, action: reset)
                 }
             }
-            .padding(15)
+            .padding(SableTheme.Spacing.lg)
         }
-        .background(SableTheme.elevatedSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
+        .background(SableTheme.cardSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
         .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
         .overlay {
             RoundedRectangle(cornerRadius: SableTheme.Radius.card)
-                .stroke(SableTheme.hairline(for: colorScheme), lineWidth: 1)
+                .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
         }
     }
 
@@ -352,12 +352,12 @@ private struct MyWorkCard: View {
         Button(role: role, action: action) {
             Label(title, systemImage: systemImage)
                 .labelStyle(.iconOnly)
-                .font(.system(size: 16, weight: .bold))
+                .font(SableTheme.Typography.bodyMedium.weight(.bold))
                 .frame(width: 36, height: 34)
                 .background(SableTheme.surface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
         }
         .buttonStyle(.plain)
-        .foregroundStyle(role == .destructive ? SableTheme.crimson : SableTheme.primaryText(for: colorScheme))
+        .foregroundStyle(role == .destructive ? SableTheme.crimson : SableTheme.gouachePrimaryText(for: colorScheme))
         .accessibilityLabel(title)
     }
 }

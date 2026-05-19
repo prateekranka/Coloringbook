@@ -34,10 +34,10 @@ struct MyLibraryView: View {
                 emptyState
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: SableTheme.Spacing.xxxl) {
                         header
 
-                        LazyVGrid(columns: columns, spacing: 16) {
+                        LazyVGrid(columns: columns, spacing: SableTheme.Spacing.xl) {
                             ForEach(viewModel.pages) { page in
                                 LibraryProjectCard(page: page) {
                                     navigate(.coloringPage(page))
@@ -46,7 +46,7 @@ struct MyLibraryView: View {
                         }
                     }
                     .padding(.horizontal, SableTheme.Spacing.pageInset)
-                    .padding(.top, 28)
+                    .padding(.top, SableTheme.Spacing.xxxl)
                     .padding(.bottom, 24)
                 }
             }
@@ -57,42 +57,42 @@ struct MyLibraryView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: SableTheme.Spacing.xs) {
             Text("My Library")
                 .font(.system(size: 46, weight: .black))
-                .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
 
             Text("\(viewModel.pages.count) SAVED")
-                .font(.system(size: 15, weight: .black))
+                .font(SableTheme.Typography.bodySmall.weight(.black))
                 .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
+                .padding(.horizontal, SableTheme.Spacing.lg)
+                .padding(.vertical, SableTheme.Spacing.xxs)
                 .background(SableTheme.cardBlack, in: Capsule())
                 .accessibilityIdentifier("library.savedCount")
         }
     }
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: SableTheme.Spacing.xxl) {
             Image(systemName: "paintpalette.fill")
                 .font(.system(size: 54, weight: .bold))
                 .foregroundStyle(SableTheme.crimson)
 
             Text("My Library")
                 .font(.system(size: 36, weight: .black))
-                .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
 
             Text("Saved projects appear here")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                .font(SableTheme.Typography.bodyMedium.weight(.semibold))
+                .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var columns: [GridItem] {
         [
-            GridItem(.flexible(), spacing: 16),
-            GridItem(.flexible(), spacing: 16)
+            GridItem(.flexible(), spacing: SableTheme.Spacing.xl),
+            GridItem(.flexible(), spacing: SableTheme.Spacing.xl)
         ]
     }
 }
@@ -110,28 +110,33 @@ private struct LibraryProjectCard: View {
                     .frame(maxWidth: .infinity)
                     .clipped()
 
-                VStack(alignment: .leading, spacing: 9) {
+                VStack(alignment: .leading, spacing: SableTheme.Spacing.sm) {
                     HStack {
                         Text(page.title)
-                            .font(.system(size: 22, weight: .black))
-                            .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                            .font(SableTheme.Typography.fraunces(22, weight: .black))
+                            .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                             .lineLimit(1)
                             .minimumScaleFactor(0.72)
 
-                        Spacer(minLength: 12)
+                        Spacer(minLength: SableTheme.Spacing.md)
 
                         Text(progressText)
-                            .font(.system(size: 16, weight: .black))
-                            .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                            .font(SableTheme.Typography.bodyMedium.weight(.black))
+                            .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                     }
 
                     ProgressTrack(progress: page.progress)
                 }
-                .padding(15)
-                .background(SableTheme.elevatedSurface(for: colorScheme))
+                .padding(SableTheme.Spacing.lg)
+                .background(SableTheme.cardSurface(for: colorScheme))
             }
             .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
-            .shadow(color: SableTheme.shadow(for: colorScheme), radius: 8, x: 0, y: 5)
+            .shadow(
+                color: SableTheme.Shadow.card(for: colorScheme).color,
+                radius: SableTheme.Shadow.card(for: colorScheme).radius,
+                x: SableTheme.Shadow.card(for: colorScheme).x,
+                y: SableTheme.Shadow.card(for: colorScheme).y
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(page.title), \(progressText) complete")

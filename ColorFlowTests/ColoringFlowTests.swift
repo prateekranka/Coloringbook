@@ -1112,4 +1112,22 @@ final class ColoringFlowTests: XCTestCase {
         let stroke = try XCTUnwrap(vm.paintState.strokeActions.first)
         XCTAssertNil(stroke.clippedRegionID)
     }
+
+    func test_syncFreehandDrawingFromCanvas_marksDirtyWithoutBumpingExternalRevision() async throws {
+        let template = try uniqueTemplate()
+        var project = Project(template: template)
+        storage.save(project: &project, drawing: PKDrawing(), fillLayer: nil, templateImage: nil)
+        projectsToDelete.append(project)
+
+        let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
+        await vm.loadIfNeeded()
+
+        let revisionBefore = vm.freehandExternalRevision
+        let drawing = PKDrawing()
+
+        vm.syncFreehandDrawingFromCanvas(drawing)
+
+        XCTAssertEqual(vm.freehandExternalRevision, revisionBefore, "External revision should not change on canvas-origin sync")
+        XCTAssertEqual(vm.saveState, .dirty, "Canvas sync should mark the session dirty")
+    }
 }

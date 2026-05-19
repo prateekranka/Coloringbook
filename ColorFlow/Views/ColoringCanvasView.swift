@@ -112,6 +112,7 @@ struct ColoringCanvasView: View {
                             colorHex: viewModel.selectedTool == .eraser ? "#000000" : viewModel.selectedColorHex,
                             toolSettings: viewModel.selectedToolSettings,
                             fingerPaints: fingerPaints,
+                            liveStrokeSeed: viewModel.liveStrokeSeed,
                             canvasSize: canvasSize,
                             viewportSize: availableSize,
                             viewport: viewModel.viewport,
@@ -306,20 +307,20 @@ struct ColoringCanvasView: View {
                 fillLayerImage: viewModel.fillLayerImage,
                 lineArtImage: viewModel.lineArtImage,
                 freehandDrawing: viewModel.coloringMode == .free ? PKDrawing() : viewModel.freehandDrawing,
-                freehandDrawingRevision: viewModel.coloringMode == .free ? -1 : viewModel.freehandDrawingRevision,
+                freehandDrawingRevision: viewModel.coloringMode == .free ? -1 : viewModel.freehandExternalRevision,
                 showsLineArt: viewModel.coloringMode == .clean
             )
 
             if viewModel.coloringMode == .free, viewModel.selectedTool != .fillBucket {
                 FreehandCanvasRepresentable(
                     drawing: viewModel.freehandDrawing,
-                    drawingRevision: viewModel.freehandDrawingRevision,
+                    drawingExternalRevision: viewModel.freehandExternalRevision,
                     flushRequestID: freehandFlushRequestID,
                     selectedTool: viewModel.selectedTool,
                     colorHex: viewModel.selectedColorHex,
                     settings: viewModel.selectedToolSettings,
-                    fingerPaints: fingerPaints,
-                    onDrawingChanged: { viewModel.updateFreehandDrawing($0) }
+                    fingerPaints: true,
+                    onDrawingChanged: { viewModel.syncFreehandDrawingFromCanvas($0) }
                 )
             }
 
@@ -583,7 +584,7 @@ private final class NotebookCanvasUIView: UIView {
 
 private struct FreehandCanvasRepresentable: UIViewRepresentable {
     var drawing: PKDrawing
-    var drawingRevision: Int
+    var drawingExternalRevision: Int
     var flushRequestID: Int
     var selectedTool: ToolType
     var colorHex: String
@@ -602,7 +603,7 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
         canvas.drawingPolicy = fingerPaints ? .anyInput : .pencilOnly
         canvas.delegate = context.coordinator
         canvas.drawing = drawing
-        context.coordinator.appliedDrawingRevision = drawingRevision
+        context.coordinator.appliedExternalRevision = drawingExternalRevision
         canvas.tool = makeTool()
         canvas.minimumZoomScale = 1
         canvas.maximumZoomScale = 1
@@ -612,11 +613,11 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
 
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
         context.coordinator.parent = self
-        if context.coordinator.appliedDrawingRevision != drawingRevision {
+        if context.coordinator.appliedExternalRevision != drawingExternalRevision {
             context.coordinator.isApplyingExternalDrawing = true
             uiView.drawing = drawing
             context.coordinator.isApplyingExternalDrawing = false
-            context.coordinator.appliedDrawingRevision = drawingRevision
+            context.coordinator.appliedExternalRevision = drawingExternalRevision
         }
         if context.coordinator.handledFlushRequestID != flushRequestID {
             context.coordinator.handledFlushRequestID = flushRequestID
@@ -651,10 +652,11 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
 
     final class Coordinator: NSObject, PKCanvasViewDelegate {
         var parent: FreehandCanvasRepresentable
-        var appliedDrawingRevision = 0
+        var appliedExternalRevision = 0
         var handledFlushRequestID = 0
         var isApplyingExternalDrawing = false
         private var idleSyncTask: Task<Void, Never>?
+        private var hasPendingCanvasDrawingChange = false
 
         init(parent: FreehandCanvasRepresentable) {
             self.parent = parent
@@ -663,6 +665,7 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
             guard !isApplyingExternalDrawing else { return }
             CanvasPerformanceProbe.count(.pencilKitDelegateSync)
+            hasPendingCanvasDrawingChange = true
             idleSyncTask?.cancel()
             idleSyncTask = Task { [weak self, weak canvasView] in
                 try? await Task.sleep(nanoseconds: 650_000_000)
@@ -679,6 +682,7 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
 
         func flushDrawing(from canvasView: PKCanvasView) {
             idleSyncTask?.cancel()
+            hasPendingCanvasDrawingChange = false
             parent.onDrawingChanged(canvasView.drawing)
         }
     }
@@ -689,6 +693,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
     var colorHex: String
     var toolSettings: ToolSettings
     var fingerPaints: Bool
+    var liveStrokeSeed: UInt64?
     var canvasSize: CGSize
     var viewportSize: CGSize
     var viewport: CanvasViewport
@@ -778,10 +783,18 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             colorHex: colorHex,
             size: toolSettings.size,
             opacity: selectedTool == .eraser ? 1 : CGFloat(toolSettings.opacity),
+            seed: liveStrokeSeed ?? 0,
             viewport: viewport,
             canvasSize: canvasSize,
             viewportSize: viewportSize
         )
+    }
+
+    enum InteractionMode {
+        case idle
+        case drawing
+        case viewportPan
+        case pinchZoom
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
@@ -791,6 +804,8 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         private var pinchStartOffset = CGSize.zero
         private var strokeSamples: [StrokeSample] = []
         private weak var previewView: CanvasInteractionUIView?
+        private var lockedMode: InteractionMode = .idle
+        private var workingViewport: CanvasViewport?
 
         init(parent: CanvasInteractionOverlay) {
             self.parent = parent
@@ -826,61 +841,101 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         }
 
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
-            if recognizer.numberOfTouches >= 2 {
-                handleViewportPan(recognizer)
-            } else if parent.selectedTool != .fillBucket {
-                handleFingerStroke(recognizer)
-            } else {
-                handleViewportPan(recognizer)
-            }
-        }
-
-        private func handleFingerStroke(_ recognizer: UIPanGestureRecognizer) {
             switch recognizer.state {
             case .began:
-                beginStroke(at: recognizer.location(in: recognizer.view), in: recognizer.view)
-            case .changed:
-                appendStrokePoint(recognizer.location(in: recognizer.view))
-            case .ended:
-                endStroke(at: recognizer.location(in: recognizer.view))
-            case .cancelled, .failed:
-                cancelStroke()
-            default:
-                break
-            }
-        }
-
-        private func handleViewportPan(_ recognizer: UIPanGestureRecognizer) {
-            switch recognizer.state {
-            case .began:
-                panStartOffset = parent.viewport.offset
-            case .changed, .ended:
-                var nextViewport = parent.viewport
-                let translation = recognizer.translation(in: recognizer.view)
-                nextViewport.updateOffset(
-                    from: panStartOffset,
-                    translation: CGSize(width: translation.x, height: translation.y),
-                    canvasSize: parent.canvasSize,
-                    viewportSize: parent.viewportSize
-                )
-                parent.onViewportChanged(nextViewport)
-                if recognizer.state == .ended {
-                    parent.onViewportCommitted()
+                if recognizer.numberOfTouches >= 2 || parent.selectedTool == .fillBucket {
+                    lockedMode = .viewportPan
+                    panStartOffset = activeViewport.offset
+                    #if DEBUG
+                    AppLog.trace(AppLog.canvas, "pan began: touches=\(recognizer.numberOfTouches), mode=viewportPan")
+                    #endif
+                } else if parent.selectedTool != .fillBucket {
+                    lockedMode = .drawing
+                    #if DEBUG
+                    AppLog.trace(AppLog.canvas, "pan began: touches=\(recognizer.numberOfTouches), mode=drawing, tool=\(parent.selectedTool.rawValue)")
+                    #endif
+                } else {
+                    lockedMode = .viewportPan
+                    panStartOffset = activeViewport.offset
                 }
+            case .changed:
+                switch lockedMode {
+                case .viewportPan:
+                    handleViewportPanChanged(recognizer)
+                case .drawing:
+                    handleFingerStrokeMoved(recognizer)
+                default:
+                    break
+                }
+            case .ended:
+                #if DEBUG
+                AppLog.trace(AppLog.canvas, "pan ended: mode=\(lockedMode)")
+                #endif
+                switch lockedMode {
+                case .viewportPan:
+                    handleViewportPanEnded(recognizer)
+                case .drawing:
+                    endStroke(at: recognizer.location(in: recognizer.view))
+                default:
+                    break
+                }
+                resetInteractionMode()
             case .cancelled, .failed:
-                parent.onViewportCommitted()
+                #if DEBUG
+                AppLog.trace(AppLog.canvas, "pan cancelled/failed: mode=\(lockedMode)")
+                #endif
+                switch lockedMode {
+                case .viewportPan:
+                    parent.onViewportCommitted()
+                case .drawing:
+                    cancelStroke()
+                default:
+                    break
+                }
+                resetInteractionMode()
             default:
                 break
             }
+        }
+
+        private func handleFingerStrokeBegan(_ recognizer: UIPanGestureRecognizer) {
+            beginStroke(at: recognizer.location(in: recognizer.view), in: recognizer.view)
+        }
+
+        private func handleFingerStrokeMoved(_ recognizer: UIPanGestureRecognizer) {
+            appendStrokePoint(recognizer.location(in: recognizer.view))
+        }
+
+        private func handleViewportPanChanged(_ recognizer: UIPanGestureRecognizer) {
+            var nextViewport = activeViewport
+            let translation = recognizer.translation(in: recognizer.view)
+            nextViewport.updateOffset(
+                from: panStartOffset,
+                translation: CGSize(width: translation.x, height: translation.y),
+                canvasSize: parent.canvasSize,
+                viewportSize: parent.viewportSize
+            )
+            workingViewport = nextViewport
+            parent.onViewportChanged(nextViewport)
+        }
+
+        private func handleViewportPanEnded(_ recognizer: UIPanGestureRecognizer) {
+            parent.onViewportCommitted()
+            workingViewport = nil
         }
 
         @objc func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
             switch recognizer.state {
             case .began:
-                pinchStartScale = parent.viewport.scale
-                pinchStartOffset = parent.viewport.offset
-            case .changed, .ended:
-                var nextViewport = parent.viewport
+                lockedMode = .pinchZoom
+                cancelStroke()
+                pinchStartScale = activeViewport.scale
+                pinchStartOffset = activeViewport.offset
+                #if DEBUG
+                AppLog.trace(AppLog.canvas, "pinch began: scale=\(activeViewport.scale), mode=pinchZoom")
+                #endif
+            case .changed:
+                var nextViewport = activeViewport
                 nextViewport.updateScale(
                     from: pinchStartScale,
                     baseOffset: pinchStartOffset,
@@ -889,12 +944,22 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
                     canvasSize: parent.canvasSize,
                     viewportSize: parent.viewportSize
                 )
+                workingViewport = nextViewport
                 parent.onViewportChanged(nextViewport)
-                if recognizer.state == .ended {
-                    parent.onViewportCommitted()
-                }
-            case .cancelled, .failed:
+            case .ended:
+                #if DEBUG
+                AppLog.trace(AppLog.canvas, "pinch ended: scale=\(workingViewport?.scale ?? activeViewport.scale)")
+                #endif
                 parent.onViewportCommitted()
+                workingViewport = nil
+                resetInteractionMode()
+            case .cancelled, .failed:
+                #if DEBUG
+                AppLog.trace(AppLog.canvas, "pinch cancelled/failed")
+                #endif
+                parent.onViewportCommitted()
+                workingViewport = nil
+                resetInteractionMode()
             default:
                 break
             }
@@ -904,7 +969,21 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            gestureRecognizer.view === otherGestureRecognizer.view
+            let isPinch = gestureRecognizer is UIPinchGestureRecognizer || otherGestureRecognizer is UIPinchGestureRecognizer
+            let isPan = gestureRecognizer is UIPanGestureRecognizer || otherGestureRecognizer is UIPanGestureRecognizer
+            if isPinch && isPan && lockedMode == .pinchZoom {
+                return true
+            }
+            return false
+        }
+
+        private var activeViewport: CanvasViewport {
+            workingViewport ?? parent.viewport
+        }
+
+        private func resetInteractionMode() {
+            lockedMode = .idle
+            workingViewport = nil
         }
 
         func beginStroke(at point: CGPoint, in view: UIView?) {
@@ -1021,6 +1100,7 @@ private struct LiveStrokePreviewConfiguration {
     let colorHex: String
     let size: CGFloat
     let opacity: CGFloat
+    let seed: UInt64
     let viewport: CanvasViewport
     let canvasSize: CGSize
     let viewportSize: CGSize
@@ -1079,16 +1159,17 @@ private final class CanvasInteractionUIView: UIView {
         format.opaque = false
         previewImage = UIGraphicsImageRenderer(size: bounds.size, format: format).image { context in
             previewImage?.draw(in: bounds)
-            BrushRenderers.drawLiveStroke(
-                samples: newSamples,
+            let stroke = PigmentStroke(
                 tool: previewConfiguration.tool,
                 colorHex: previewConfiguration.colorHex,
-                size: previewConfiguration.size * previewConfiguration.viewport.scale,
-                opacity: previewConfiguration.opacity,
-                clipPath: viewportClip?.path,
-                clipFillRule: viewportClip?.fillRule ?? .winding,
-                in: context.cgContext
+                opacity: Double(previewConfiguration.opacity),
+                size: Double(previewConfiguration.size * previewConfiguration.viewport.scale),
+                points: newSamples.map(\.cgPoint),
+                regionID: nil,
+                seed: previewConfiguration.seed
             )
+            let mask = viewportClip.map { RegionMask(regionID: "preview", path: $0.path, fillRule: $0.fillRule, image: UIImage()) }
+            PigmentStrokeRenderer.render(stroke, in: context.cgContext, mask: mask)
         }
         previewedSampleCount = samples.count
         setNeedsDisplay(dirtyRect)

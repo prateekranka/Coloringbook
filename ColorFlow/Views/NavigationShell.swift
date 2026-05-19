@@ -273,14 +273,14 @@ private struct SableTabBar: View {
                 Button {
                     selectedTab = tab
                 } label: {
-                    VStack(spacing: 5) {
+                    VStack(spacing: SableTheme.Spacing.xxs) {
                         Image(systemName: tab.systemImageName)
                             .font(.system(size: 25, weight: .semibold))
 
                         Text(tab.title)
-                            .font(.system(size: 14, weight: .regular))
+                            .font(SableTheme.Typography.bodySmall)
                     }
-                    .foregroundStyle(selectedTab == tab ? SableTheme.progressPink : SableTheme.primaryText(for: colorScheme))
+                    .foregroundStyle(selectedTab == tab ? SableTheme.progressPink : SableTheme.gouachePrimaryText(for: colorScheme))
                     .frame(maxWidth: .infinity, minHeight: 76)
                     .contentShape(Rectangle())
                 }
@@ -291,9 +291,14 @@ private struct SableTabBar: View {
         .frame(maxWidth: 900)
         .background(SableTheme.elevatedSurface(for: colorScheme), in: Capsule())
         .overlay {
-            Capsule().stroke(SableTheme.hairline(for: colorScheme), lineWidth: 1)
+            Capsule().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
         }
-        .shadow(color: Color.black.opacity(0.18), radius: 14, x: 0, y: 6)
+        .shadow(
+            color: SableTheme.Shadow.tabBar(for: colorScheme).color,
+            radius: SableTheme.Shadow.tabBar(for: colorScheme).radius,
+            x: SableTheme.Shadow.tabBar(for: colorScheme).x,
+            y: SableTheme.Shadow.tabBar(for: colorScheme).y
+        )
     }
 }
 

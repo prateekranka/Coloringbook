@@ -29,7 +29,7 @@ struct TemplateListView: View {
             SableTheme.appBackground(for: colorScheme).ignoresSafeArea()
 
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: SableTheme.Spacing.xxxl) {
                     header
                     if viewModel.showsTemplateFilters {
                         GouacheSearchBar(text: $viewModel.searchText, placeholder: "Search by artwork, subject, mood")
@@ -48,7 +48,7 @@ struct TemplateListView: View {
                     }
                 }
                 .padding(.horizontal, SableTheme.Spacing.pageInset)
-                .padding(.top, 28)
+                .padding(.top, SableTheme.Spacing.xxxl)
                 .padding(.bottom, 132)
             }
         }
@@ -60,25 +60,25 @@ struct TemplateListView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: SableTheme.Spacing.xs) {
             Text(viewModel.source.title)
                 .font(.system(size: 46, weight: .black))
-                .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
 
             Text(viewModel.source.subtitle)
-                .font(.system(size: 15, weight: .black))
+                .font(SableTheme.Typography.bodySmall.weight(.black))
                 .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
+                .padding(.horizontal, SableTheme.Spacing.lg)
+                .padding(.vertical, SableTheme.Spacing.xxs)
                 .background(SableTheme.cardBlack, in: Capsule())
         }
     }
 
     private var filters: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+            HStack(spacing: SableTheme.Spacing.md) {
                 filterButton("All difficulty", isSelected: viewModel.selectedDifficulty == nil) {
                     viewModel.selectedDifficulty = nil
                 }
@@ -102,12 +102,12 @@ struct TemplateListView: View {
                     }
                 }
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, SableTheme.Spacing.xxxs)
         }
     }
 
     private var templateGrid: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: SableTheme.Spacing.lg) {
             if viewModel.showsExploreCollections {
                 sectionTitle("All Templates")
             }
@@ -123,10 +123,10 @@ struct TemplateListView: View {
     }
 
     private var libraryCollectionsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: SableTheme.Spacing.lg) {
             sectionTitle("Collections")
 
-            LazyVGrid(columns: columns, spacing: 18) {
+            LazyVGrid(columns: columns, spacing: SableTheme.Spacing.xxl) {
                 ForEach(viewModel.collections) { collection in
                     LibraryCollectionCard(collection: collection) {
                         navigate(.collection(collection))
@@ -138,7 +138,7 @@ struct TemplateListView: View {
     }
 
     private var collectionGrid: some View {
-        LazyVGrid(columns: columns, spacing: 18) {
+        LazyVGrid(columns: columns, spacing: SableTheme.Spacing.xxl) {
             ForEach(viewModel.collections) { collection in
                 LibraryCollectionCard(collection: collection) {
                     navigate(.collection(collection))
@@ -149,21 +149,21 @@ struct TemplateListView: View {
 
     private func sectionTitle(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 25, weight: .black))
-            .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+            .font(SableTheme.Typography.sectionTitle)
+            .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
             .accessibilityIdentifier("library.section.\(title.normalizedIdentifier)")
     }
 
     private func filterButton(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(isSelected ? .white : SableTheme.primaryText(for: colorScheme))
-                .padding(.horizontal, 13)
+                .font(SableTheme.Typography.labelMedium.weight(.bold))
+                .foregroundStyle(isSelected ? .white : SableTheme.gouachePrimaryText(for: colorScheme))
+                .padding(.horizontal, SableTheme.Spacing.lg)
                 .frame(height: 34)
-                .background(isSelected ? SableTheme.cardBlack : SableTheme.elevatedSurface(for: colorScheme), in: Capsule())
+                .background(isSelected ? SableTheme.cardBlack : SableTheme.cardSurface(for: colorScheme), in: Capsule())
                 .overlay {
-                    Capsule().stroke(SableTheme.hairline(for: colorScheme), lineWidth: 1)
+                    Capsule().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
                 }
         }
         .buttonStyle(.plain)
@@ -177,7 +177,7 @@ struct TemplateListView: View {
     }
 
     private var columns: [GridItem] {
-        [GridItem(.adaptive(minimum: 220, maximum: 330), spacing: 18)]
+        [GridItem(.adaptive(minimum: 220, maximum: 330), spacing: SableTheme.Spacing.xxl)]
     }
 }
 
@@ -210,27 +210,32 @@ private struct LibraryCollectionCard: View {
                 .frame(maxWidth: .infinity)
                 .clipped()
 
-                VStack(alignment: .leading, spacing: 7) {
+                VStack(alignment: .leading, spacing: SableTheme.Spacing.xs) {
                     Text(collection.name)
-                        .font(.system(size: 20, weight: .black))
-                        .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                        .font(SableTheme.Typography.fraunces(20, weight: .black))
+                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
 
                     Text(collection.category.rawValue.uppercased())
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                        .font(SableTheme.Typography.labelTiny)
+                        .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .background(SableTheme.elevatedSurface(for: colorScheme))
+                .padding(SableTheme.Spacing.lg)
+                .background(SableTheme.cardSurface(for: colorScheme))
             }
             .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
             .overlay {
                 RoundedRectangle(cornerRadius: SableTheme.Radius.card)
-                    .stroke(SableTheme.hairline(for: colorScheme), lineWidth: 1)
+                    .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
             }
-            .shadow(color: SableTheme.cardShadow, radius: 8, x: 0, y: 5)
+            .shadow(
+                color: SableTheme.Shadow.card(for: colorScheme).color,
+                radius: SableTheme.Shadow.card(for: colorScheme).radius,
+                x: SableTheme.Shadow.card(for: colorScheme).x,
+                y: SableTheme.Shadow.card(for: colorScheme).y
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(collection.name)
@@ -249,9 +254,9 @@ private struct MasonryTemplateGrid: View {
             let columns = balancedColumns(count: columnCount, width: proxy.size.width)
             let height = gridHeight(columnCount: columnCount, width: proxy.size.width)
 
-            HStack(alignment: .top, spacing: 18) {
+            HStack(alignment: .top, spacing: SableTheme.Spacing.xxl) {
                 ForEach(columns.indices, id: \.self) { columnIndex in
-                    LazyVStack(spacing: 18) {
+                    LazyVStack(spacing: SableTheme.Spacing.xxl) {
                         ForEach(columns[columnIndex]) { template in
                             TemplateCard(template: template) {
                                 onTap(template)
@@ -275,12 +280,12 @@ private struct MasonryTemplateGrid: View {
     private func balancedColumns(count: Int, width: CGFloat) -> [[Template]] {
         var columns = Array(repeating: [Template](), count: count)
         var heights = Array(repeating: CGFloat.zero, count: count)
-        let columnWidth = (width - CGFloat(count - 1) * 18) / CGFloat(count)
+        let columnWidth = (width - CGFloat(count - 1) * SableTheme.Spacing.xxl) / CGFloat(count)
 
         for template in templates {
             let index = heights.enumerated().min(by: { $0.element < $1.element })?.offset ?? 0
             columns[index].append(template)
-            heights[index] += estimatedHeight(for: template, columnWidth: columnWidth) + 18
+            heights[index] += estimatedHeight(for: template, columnWidth: columnWidth) + SableTheme.Spacing.xxl
         }
 
         return columns
@@ -288,9 +293,9 @@ private struct MasonryTemplateGrid: View {
 
     private func gridHeight(columnCount: Int, width: CGFloat) -> CGFloat {
         let columns = balancedColumns(count: columnCount, width: width)
-        let columnWidth = (width - CGFloat(columnCount - 1) * 18) / CGFloat(columnCount)
+        let columnWidth = (width - CGFloat(columnCount - 1) * SableTheme.Spacing.xxl) / CGFloat(columnCount)
         return max(320, columns.map { column in
-            column.reduce(CGFloat.zero) { $0 + estimatedHeight(for: $1, columnWidth: columnWidth) + 18 }
+            column.reduce(CGFloat.zero) { $0 + estimatedHeight(for: $1, columnWidth: columnWidth) + SableTheme.Spacing.xxl }
         }.max() ?? 320)
     }
 
@@ -313,26 +318,31 @@ private struct TemplateCard: View {
                     .frame(maxWidth: .infinity)
                     .clipped()
 
-                VStack(alignment: .leading, spacing: 7) {
+                VStack(alignment: .leading, spacing: SableTheme.Spacing.xs) {
                     Text(template.name)
-                        .font(.system(size: 20, weight: .black))
-                        .foregroundStyle(SableTheme.primaryText(for: colorScheme))
+                        .font(SableTheme.Typography.fraunces(20, weight: .black))
+                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    HStack(spacing: 8) {
+                    HStack(spacing: SableTheme.Spacing.xxs) {
                         Text(template.category.rawValue.uppercased())
                         DifficultyPill(difficulty: template.difficulty)
                     }
-                    .font(.system(size: 11, weight: .black))
-                    .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
+                    .font(SableTheme.Typography.labelTiny)
+                    .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .background(SableTheme.elevatedSurface(for: colorScheme))
+                .padding(SableTheme.Spacing.lg)
+                .background(SableTheme.cardSurface(for: colorScheme))
             }
             .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
-            .shadow(color: SableTheme.cardShadow, radius: 8, x: 0, y: 5)
+            .shadow(
+                color: SableTheme.Shadow.cardSmall(for: colorScheme).color,
+                radius: SableTheme.Shadow.cardSmall(for: colorScheme).radius,
+                x: SableTheme.Shadow.cardSmall(for: colorScheme).x,
+                y: SableTheme.Shadow.cardSmall(for: colorScheme).y
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(template.name)

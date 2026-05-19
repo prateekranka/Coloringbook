@@ -282,13 +282,18 @@ private struct GouacheHero: View {
                 .padding(.top, 12)
 
             Text("Color slowly.\nMake it yours.")
-                .font(SableTheme.fraunces(metrics.titleSize, weight: .regular))
+                .font(SableTheme.Typography.fraunces(metrics.titleSize, weight: .regular))
                 .foregroundStyle(heroTitleColor)
                 .lineSpacing(-5)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(width: metrics.isLandscape ? 500 : 480, alignment: .leading)
                 .offset(x: metrics.isLandscape ? 54 : 8, y: metrics.titleTop)
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.72 : 0.18), radius: colorScheme == .dark ? 9 : 4, x: 0, y: 3)
+                .shadow(
+                    color: SableTheme.Shadow.heroTitle(for: colorScheme).color,
+                    radius: SableTheme.Shadow.heroTitle(for: colorScheme).radius,
+                    x: SableTheme.Shadow.heroTitle(for: colorScheme).x,
+                    y: SableTheme.Shadow.heroTitle(for: colorScheme).y
+                )
         }
         .frame(maxWidth: .infinity)
         .frame(height: metrics.heroHeight)
@@ -297,7 +302,7 @@ private struct GouacheHero: View {
     }
 
     private var heroTitleColor: Color {
-        colorScheme == .dark ? Color(hex: "#FFF4E2") : SableTheme.gouachePrimaryText(for: colorScheme)
+        colorScheme == .dark ? SableTheme.heroTitleDark : SableTheme.gouachePrimaryText(for: colorScheme)
     }
 }
 
@@ -312,11 +317,11 @@ private struct GouacheTopBar: View {
     var body: some View {
         ZStack {
             Text("Gouache")
-                .font(SableTheme.fraunces(20, weight: .regular))
+                .font(SableTheme.Typography.fraunces(20, weight: .regular))
                 .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 12) {
+            HStack(spacing: SableTheme.Spacing.md) {
                 Spacer()
 
                 SearchPill(
@@ -360,7 +365,7 @@ private struct SearchPill: View {
     var body: some View {
         HStack(spacing: 10) {
             Button {
-                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                withAnimation(SableTheme.Motion.searchExpand) {
                     isExpanded = true
                 }
                 isFocused = true
@@ -373,7 +378,7 @@ private struct SearchPill: View {
 
             if isExpanded {
                 TextField("Search templates, moods, or collections", text: $text)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(SableTheme.Typography.bodySmall)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.search)
@@ -394,14 +399,19 @@ private struct SearchPill: View {
             }
         }
         .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
-        .padding(.horizontal, isExpanded ? 16 : 12)
+        .padding(.horizontal, isExpanded ? SableTheme.Spacing.xl : 12)
         .frame(width: isExpanded ? width : 44, height: 44, alignment: .leading)
         .background(searchFill, in: Capsule())
         .overlay {
-            Capsule().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: 1)
+            Capsule().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
         }
-        .shadow(color: SableTheme.gouacheCardShadow(for: colorScheme).opacity(0.35), radius: 12, x: 0, y: 4)
-        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: isExpanded)
+        .shadow(
+            color: SableTheme.Shadow.searchPill(for: colorScheme).color,
+            radius: SableTheme.Shadow.searchPill(for: colorScheme).radius,
+            x: SableTheme.Shadow.searchPill(for: colorScheme).x,
+            y: SableTheme.Shadow.searchPill(for: colorScheme).y
+        )
+        .animation(SableTheme.Motion.searchExpand, value: isExpanded)
         .onChange(of: isExpanded) { _, expanded in
             if expanded {
                 isFocused = true
@@ -413,7 +423,7 @@ private struct SearchPill: View {
     }
 
     private var searchFill: Color {
-        colorScheme == .dark ? Color(hex: "#1C1C1A").opacity(0.88) : Color(hex: "#F8F1E8").opacity(0.86)
+        colorScheme == .dark ? SableTheme.searchFillDark : SableTheme.searchFillLight
     }
 }
 
@@ -427,7 +437,7 @@ private struct ProfileAvatarButton: View {
                 Circle()
                     .fill(controlFill)
                     .overlay {
-                        Circle().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: 1)
+                        Circle().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
                     }
 
                 Image(systemName: "person.crop.circle.fill")
@@ -441,7 +451,7 @@ private struct ProfileAvatarButton: View {
     }
 
     private var controlFill: Color {
-        colorScheme == .dark ? Color(hex: "#1D1D1B").opacity(0.92) : Color(hex: "#F8F0E7").opacity(0.92)
+        colorScheme == .dark ? SableTheme.controlFillDark : SableTheme.controlFillLight
     }
 }
 
@@ -721,25 +731,25 @@ private struct ContinueEmptyCard: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text("No saved colorings yet")
-                    .font(SableTheme.fraunces(18, weight: .regular))
+                    .font(SableTheme.Typography.fraunces(18, weight: .regular))
                     .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 
                 Text("Choose a template below to start.")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(SableTheme.Typography.labelMedium)
                     .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, SableTheme.Spacing.xl)
         .frame(width: width, height: 82)
         .background(SableTheme.gouachePanel(for: colorScheme))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: 1)
+            RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCard, style: .continuous)
+                .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
         }
         .accessibilityIdentifier("home.continue.empty")
     }
@@ -765,7 +775,7 @@ private struct ContinueCard: View {
                 VStack(alignment: .leading, spacing: 9) {
                     HStack(alignment: .lastTextBaseline, spacing: 10) {
                         Text(page.title)
-                            .font(SableTheme.fraunces(14, weight: .regular))
+                            .font(SableTheme.Typography.fraunces(14, weight: .regular))
                             .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                             .lineLimit(1)
                             .minimumScaleFactor(0.72)
@@ -773,24 +783,29 @@ private struct ContinueCard: View {
                         Spacer(minLength: 8)
 
                         Text(progressText)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(SableTheme.Typography.labelMedium)
                             .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
                     }
 
                     ProgressTrack(progress: page.progress)
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, SableTheme.Spacing.lg)
                 .frame(height: footerHeight)
                 .background(cardFooter)
             }
             .frame(width: width, height: imageHeight + footerHeight)
             .background(SableTheme.gouachePanel(for: colorScheme))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCard, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: 1)
+                RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCard, style: .continuous)
+                    .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
             }
-            .shadow(color: SableTheme.gouacheCardShadow(for: colorScheme), radius: 10, x: 0, y: 5)
+            .shadow(
+                color: SableTheme.Shadow.card(for: colorScheme).color,
+                radius: SableTheme.Shadow.card(for: colorScheme).radius,
+                x: SableTheme.Shadow.card(for: colorScheme).x,
+                y: SableTheme.Shadow.card(for: colorScheme).y
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(page.title), \(progressText) complete")
@@ -798,7 +813,7 @@ private struct ContinueCard: View {
     }
 
     private var cardFooter: Color {
-        colorScheme == .dark ? Color(hex: "#1C1B18").opacity(0.98) : Color(hex: "#FBF4EA").opacity(0.98)
+        colorScheme == .dark ? SableTheme.cardFooterDark : SableTheme.cardFooterLight
     }
 
     private var progressText: String {
@@ -860,8 +875,8 @@ private struct MoodCard: View {
 
                         HStack {
                             Text(mood.title)
-                                .font(SableTheme.fraunces(width < 190 ? 19 : 23, weight: .regular))
-                                .foregroundStyle(Color(hex: "#FFF4E2"))
+                                .font(SableTheme.Typography.fraunces(width < 190 ? 19 : 23, weight: .regular))
+                                .foregroundStyle(SableTheme.heroTitleDark)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.85)
                                 .padding(.leading, 18)
@@ -872,7 +887,7 @@ private struct MoodCard: View {
 
                             Spacer(minLength: 0)
                         }
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, SableTheme.Spacing.xl)
                         .padding(.bottom, 10)
                     }
                     .frame(width: width, height: height, alignment: .bottomLeading)
@@ -880,12 +895,17 @@ private struct MoodCard: View {
             }
             .frame(width: width, height: height)
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCard, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: 1)
+                RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCard, style: .continuous)
+                    .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
             }
-            .shadow(color: SableTheme.gouacheCardShadow(for: colorScheme), radius: 8, x: 0, y: 4)
+            .shadow(
+                color: SableTheme.Shadow.cardSmall(for: colorScheme).color,
+                radius: SableTheme.Shadow.cardSmall(for: colorScheme).radius,
+                x: SableTheme.Shadow.cardSmall(for: colorScheme).x,
+                y: SableTheme.Shadow.cardSmall(for: colorScheme).y
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(mood.title)
@@ -918,19 +938,19 @@ private struct MoodArtworkCanvas: View {
     private func drawCalm(in context: inout GraphicsContext, size: CGSize) {
         drawBrush(
             CGRect(x: -size.width * 0.04, y: size.height * 0.02, width: size.width * 0.58, height: size.height * 1.08),
-            color: Color(hex: "#E3C98E").opacity(0.46),
+            color: SableTheme.MoodWashes.calm[0].opacity(0.46),
             angle: -2,
             in: &context
         )
         drawBrush(
             CGRect(x: size.width * 0.30, y: -size.height * 0.12, width: size.width * 0.48, height: size.height * 0.92),
-            color: Color(hex: "#9EB1A8").opacity(0.48),
+            color: SableTheme.MoodWashes.calm[1].opacity(0.48),
             angle: 14,
             in: &context
         )
         drawBrush(
             CGRect(x: size.width * 0.52, y: size.height * 0.02, width: size.width * 0.52, height: size.height * 1.02),
-            color: Color(hex: "#EEE4C8").opacity(0.64),
+            color: SableTheme.MoodWashes.calm[2].opacity(0.64),
             angle: -8,
             in: &context
         )
@@ -939,59 +959,59 @@ private struct MoodArtworkCanvas: View {
     private func drawBold(in context: inout GraphicsContext, size: CGSize) {
         drawBrush(
             CGRect(x: -size.width * 0.08, y: -size.height * 0.12, width: size.width * 0.46, height: size.height * 1.34),
-            color: Color(hex: "#082135").opacity(0.94),
+            color: SableTheme.MoodWashes.bold[0].opacity(0.94),
             angle: -7,
             in: &context
         )
         drawBrush(
             CGRect(x: size.width * 0.14, y: size.height * 0.04, width: size.width * 0.52, height: size.height * 0.98),
-            color: Color(hex: "#F0D8AF").opacity(0.88),
+            color: SableTheme.MoodWashes.bold[1].opacity(0.88),
             angle: 13,
             in: &context
         )
         drawBrush(
             CGRect(x: size.width * 0.34, y: size.height * 0.48, width: size.width * 0.58, height: size.height * 0.36),
-            color: Color(hex: "#D96B2A").opacity(0.84),
+            color: SableTheme.MoodWashes.bold[2].opacity(0.84),
             angle: -2,
             in: &context
         )
         drawBrush(
             CGRect(x: size.width * 0.74, y: -size.height * 0.08, width: size.width * 0.24, height: size.height * 1.15),
-            color: Color(hex: "#B4AD8C").opacity(0.62),
+            color: SableTheme.MoodWashes.bold[3].opacity(0.62),
             angle: 5,
             in: &context
         )
     }
 
     private func drawDreamy(in context: inout GraphicsContext, size: CGSize) {
-        drawWash(center: CGPoint(x: size.width * 0.18, y: size.height * 0.44), radius: size.width * 0.43, color: Color(hex: "#E89A9C").opacity(0.56), in: &context)
-        drawWash(center: CGPoint(x: size.width * 0.58, y: size.height * 0.24), radius: size.width * 0.42, color: Color(hex: "#D5B4D8").opacity(0.42), in: &context)
-        drawWash(center: CGPoint(x: size.width * 0.72, y: size.height * 0.62), radius: size.width * 0.40, color: Color(hex: "#F1A56F").opacity(0.42), in: &context)
-        drawWash(center: CGPoint(x: size.width * 0.44, y: size.height * 0.52), radius: size.width * 0.46, color: Color(hex: "#F5D59F").opacity(0.38), in: &context)
+        drawWash(center: CGPoint(x: size.width * 0.18, y: size.height * 0.44), radius: size.width * 0.43, color: SableTheme.MoodWashes.dreamy[0].opacity(0.56), in: &context)
+        drawWash(center: CGPoint(x: size.width * 0.58, y: size.height * 0.24), radius: size.width * 0.42, color: SableTheme.MoodWashes.dreamy[1].opacity(0.42), in: &context)
+        drawWash(center: CGPoint(x: size.width * 0.72, y: size.height * 0.62), radius: size.width * 0.40, color: SableTheme.MoodWashes.dreamy[2].opacity(0.42), in: &context)
+        drawWash(center: CGPoint(x: size.width * 0.44, y: size.height * 0.52), radius: size.width * 0.46, color: SableTheme.MoodWashes.dreamy[3].opacity(0.38), in: &context)
     }
 
     private func drawFocus(in context: inout GraphicsContext, size: CGSize) {
         drawBrush(
             CGRect(x: -size.width * 0.05, y: -size.height * 0.12, width: size.width * 0.45, height: size.height * 1.24),
-            color: Color(hex: "#73815E").opacity(0.70),
+            color: SableTheme.MoodWashes.focus[0].opacity(0.70),
             angle: -7,
             in: &context
         )
         drawBrush(
             CGRect(x: size.width * 0.26, y: size.height * 0.04, width: size.width * 0.40, height: size.height * 0.96),
-            color: Color(hex: "#DBD0B4").opacity(0.76),
+            color: SableTheme.MoodWashes.focus[1].opacity(0.76),
             angle: 13,
             in: &context
         )
         drawBrush(
             CGRect(x: size.width * 0.60, y: -size.height * 0.10, width: size.width * 0.48, height: size.height * 1.24),
-            color: Color(hex: "#EFE4C7").opacity(0.78),
+            color: SableTheme.MoodWashes.focus[2].opacity(0.78),
             angle: -9,
             in: &context
         )
         drawBrush(
             CGRect(x: size.width * 0.68, y: size.height * 0.55, width: size.width * 0.42, height: size.height * 0.40),
-            color: Color(hex: "#293D34").opacity(0.55),
+            color: SableTheme.MoodWashes.focus[3].opacity(0.55),
             angle: 5,
             in: &context
         )
@@ -1106,12 +1126,17 @@ private struct CollectionCard: View {
                 collectionLabelPanel
             }
             .frame(width: width, height: height)
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCollection, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: 1)
+                RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCollection, style: .continuous)
+                    .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
             }
-            .shadow(color: SableTheme.gouacheCardShadow(for: colorScheme), radius: 9, x: 0, y: 5)
+            .shadow(
+                color: SableTheme.Shadow.cardMedium(for: colorScheme).color,
+                radius: SableTheme.Shadow.cardMedium(for: colorScheme).radius,
+                x: SableTheme.Shadow.cardMedium(for: colorScheme).x,
+                y: SableTheme.Shadow.cardMedium(for: colorScheme).y
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(collection.name), \(displayDifficulty)")
@@ -1122,7 +1147,7 @@ private struct CollectionCard: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(collection.name)
-                    .font(SableTheme.fraunces(width < 260 ? 17 : 21, weight: .regular))
+                    .font(SableTheme.Typography.fraunces(width < 260 ? 17 : 21, weight: .regular))
                     .foregroundStyle(titleColor)
                     .lineLimit(2)
                     .minimumScaleFactor(0.64)
@@ -1134,7 +1159,7 @@ private struct CollectionCard: View {
                     chip(displayDifficulty)
                 }
             }
-            .padding(.leading, 14)
+            .padding(.leading, SableTheme.Spacing.lg)
             .padding(.trailing, 8)
             .padding(.vertical, 15)
             .frame(width: width < 260 ? width * 0.72 : width * 0.58, height: height, alignment: .leading)
@@ -1146,7 +1171,7 @@ private struct CollectionCard: View {
 
     private func chip(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .medium))
+            .font(SableTheme.Typography.chip)
             .lineLimit(1)
             .minimumScaleFactor(0.72)
             .foregroundStyle(chipForeground)
@@ -1156,16 +1181,7 @@ private struct CollectionCard: View {
     }
 
     private var tint: Color {
-        switch index {
-        case 0:
-            return Color(hex: "#A8B19F")
-        case 1:
-            return Color(hex: "#E9BDA8")
-        case 2:
-            return Color(hex: "#E49B3D")
-        default:
-            return Color(hex: "#B6C6C8")
-        }
+        SableTheme.CollectionTints.forIndex(index)
     }
 
     private var overlayColors: [Color] {
@@ -1175,18 +1191,18 @@ private struct CollectionCard: View {
 
     private var collectionPanelFill: Color {
         if colorScheme == .dark {
-            return Color(hex: "#22231F").opacity(index == 2 ? 0.30 : 0.72)
+            return SableTheme.collectionPanelDark.opacity(index == 2 ? 0.30 : 0.72)
         }
 
         switch index {
         case 0:
-            return Color(hex: "#D8DDCE").opacity(0.92)
+            return SableTheme.collectionPanelSageLight
         case 1:
-            return Color(hex: "#F0CDBF").opacity(0.88)
+            return SableTheme.collectionPanelBlushLight
         case 2:
-            return Color(hex: "#E8A641").opacity(0.90)
+            return SableTheme.collectionPanelGoldLight
         default:
-            return Color(hex: "#D6E0DE").opacity(0.90)
+            return SableTheme.collectionPanelTealLight
         }
     }
 
@@ -1199,7 +1215,7 @@ private struct CollectionCard: View {
     }
 
     private var chipForeground: Color {
-        colorScheme == .dark ? Color(hex: "#F2E6D6") : Color(hex: "#5E554C")
+        colorScheme == .dark ? SableTheme.chipForegroundDark : SableTheme.chipForegroundLight
     }
 
     private var displayDifficulty: String {
@@ -1253,12 +1269,17 @@ private struct RecentlyAddedCard: View {
                 ProjectArtworkThumbnail(page: page, style: .compact)
             }
                 .frame(width: width, height: height)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: SableTheme.Radius.card, style: .continuous)
+                        .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
                 }
-                .shadow(color: SableTheme.gouacheCardShadow(for: colorScheme), radius: 7, x: 0, y: 4)
+                .shadow(
+                    color: SableTheme.Shadow.cardSmall(for: colorScheme).color,
+                    radius: SableTheme.Shadow.cardSmall(for: colorScheme).radius,
+                    x: SableTheme.Shadow.cardSmall(for: colorScheme).x,
+                    y: SableTheme.Shadow.cardSmall(for: colorScheme).y
+                )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(page.title)
@@ -1300,19 +1321,19 @@ private struct HomeSectionHeader: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(SableTheme.fraunces(24, weight: .regular))
+                .font(SableTheme.Typography.sectionHeader)
                 .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
 
             Spacer()
 
             if let seeAll {
                 Button(action: seeAll) {
-                    HStack(spacing: 7) {
+                    HStack(spacing: SableTheme.Spacing.xxs) {
                         Text("See All")
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(SableTheme.Typography.labelLarge)
                     }
-                    .font(.system(size: 14, weight: .medium))
+                    .font(SableTheme.Typography.bodyMedium)
                     .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
                 }
                 .buttonStyle(.plain)
@@ -1335,7 +1356,7 @@ struct ProgressTrack: View {
                 Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: "#F07D78"), Color(hex: "#F4A277")],
+                            colors: [SableTheme.progressGradientStart, SableTheme.progressGradientEnd],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
@@ -1347,7 +1368,7 @@ struct ProgressTrack: View {
     }
 
     private var trackFill: Color {
-        colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.08)
+        SableTheme.gouacheHairline(for: colorScheme).opacity(0.3)
     }
 }
 

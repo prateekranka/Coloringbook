@@ -49,7 +49,7 @@ final class ColoringSessionViewModel {
     var lineArtImage: UIImage?
     var fillLayerImage: UIImage?
     var freehandDrawing = PKDrawing()
-    var freehandDrawingRevision = 0
+    var freehandExternalRevision = 0
     var selectedColorHex = SableTheme.progressPinkHex
     var selectedPaletteID = ColoringSessionViewModel.essentialsPalette.id
     var selectedTool: ToolType = .crayon
@@ -97,6 +97,58 @@ final class ColoringSessionViewModel {
         let seed: UInt64
         var latestPatch: PigmentPatch?
         var latestDocumentSamples: [StrokeSample] = []
+    }
+
+    /// Lightweight descriptor for the live-stroke preview renderer.
+    /// The view reads this to draw the on-screen preview with the same
+    /// pigment brush implementations used for final commit.
+    struct LiveStrokePreviewDescriptor {
+        let tool: ToolType
+        let colorHex: String
+        let size: CGFloat
+        let opacity: Double
+        let seed: UInt64
+        let regionClip: StrokeRenderClip?
+    }
+
+    /// Returns the current live-stroke preview configuration, or nil if no
+    /// stroke is in progress.  The view uses this to render the preview with
+    /// the same pigment brush implementations as the final committed stroke.
+    func liveStrokePreviewDescriptor(samples canvasSamples: [StrokeSample], canvasSize: CGSize) -> LiveStrokePreviewDescriptor? {
+        guard let active = activePigmentStroke,
+              let geometry,
+              canvasSamples.count > 1 else {
+            return nil
+        }
+        let regionClip: StrokeRenderClip?
+        if let regionID = active.regionID,
+           let region = geometry.regions.first(where: { $0.id == regionID }) {
+            var documentToCanvas = TemplateRenderer.documentToViewTransform(
+                viewBox: geometry.viewBox,
+                viewSize: canvasSize
+            )
+            if let path = region.path.copy(using: &documentToCanvas) {
+                regionClip = StrokeRenderClip(path: path, fillRule: region.fillRule)
+            } else {
+                regionClip = nil
+            }
+        } else {
+            regionClip = nil
+        }
+        return LiveStrokePreviewDescriptor(
+            tool: active.tool,
+            colorHex: active.colorHex,
+            size: active.size,
+            opacity: active.opacity,
+            seed: active.seed,
+            regionClip: regionClip
+        )
+    }
+
+    /// The seed for the current live stroke, or nil. Used by the preview
+    /// renderer so it produces identical random variation as the final commit.
+    var liveStrokeSeed: UInt64? {
+        activePigmentStroke?.seed
     }
 
     init(
@@ -255,11 +307,11 @@ final class ColoringSessionViewModel {
             }
             if let drawing = storageService.loadDrawing(for: seed.project) {
                 freehandDrawing = drawing
-                freehandDrawingRevision += 1
+                freehandExternalRevision += 1
             } else if let data = paintState.freehandDrawingData,
                       let drawing = try? PKDrawing(data: data) {
                 freehandDrawing = drawing
-                freehandDrawingRevision += 1
+                freehandExternalRevision += 1
             }
             selectedTool = paintState.canvasState.selectedTool
             selectedToolSettings = toolSettingsCache[selectedTool] ?? selectedTool.defaultSettings
@@ -344,7 +396,7 @@ final class ColoringSessionViewModel {
         paintState.regionFills.removeAll()
         paintState.strokeActions.removeAll()
         freehandDrawing = PKDrawing()
-        freehandDrawingRevision += 1
+        freehandExternalRevision += 1
         if let geometry {
             pigmentEngine = RegionPigmentEngine(
                 geometry: geometry,
@@ -428,6 +480,9 @@ final class ColoringSessionViewModel {
               selectedTool != .fillBucket,
               let pigmentEngine,
               let firstSample = canvasSamples.first else {
+            #if DEBUG
+            AppLog.trace(AppLog.canvas, "beginLiveStroke failed: geometry=\(geometry != nil), tool=\(selectedTool.rawValue), engine=\(pigmentEngine != nil), samples=\(canvasSamples.count)")
+            #endif
             return false
         }
 
@@ -437,6 +492,9 @@ final class ColoringSessionViewModel {
         if coloringMode == .clean {
             guard let region = geometry.region(at: firstDocumentPoint) else {
                 activePigmentStroke = nil
+                #if DEBUG
+                AppLog.trace(AppLog.canvas, "beginLiveStroke no region at point")
+                #endif
                 return false
             }
             regionID = region.id
@@ -510,6 +568,9 @@ final class ColoringSessionViewModel {
         guard var activeStroke = activePigmentStroke,
               let pigmentEngine,
               activeStroke.latestDocumentSamples.count > 1 else {
+            #if DEBUG
+            AppLog.trace(AppLog.canvas, "endLiveStroke aborted: samples=\(activePigmentStroke?.latestDocumentSamples.count ?? 0)")
+            #endif
             activePigmentStroke = nil
             isLiveDrawing = false
             return false
@@ -526,6 +587,9 @@ final class ColoringSessionViewModel {
             opacity: activeStroke.opacity,
             seed: activeStroke.seed
         ) else {
+            #if DEBUG
+            AppLog.trace(AppLog.canvas, "endLiveStroke pigment render failed: tool=\(activeStroke.tool.rawValue), region=\(activeStroke.regionID ?? "free")")
+            #endif
             pigmentEngine.restore(activeStroke.beforeImage)
             fillLayerImage = activeStroke.beforeImage
             activePigmentStroke = nil
@@ -559,6 +623,9 @@ final class ColoringSessionViewModel {
         syncUndoRedoState()
         fillLayerImage = pigmentEngine.image
         CanvasPerformanceProbe.count(.fillLayerPublish)
+        #if DEBUG
+        AppLog.trace(AppLog.canvas, "endLiveStroke committed: tool=\(activeStroke.tool.rawValue), region=\(activeStroke.regionID ?? "free"), samples=\(activeStroke.latestDocumentSamples.count)")
+        #endif
         hasUnsavedPigmentChanges = true
         refreshArtworkAfterEdit()
         HapticService.shared.impact(.light)
@@ -617,10 +684,12 @@ final class ColoringSessionViewModel {
         return hasher.value
     }
 
-    func updateFreehandDrawing(_ drawing: PKDrawing) {
+    func syncFreehandDrawingFromCanvas(_ drawing: PKDrawing) {
         CanvasPerformanceProbe.count(.pencilKitDelegateSync)
+        #if DEBUG
+        AppLog.trace(AppLog.canvas, "syncFreehandDrawingFromCanvas: strokes=\(drawing.strokes.count)")
+        #endif
         freehandDrawing = drawing
-        freehandDrawingRevision += 1
         markCanvasStateDirty()
     }
 

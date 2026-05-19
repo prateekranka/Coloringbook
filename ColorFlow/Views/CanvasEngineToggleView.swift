@@ -1,6 +1,5 @@
 import SwiftUI
 
-#if DEBUG
 struct CanvasEngineToggleView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Binding var engine: DrawingEngineMode
@@ -18,4 +17,3 @@ struct CanvasEngineToggleView: View {
         }
     }
 }
-#endif

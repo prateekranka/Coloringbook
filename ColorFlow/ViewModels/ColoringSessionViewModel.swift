@@ -212,6 +212,7 @@ final class ColoringSessionViewModel {
     func selectDrawingEngineMode(_ mode: DrawingEngineMode) {
         drawingEngineMode = mode
         paintState.canvasState.drawingEngine = mode
+        metalStrokes.removeAll()
         markCanvasStateDirty()
     }
 
@@ -491,6 +492,10 @@ final class ColoringSessionViewModel {
             latestDocumentSamples: documentSamples
         )
 
+        if drawingEngineMode == .metalExperimental {
+            beginMetalStroke(samples: canvasSamples)
+        }
+
         if canvasSamples.count > 1 {
             return updateLiveStroke(samples: canvasSamples, canvasSize: canvasSize)
         }
@@ -536,6 +541,11 @@ final class ColoringSessionViewModel {
         activeStroke.latestDocumentSamples = documentSamples
         activePigmentStroke = activeStroke
         fillLayerImage = pigmentEngine.image
+
+        if drawingEngineMode == .metalExperimental {
+            appendMetalStroke(samples: canvasSamples)
+        }
+
         return true
     }
 
@@ -575,6 +585,11 @@ final class ColoringSessionViewModel {
         fillLayerImage = pigmentEngine?.image
         hasUnsavedPigmentChanges = true
         refreshArtworkAfterEdit()
+
+        if drawingEngineMode == .metalExperimental {
+            metalStrokes.removeAll()
+        }
+
         HapticService.shared.impact(.light)
         return true
     }
@@ -584,6 +599,7 @@ final class ColoringSessionViewModel {
         pigmentEngine?.restore(activeStroke.beforeImage)
         fillLayerImage = activeStroke.beforeImage
         activePigmentStroke = nil
+        metalStrokes.removeAll()
     }
 
     private func documentSamples(

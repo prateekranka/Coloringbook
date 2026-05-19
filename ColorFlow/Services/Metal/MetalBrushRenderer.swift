@@ -50,7 +50,6 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
     @ObservationIgnored private var currentStrokeVertices: [StrokeVertex] = []
     @ObservationIgnored private var smoothedStrokePoints: [StrokePoint] = []
     @ObservationIgnored let smoother: StrokeSmoother
-    @ObservationIgnored let instrumentation: FrameInstrumentation
 
     @ObservationIgnored private var accumulationTexture: MTLTexture?
     @ObservationIgnored private var accumulationTextureSize: CGSize = .zero
@@ -119,7 +118,6 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
             pressureSmoothing: 0.3,
             minDistance: 0.5
         ))
-        self.instrumentation = FrameInstrumentation(enabled: true)
 
         super.init()
 
@@ -154,11 +152,9 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
     }
 
     func addStrokePoint(_ point: StrokePoint, brush: BrushConfiguration) {
-        instrumentation.markRawInput(timestamp: point.timestamp)
         currentBrushKind = brush.brushType
 
         let smoothed = smoother.addSample(point)
-        instrumentation.markSmoothed(timestamp: CACurrentMediaTime())
 
         for sp in smoothed {
             let prev = smoothedStrokePoints.last
@@ -173,7 +169,6 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
         smoother.reset()
         currentStrokeVertices.removeAll()
         smoothedStrokePoints.removeAll()
-        instrumentation.resetMark()
     }
 
     func endStroke() -> [StrokePoint] {
@@ -221,9 +216,18 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
             return
         }
 
+        // Always clear the drawable first so we never render onto garbage.
+        guard let clearEncoder = commandBuffer.makeRenderCommandEncoder(
+            descriptor: makeRenderPassDescriptor(texture: drawable.texture, loadAction: .clear)
+        ) else {
+            os_signpost(.end, log: Self.signpostLog, name: "MetalFrame")
+            return
+        }
+        clearEncoder.endEncoding()
+
         if let accumulationTexture {
             guard let blitEncoder = commandBuffer.makeRenderCommandEncoder(
-                descriptor: makeRenderPassDescriptor(texture: drawable.texture, loadAction: .clear)
+                descriptor: makeRenderPassDescriptor(texture: drawable.texture, loadAction: .load)
             ) else {
                 os_signpost(.end, log: Self.signpostLog, name: "MetalFrame")
                 return
@@ -240,12 +244,8 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
             strokeEncoder.endEncoding()
         }
 
-        instrumentation.markRenderSubmitted(timestamp: CACurrentMediaTime())
         commandBuffer.present(drawable)
         commandBuffer.commit()
-
-        instrumentation.markFrameDrawn(timestamp: CACurrentMediaTime())
-        instrumentation.logLatency()
 
         os_signpost(.end, log: Self.signpostLog, name: "MetalFrame")
     }
@@ -323,8 +323,8 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
         ensureRingBufferCapacity(vertexCount: vertexCount, indexCount: indexCount)
 
         let ringIdx = currentRingIndex
-        guard let vb = vertexRingBuffers[ringIdx],
-              let ib = indexRingBuffers[ringIdx] else { return }
+        let vb = vertexRingBuffers[ringIdx]
+        let ib = indexRingBuffers[ringIdx]
 
         currentStrokeVertices.withUnsafeBytes { rawBuffer in
             guard let base = rawBuffer.baseAddress else { return }
@@ -474,7 +474,7 @@ final class MetalBrushRenderer: NSObject, MTKViewDelegate {
                 let radius = half - 0.5
                 let normalized = dist / radius
 
-                let alpha: Float
+                var alpha: Float
                 switch kind {
                 case .pencil:
                     let edge = smoothstep(0.7, 1.0, normalized)

@@ -2,7 +2,7 @@ import SwiftUI
 import MetalKit
 
 struct MetalCanvasView: UIViewRepresentable {
-    @Binding var strokePoints: [StrokePoint]
+    var strokePoints: [StrokePoint]
     var brush: BrushConfiguration
     var backgroundColor: UIColor = UIColor(red: 1.0, green: 0.992, blue: 0.973, alpha: 1.0)
 
@@ -11,9 +11,7 @@ struct MetalCanvasView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> MTKView {
-        let mtkView = MTKView(frame: .zero, device: context.coordinator.renderer.device)
-        mtkView.delegate = context.coordinator
-        mtkView.preferredFramesPerSecond = 120
+        let mtkView = MTKView()
         mtkView.isOpaque = false
         mtkView.framebufferOnly = false
         mtkView.clearColor = MTLClearColor(
@@ -25,6 +23,8 @@ struct MetalCanvasView: UIViewRepresentable {
         mtkView.colorPixelFormat = .bgra8Unorm
         mtkView.enableSetNeedsDisplay = true
         mtkView.isPaused = true
+        mtkView.device = context.coordinator.renderer.device
+        mtkView.delegate = context.coordinator
         return mtkView
     }
 
@@ -40,6 +40,7 @@ final class Coordinator: NSObject, MTKViewDelegate {
     let renderer: MetalBrushRenderer
     var strokePoints: [StrokePoint] = []
     var brush: BrushConfiguration = BrushConfiguration(brushType: .pencil)
+    private var wasDrawingStroke = false
 
     override init() {
         self.renderer = try! MetalBrushRenderer()
@@ -47,16 +48,25 @@ final class Coordinator: NSObject, MTKViewDelegate {
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-        renderer.ensureAccumulationTexture(size: size)
+        renderer.mtkView(view, drawableSizeWillChange: size)
     }
 
     func draw(in view: MTKView) {
-        guard let drawable = view.currentDrawable else { return }
-        renderer.renderLiveStroke(
-            points: strokePoints,
-            brush: brush,
-            to: drawable,
-            viewportSize: view.drawableSize
-        )
+        let scale = Double(view.contentScaleFactor)
+
+        // If stroke just ended, commit it to accumulation texture first
+        if wasDrawingStroke && strokePoints.isEmpty {
+            renderer.commitStroke(brush: brush, viewportSize: view.drawableSize)
+        }
+        wasDrawingStroke = !strokePoints.isEmpty
+
+        renderer.beginStroke()
+        for point in strokePoints {
+            var scaledPoint = point
+            scaledPoint.position.x *= scale
+            scaledPoint.position.y *= scale
+            renderer.addStrokePoint(scaledPoint, brush: brush)
+        }
+        renderer.draw(in: view)
     }
 }

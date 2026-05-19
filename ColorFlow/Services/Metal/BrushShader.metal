@@ -69,57 +69,28 @@ vertex StrokeVertexOut brush_stroke_vertex(
 fragment float4 brush_stroke_fragment(
     StrokeVertexOut in [[stage_in]]
 ) {
-    float absPerp = abs(in.perpNorm);
+    float2 pos = in.position.xy;
+    float  h   = in.halfWidth;
 
-    if (absPerp > 1.0) {
-        discard_fragment();
+    float d = abs(in.perpNorm);
+
+    float edge = 1.0 - smoothstep(0.85, 1.0, d);
+
+    float n = hash21(pos, in.seed);
+    n = mix(0.5, 1.0, n);
+    float noiseFactor = 1.0 - (n - 0.5) * 2.0 * in.noiseStrength;
+    edge *= noiseFactor;
+
+    float4 color = in.color;
+    color.a *= edge;
+
+    if (in.brushKind == 1) {
+        float pastelMix = 0.35;
+        color.rgb = mix(color.rgb, float3(1.0), pastelMix);
+        color.a *= 0.92;
     }
 
-    float innerEdge = 1.0 - in.softness;
-    float alpha = 1.0 - smoothstep(innerEdge, 1.0, absPerp);
-
-    float2 fragPixel = in.position.xy;
-    float noise = hash21(fragPixel * 0.25, in.seed);
-
-    switch (in.brushKind) {
-        case 0: {
-            alpha *= mix(1.0, noise, in.noiseStrength * 0.5);
-            alpha *= in.color.a * 0.9;
-            break;
-        }
-        case 1: {
-            alpha *= 0.95;
-            alpha *= in.color.a;
-            break;
-        }
-        case 2: {
-            float noiseMod = mix(1.0, noise * 0.7 + 0.3, in.noiseStrength);
-            alpha *= noiseMod * 0.85;
-            alpha *= in.color.a * 0.65;
-            break;
-        }
-        case 3: {
-            float threshold = 0.3 + in.noiseStrength * 0.4;
-            if (noise < threshold) {
-                discard_fragment();
-            }
-            alpha *= mix(0.4, 1.0, noise) * in.color.a;
-            break;
-        }
-        case 4: {
-            alpha *= mix(1.0, noise, in.noiseStrength * 0.2);
-            alpha *= in.color.a;
-            break;
-        }
-        default:
-            break;
-    }
-
-    if (alpha <= 0.003) {
-        discard_fragment();
-    }
-
-    return float4(in.color.rgb * alpha, alpha);
+    return color;
 }
 
 vertex BlitVertexOut brush_blit_vertex(

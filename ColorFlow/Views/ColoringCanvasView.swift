@@ -361,7 +361,7 @@ struct ColoringCanvasView: View {
 
             if viewModel.coloringMode == .free, viewModel.selectedTool != .fillBucket {
                 MetalCanvasView(
-                    strokePoints: $viewModel.metalStrokes,
+                    strokePoints: viewModel.metalStrokes,
                     brush: BrushConfiguration(
                         from: viewModel.selectedTool,
                         settings: viewModel.selectedToolSettings,
@@ -1258,12 +1258,10 @@ private struct MinimalCanvasDock: View {
             .font(.system(size: 17, weight: .bold))
             .accessibilityIdentifier("canvas.tools")
 
-            #if DEBUG
             CanvasEngineToggleView(engine: Binding(
                 get: { viewModel.drawingEngineMode },
                 set: { viewModel.selectDrawingEngineMode($0) }
             ))
-            #endif
         }
         .tint(SableTheme.progressPink)
         .foregroundStyle(SableTheme.primaryText(for: colorScheme))

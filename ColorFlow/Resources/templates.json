@@ -78,5 +78,61 @@
     "difficulty": "Hard",
     "svgFilename": "florist-window.svg",
     "thumbnailFilename": "thumb-florist-window.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000111",
+    "name": "Radiant Peaks",
+    "category": "Abstract",
+    "difficulty": "Medium",
+    "svgFilename": "radiant-peaks.svg",
+    "thumbnailFilename": "thumb-radiant-peaks.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000112",
+    "name": "Art Deco Bloom",
+    "category": "Abstract",
+    "difficulty": "Medium",
+    "svgFilename": "art-deco-bloom.svg",
+    "thumbnailFilename": "thumb-art-deco-bloom.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000113",
+    "name": "Compass Bloom",
+    "category": "Abstract",
+    "difficulty": "Medium",
+    "svgFilename": "compass-bloom.svg",
+    "thumbnailFilename": "thumb-compass-bloom.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000114",
+    "name": "Lion Crest",
+    "category": "Animals",
+    "difficulty": "Hard",
+    "svgFilename": "lion-crest.svg",
+    "thumbnailFilename": "thumb-lion-crest.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000115",
+    "name": "Sunburst Bloom",
+    "category": "Abstract",
+    "difficulty": "Easy",
+    "svgFilename": "sunburst-bloom.svg",
+    "thumbnailFilename": "thumb-sunburst-bloom.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000116",
+    "name": "Lotus Crown",
+    "category": "Mandalas",
+    "difficulty": "Hard",
+    "svgFilename": "lotus-crown.svg",
+    "thumbnailFilename": "thumb-lotus-crown.png"
+  },
+  {
+    "id": "33333333-0000-0000-0000-000000000117",
+    "name": "Electric Starburst",
+    "category": "Abstract",
+    "difficulty": "Medium",
+    "svgFilename": "electric-starburst.svg",
+    "thumbnailFilename": "thumb-electric-starburst.png"
   }
 ]

@@ -13,6 +13,9 @@
 #   # Strict mode (also copies validator-failing SVGs to cleanup/ for Inkscape):
 #   Scripts/pipeline/run.sh --rasters pipeline_work/01_rasters --strict
 #
+#   # ChatGPT-style black line art: trace colorable white cells, not ink strokes:
+#   Scripts/pipeline/run.sh --rasters pipeline_work/01_rasters --trace-white-regions --mode polygon --filter-speckle 16 --path-precision 3
+#
 #   # Use a custom working directory:
 #   Scripts/pipeline/run.sh --rasters rasters/ --work /tmp/pipeline_run
 #
@@ -35,6 +38,11 @@ RASTERS=""
 WORK=""
 DRY_RUN=false
 STRICT=false
+TRACE_WHITE_REGIONS=false
+MODE="spline"
+FILTER_SPECKLE=4
+PATH_PRECISION=8
+REGION_THRESHOLD=210
 SKIP_COMMIT=true   # we never auto-commit; operator reviews first
 
 # ── Arg parsing ──────────────────────────────────────────────────────────────
@@ -44,6 +52,11 @@ while [[ $# -gt 0 ]]; do
         --work)      WORK="$2";    shift 2 ;;
         --dry-run)   DRY_RUN=true;  shift ;;
         --strict)    STRICT=true;   shift ;;
+        --trace-white-regions) TRACE_WHITE_REGIONS=true; shift ;;
+        --mode)      MODE="$2";     shift 2 ;;
+        --filter-speckle) FILTER_SPECKLE="$2"; shift 2 ;;
+        --path-precision) PATH_PRECISION="$2"; shift 2 ;;
+        --region-threshold) REGION_THRESHOLD="$2"; shift 2 ;;
         -h|--help)
             sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             exit 0
@@ -82,9 +95,16 @@ require vtracer
 # ── Stage 2: vectorize ───────────────────────────────────────────────────────
 banner "Stage 2/5 — VTracer: PNG → SVG"
 mkdir -p "$RAW"
+trace_flag=""
+$TRACE_WHITE_REGIONS && trace_flag="--trace-white-regions"
 python3 Scripts/pipeline/02_vectorize.py \
     --input  "$RASTERS" \
-    --output "$RAW"
+    --output "$RAW" \
+    --mode "$MODE" \
+    --filter-speckle "$FILTER_SPECKLE" \
+    --path-precision "$PATH_PRECISION" \
+    --region-threshold "$REGION_THRESHOLD" \
+    $trace_flag
 ok "Wrote raw SVGs → $RAW"
 
 # ── Stage 3: post-process ────────────────────────────────────────────────────

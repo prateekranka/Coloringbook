@@ -48,10 +48,11 @@ import json
 import subprocess
 import sys
 import time
+import tempfile
 from pathlib import Path
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageOps
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
@@ -97,6 +98,25 @@ def check_image_quality(img_path: Path) -> list[str]:
     return warnings
 
 
+def prepare_white_region_trace_image(img_path: Path, output_dir: Path, threshold: int) -> Path:
+    """
+    Convert black-on-white line art into an inverted binary mask for VTracer.
+
+    VTracer traces dark islands. For coloring-book source art, the useful
+    islands are the enclosed white cells, not the black ink strokes. Threshold
+    first, then invert so VTracer emits one path per fillable region.
+    """
+    if not PIL_AVAILABLE:
+        raise RuntimeError("Pillow is required for --trace-white-regions")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / img_path.name
+    image = Image.open(img_path).convert("L")
+    binary = image.point(lambda value: 255 if value > threshold else 0).convert("L")
+    ImageOps.invert(binary).save(output_path)
+    return output_path
+
+
 # ---------------------------------------------------------------------------
 # VTracer invocation
 # ---------------------------------------------------------------------------
@@ -132,6 +152,7 @@ def vectorize_one(
     vtracer: str,
     input_path: Path,
     output_path: Path,
+    mode: str,
     filter_speckle: int,
     color_precision: int,
     layer_difference: int,
@@ -145,7 +166,7 @@ def vectorize_one(
         "--input",  str(input_path),
         "--output", str(output_path),
         "--colormode",       "bw",
-        "--mode",            "spline",
+        "--mode",            mode,
         "--hierarchical",    "stacked",
         "--filter_speckle",  str(filter_speckle),
         "--color_precision", str(color_precision),
@@ -167,6 +188,7 @@ def vectorize_one(
         metadata = {
             "input": str(input_path),
             "output": str(output_path),
+            "mode": mode,
             "elapsed_seconds": round(elapsed, 2),
             "vtracer_exit_code": result.returncode,
             "vtracer_stdout": result.stdout.strip(),
@@ -202,10 +224,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--input",  required=True,  help="Directory of input PNG files")
     parser.add_argument("--output", required=True,  help="Directory for output SVG files")
     parser.add_argument("--vtracer", default=None,  help="Path to vtracer binary (default: auto-detect)")
+    parser.add_argument("--mode", choices=["spline", "polygon", "pixel"], default="spline")
     parser.add_argument("--filter-speckle",   type=int, default=4,  metavar="N")
     parser.add_argument("--color-precision",  type=int, default=6,  metavar="N")
     parser.add_argument("--layer-difference", type=int, default=16, metavar="N")
     parser.add_argument("--path-precision",   type=int, default=8,  metavar="N")
+    parser.add_argument(
+        "--trace-white-regions",
+        action="store_true",
+        help="For black line art on white paper, trace enclosed white cells instead of ink strokes.",
+    )
+    parser.add_argument(
+        "--region-threshold",
+        type=int,
+        default=210,
+        metavar="0-255",
+        help="Threshold used with --trace-white-regions (default: 210).",
+    )
     args = parser.parse_args(argv)
 
     input_dir  = Path(args.input)
@@ -213,6 +248,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if not input_dir.is_dir():
         print(f"ERROR: Input directory '{input_dir}' does not exist.", file=sys.stderr)
+        return 1
+    if args.trace_white_regions and not PIL_AVAILABLE:
+        print("ERROR: --trace-white-regions requires Pillow. Run: pip install -r Scripts/requirements.txt", file=sys.stderr)
+        return 1
+    if not 0 <= args.region_threshold <= 255:
+        print("ERROR: --region-threshold must be between 0 and 255.", file=sys.stderr)
         return 1
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -240,52 +281,79 @@ def main(argv: list[str] | None = None) -> int:
     all_metadata: list[dict] = []
 
     iterator = tqdm(inputs) if TQDM_AVAILABLE else inputs
-    for img_path in iterator:
-        stem = img_path.stem
-        output_svg  = output_dir / f"{stem}.svg"
-        sidecar     = output_dir / f"{stem}.vtracer.json"
-        error_file  = output_dir / f"{stem}.error.txt"
+    temp_context = tempfile.TemporaryDirectory(prefix="gouache_region_trace_") if args.trace_white_regions else None
+    try:
+        region_trace_dir = Path(temp_context.name) if temp_context else None
+        for img_path in iterator:
+            stem = img_path.stem
+            output_svg  = output_dir / f"{stem}.svg"
+            sidecar     = output_dir / f"{stem}.vtracer.json"
+            error_file  = output_dir / f"{stem}.error.txt"
 
-        # Pre-flight quality warnings
-        warnings = check_image_quality(img_path)
-        for w in warnings:
-            print(f"  WARN  {img_path.name}: {w}", file=sys.stderr)
+            # Pre-flight quality warnings
+            warnings = check_image_quality(img_path)
+            for w in warnings:
+                print(f"  WARN  {img_path.name}: {w}", file=sys.stderr)
 
-        success, metadata = vectorize_one(
-            vtracer,
-            img_path,
-            output_svg,
-            args.filter_speckle,
-            args.color_precision,
-            args.layer_difference,
-            args.path_precision,
-        )
+            vector_input = img_path
+            if args.trace_white_regions:
+                try:
+                    vector_input = prepare_white_region_trace_image(
+                        img_path,
+                        region_trace_dir or output_dir,
+                        args.region_threshold,
+                    )
+                except Exception as exc:
+                    fail_count += 1
+                    error_file.write_text(str(exc) + "\n", encoding="utf-8")
+                    print(f"  ✗  {stem}: {exc}", file=sys.stderr)
+                    continue
 
-        metadata["quality_warnings"] = warnings
-        all_metadata.append(metadata)
-        sidecar.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+            success, metadata = vectorize_one(
+                vtracer,
+                vector_input,
+                output_svg,
+                args.mode,
+                args.filter_speckle,
+                args.color_precision,
+                args.layer_difference,
+                args.path_precision,
+            )
 
-        if success:
-            pass_count += 1
-            path_count = metadata.get("path_count", "?")
-            size_kb    = metadata.get("file_size_bytes", 0) // 1024
-            elapsed    = metadata.get("elapsed_seconds", 0)
-            print(f"  ✓  {stem}.svg  ({path_count} paths, {size_kb} KB, {elapsed:.1f}s)")
+            if args.trace_white_regions:
+                metadata["original_input"] = str(img_path)
+                metadata["vectorized_input"] = str(vector_input)
+                metadata["trace_mode"] = "white-regions"
+                metadata["region_threshold"] = args.region_threshold
 
-            # Hard limit check — flag for human review, don't delete.
-            if isinstance(path_count, int) and path_count > 300:
-                review_flag = output_dir / f"{stem}.review_needed.txt"
-                review_flag.write_text(
-                    f"Path count ({path_count}) exceeds the recommended limit of 300.\n"
-                    "Review in Inkscape and simplify before running 03_postprocess.py.\n",
-                    encoding="utf-8",
-                )
-                print(f"  ⚠️   Flagged for review: {path_count} paths > 300", file=sys.stderr)
-        else:
-            fail_count += 1
-            error_msg = metadata.get("error") or metadata.get("vtracer_stderr") or "Unknown error"
-            error_file.write_text(f"VTracer failed for {img_path.name}:\n{error_msg}\n", encoding="utf-8")
-            print(f"  ✗  {stem}: {error_msg}", file=sys.stderr)
+            metadata["quality_warnings"] = warnings
+            all_metadata.append(metadata)
+            sidecar.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+            if success:
+                pass_count += 1
+                path_count = metadata.get("path_count", "?")
+                size_kb    = metadata.get("file_size_bytes", 0) // 1024
+                elapsed    = metadata.get("elapsed_seconds", 0)
+                print(f"  ✓  {stem}.svg  ({path_count} paths, {size_kb} KB, {elapsed:.1f}s)")
+
+                # Hard limit check — flag for human review, don't delete.
+                if isinstance(path_count, int) and path_count > 300:
+                    review_flag = output_dir / f"{stem}.review_needed.txt"
+                    review_flag.write_text(
+                        f"Path count ({path_count}) exceeds the recommended limit of 300.\n"
+                        "Review in Inkscape and simplify before running 03_postprocess.py.\n",
+                        encoding="utf-8",
+                    )
+                    print(f"  ⚠️   Flagged for review: {path_count} paths > 300", file=sys.stderr)
+            else:
+                fail_count += 1
+                error_msg = metadata.get("error") or metadata.get("vtracer_stderr") or "Unknown error"
+                error_file.write_text(f"VTracer failed for {img_path.name}:\n{error_msg}\n", encoding="utf-8")
+                print(f"  ✗  {stem}: {error_msg}", file=sys.stderr)
+    finally:
+        if temp_context:
+            temp_context.cleanup()
 
     # Summary JSON
     summary = {

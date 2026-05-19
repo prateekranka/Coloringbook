@@ -2,6 +2,16 @@ name: TestFlight
 
 on:
   workflow_dispatch:
+    inputs:
+      variant_name:
+        description: "Human-readable variant name for TestFlight notes"
+        required: true
+        type: string
+        default: "Gouache experimental build"
+      release_notes:
+        description: "Variant-specific TestFlight release notes"
+        required: true
+        type: string
   push:
     branches:
       - claude/colorflow-planning-BPoIr
@@ -23,6 +33,8 @@ jobs:
       APPLE_TEAM_ID: 4JRB53LG5C
       PROJECT: ColorFlow.xcodeproj
       SCHEME: ColorFlow
+      VARIANT_NAME: ${{ inputs.variant_name || 'Gouache automated TestFlight build' }}
+      TESTFLIGHT_RELEASE_NOTES: ${{ inputs.release_notes }}
       TESTFLIGHT_GROUPS: ${{ vars.TESTFLIGHT_GROUPS || secrets.TESTFLIGHT_GROUPS }}
 
     steps:
@@ -155,10 +167,17 @@ jobs:
         run: |
           {
             echo "TESTFLIGHT_CHANGELOG<<EOF"
-            git log -1 --pretty=%B
+            if [ -n "$TESTFLIGHT_RELEASE_NOTES" ]; then
+              printf '%s\n' "$TESTFLIGHT_RELEASE_NOTES"
+            else
+              git log -1 --pretty=%B
+            fi
             echo
+            echo "Variant: $VARIANT_NAME"
+            echo "Branch: ${GITHUB_REF_NAME}"
+            echo "Bundle ID: com.duckuwucky.sable"
             echo "Commit: ${GITHUB_SHA::7}"
-            echo "Run: $GITHUB_RUN_NUMBER"
+            echo "GitHub Actions build number: $GITHUB_RUN_NUMBER"
             echo "EOF"
           } >> "$GITHUB_ENV"
 

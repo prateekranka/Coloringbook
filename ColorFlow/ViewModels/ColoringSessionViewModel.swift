@@ -944,7 +944,8 @@ final class ColoringSessionViewModel {
         )
         #if DEBUG
         pixelCompareStrokeCounter += 1
-        if pixelCompareStrokeCounter % 3 == 0 {
+        if ProcessInfo.processInfo.environment["GOUACHE_CANVAS_DIAGNOSTICS_PIXEL_COMPARE"] == "1",
+           pixelCompareStrokeCounter % 3 == 0 {
             let stroke = commit.activeStroke
             let docViewBox = geometry?.viewBox ?? .zero
             let bitmapSize = pigmentEngine.bitmap.size

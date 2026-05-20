@@ -1318,13 +1318,33 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         }
 
         func appendPencilStroke(with touch: UITouch, in view: UIView, coalescedCount: Int? = nil, predictedCount: Int? = nil) {
-            emitTouchInput(phase: .pencilMoved, touch: touch, in: view, sampleCount: strokeSamples.count + 1, coalescedCount: coalescedCount, predictedCount: predictedCount, detail: "pencil moved")
+            appendPencilStrokes(with: [touch], in: view, coalescedCount: coalescedCount, predictedCount: predictedCount)
+        }
+
+        func appendPencilStrokes(with touches: [UITouch], in view: UIView, coalescedCount: Int? = nil, predictedCount: Int? = nil) {
             guard parent.selectedTool != .fillBucket,
-                  !strokeSamples.isEmpty,
-                  let sample = strokeSample(for: touch, in: view) else { return }
-            strokeSamples.append(sample)
-            _ = parent.onStrokeChanged(strokeSamples)
-            appendPreview()
+                  !strokeSamples.isEmpty else { return }
+
+            var appendedSample = false
+            for touch in touches where touch.type == .pencil {
+                emitTouchInput(
+                    phase: .pencilMoved,
+                    touch: touch,
+                    in: view,
+                    sampleCount: strokeSamples.count + 1,
+                    coalescedCount: coalescedCount,
+                    predictedCount: predictedCount,
+                    detail: "pencil moved"
+                )
+                guard let sample = strokeSample(for: touch, in: view) else { continue }
+                strokeSamples.append(sample)
+                appendedSample = true
+            }
+
+            if appendedSample {
+                _ = parent.onStrokeChanged(strokeSamples)
+                appendPreview()
+            }
         }
 
         func endPencilStroke(with touch: UITouch, in view: UIView) {
@@ -1589,17 +1609,12 @@ private final class CanvasInteractionUIView: UIView {
         if activePreviewClip == nil {
             activePreviewClip = clip
         }
-        guard renderedPreviewSampleCount < samples.count else { return }
-        let renderStartIndex = renderedPreviewSampleCount > 0 ? max(0, renderedPreviewSampleCount - 1) : 0
-        let renderSamples = Array(samples[renderStartIndex...])
-        let viewportSamples = renderSamples.map(previewConfiguration.viewportSample(from:))
+        let viewportSamples = samples.map(previewConfiguration.viewportSample(from:))
         let viewportClip = previewConfiguration.viewportClip(from: activePreviewClip)
-        let existingPreview = previewImage
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         format.opaque = false
         previewImage = UIGraphicsImageRenderer(size: bounds.size, format: format).image { context in
-            existingPreview?.draw(in: bounds)
             let stroke = PigmentStroke(
                 tool: previewConfiguration.tool,
                 colorHex: previewConfiguration.colorHex,
@@ -1748,14 +1763,12 @@ private final class CanvasInteractionUIView: UIView {
         guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
         let coalescedTouches = event?.coalescedTouches(for: touch) ?? [touch]
         let predictedCount = event?.predictedTouches(for: touch)?.filter { $0.type == .pencil }.count ?? 0
-        for coalescedTouch in coalescedTouches where coalescedTouch.type == .pencil {
-            coordinator?.appendPencilStroke(
-                with: coalescedTouch,
-                in: self,
-                coalescedCount: coalescedTouches.count,
-                predictedCount: predictedCount
-            )
-        }
+        coordinator?.appendPencilStrokes(
+            with: coalescedTouches.filter { $0.type == .pencil },
+            in: self,
+            coalescedCount: coalescedTouches.count,
+            predictedCount: predictedCount
+        )
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {

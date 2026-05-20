@@ -7,6 +7,31 @@ cd "$REPO_ROOT"
 BUNDLE_ID="${COLORFLOW_BUNDLE_ID:-com.duckuwucky.sable}"
 ARTIFACT_DIR="${COLORFLOW_LOG_DIR:-artifacts/canvas-diagnostics}"
 mkdir -p "$ARTIFACT_DIR"
+mode="watch"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --test|--canvas-test|--scribble-test)
+            mode="scribble-test"
+            shift
+            ;;
+        -h|--help)
+            cat <<'EOF'
+Usage:
+  ./dev watch-canvas
+  ./dev watch-canvas --test
+
+--test runs the same real-device watcher, prints the clean/free multi-tool
+Pencil checklist, and analyzes the captured log when you press Ctrl-C.
+EOF
+            exit 0
+            ;;
+        *)
+            echo "Unknown watch-canvas option: $1" >&2
+            exit 2
+            ;;
+    esac
+done
 
 resolve_device() {
     if [[ -n "${COLORFLOW_DEVICE:-}" ]]; then
@@ -87,8 +112,25 @@ echo "[watch-canvas] Bundle: $BUNDLE_ID"
 echo "[watch-canvas] Log file: $log_file"
 echo "[watch-canvas] Launching with GOUACHE_CANVAS_DIAGNOSTICS=1."
 echo "[watch-canvas] Waiting for canvas-diagnostics.log from the app data container."
-echo "[watch-canvas] Tell Codex before you start coloring; press Ctrl-C when done."
-echo "[watch-canvas] After stopping, run: Scripts/analyze_canvas_diagnostics.py $log_file"
+if [[ "$mode" == "scribble-test" ]]; then
+    cat <<'EOF'
+[watch-canvas] Guided jitter test:
+[watch-canvas]   Clean mode:
+[watch-canvas]     1. Fill Bucket: tap at least 2 regions.
+[watch-canvas]     2. Crayon: draw at least 3 quick scribbly strokes in succession.
+[watch-canvas]     3. Colored Pencil: draw at least 3 quick scribbly strokes in succession.
+[watch-canvas]     4. Watercolor: draw at least 3 quick scribbly strokes in succession.
+[watch-canvas]     5. Eraser: draw at least 3 quick scribbly strokes in succession.
+[watch-canvas]   Free mode:
+[watch-canvas]     1. Fill Bucket: tap at least 1 region.
+[watch-canvas]     2. Crayon, Colored Pencil, Watercolor, Eraser:
+[watch-canvas]        draw multiple quick scribbly strokes with each tool.
+[watch-canvas] Press Ctrl-C when done; analysis will run automatically.
+EOF
+else
+    echo "[watch-canvas] Tell Codex before you start coloring; press Ctrl-C when done."
+    echo "[watch-canvas] After stopping, run: Scripts/analyze_canvas_diagnostics.py $log_file"
+fi
 
 launch_error="$(mktemp)"
 if ! xcrun devicectl device process launch \
@@ -114,13 +156,15 @@ snapshot_dir="$pull_dir/snapshot"
 pulled_file="$snapshot_dir/canvas-diagnostics.log"
 copy_error="$pull_dir/copy-error.log"
 last_size=0
+stopping=0
 
 cleanup() {
     rm -rf "$pull_dir"
 }
 trap cleanup EXIT
+trap 'stopping=1' INT TERM
 
-while true; do
+while [[ "$stopping" -eq 0 ]]; do
     rm -rf "$snapshot_dir"
     mkdir -p "$snapshot_dir"
     rm -f "$copy_error"
@@ -147,3 +191,8 @@ while true; do
     fi
     sleep 1
 done
+
+if [[ "$mode" == "scribble-test" ]]; then
+    echo "[watch-canvas] Analyzing guided jitter test..."
+    Scripts/analyze_canvas_diagnostics.py --scenario scribble-matrix "$log_file"
+fi

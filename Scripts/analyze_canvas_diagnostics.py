@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import re
 import statistics
 import sys
@@ -23,12 +24,54 @@ def count_lines(pattern, lines):
     return sum(1 for line in lines if regex.search(line))
 
 
-def main() -> int:
-    if len(sys.argv) != 2:
-        print("usage: Scripts/analyze_canvas_diagnostics.py artifacts/canvas-diagnostics/latest.log", file=sys.stderr)
-        return 2
+def scribble_matrix_summary(lines):
+    clean_tools = ["Crayon", "Colored Pencil", "Watercolor", "Eraser"]
+    free_tools = ["Crayon", "Colored Pencil", "Watercolor", "Eraser"]
+    clean_counts = {tool: 0 for tool in clean_tools}
+    free_counts = {tool: 0 for tool in free_tools}
+    fill_counts = {"Clean": 0, "Free": 0}
+    current_mode = "Clean"
 
-    path = Path(sys.argv[1])
+    for line in lines:
+        mode_match = re.search(r"selected coloring mode (Clean|Free)", line)
+        if mode_match:
+            current_mode = mode_match.group(1)
+
+        if "stroke queued" in line and "mode=Clean" in line:
+            tool_match = re.search(r"stroke queued tool=(.+?) region=", line)
+            if tool_match and tool_match.group(1) in clean_counts:
+                clean_counts[tool_match.group(1)] += 1
+
+        if "freehand drawing changed" in line:
+            tool_match = re.search(r"tool=(.+?) color=", line)
+            stroke_match = re.search(r"strokes=(\d+)", line)
+            if (
+                current_mode == "Free"
+                and tool_match
+                and tool_match.group(1) in free_counts
+                and stroke_match
+                and int(stroke_match.group(1)) > 0
+            ):
+                free_counts[tool_match.group(1)] += 1
+
+        if "[GouacheCanvas][fill]" in line and "fill accepted" in line:
+            mode_match = re.search(r"mode=(Clean|Free)", line)
+            if mode_match:
+                fill_counts[mode_match.group(1)] += 1
+
+    return clean_counts, free_counts, fill_counts
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("logfile", help="canvas diagnostics log")
+    parser.add_argument("--scenario", choices=["scribble-matrix"])
+    parser.add_argument("--min-clean-strokes", type=int, default=3)
+    parser.add_argument("--min-free-events", type=int, default=1)
+    parser.add_argument("--max-coalesced", type=int, default=120)
+    args = parser.parse_args()
+
+    path = Path(args.logfile)
     if not path.exists():
         print(f"missing log: {path}", file=sys.stderr)
         return 2
@@ -122,6 +165,29 @@ def main() -> int:
     if stroke_committed < stroke_ended:
         print("FAIL: committed stroke count is lower than stroke-ended count", file=sys.stderr)
         failed = True
+
+    if args.scenario == "scribble-matrix":
+        clean_counts, free_counts, fill_counts = scribble_matrix_summary(lines)
+        print("scribble matrix:")
+        print("  clean strokes: " + ", ".join(f"{tool}={count}" for tool, count in clean_counts.items()))
+        print("  free events: " + ", ".join(f"{tool}={count}" for tool, count in free_counts.items()))
+        print("  fills: " + ", ".join(f"{mode}={count}" for mode, count in fill_counts.items()))
+
+        for tool, count in clean_counts.items():
+            if count < args.min_clean_strokes:
+                print(f"FAIL: clean mode {tool} had {count} queued strokes; expected at least {args.min_clean_strokes}", file=sys.stderr)
+                failed = True
+        for tool, count in free_counts.items():
+            if count < args.min_free_events:
+                print(f"FAIL: free mode {tool} did not produce a freehand drawing event", file=sys.stderr)
+                failed = True
+        for mode, count in fill_counts.items():
+            if count < 1:
+                print(f"FAIL: {mode.lower()} mode fill bucket did not produce an accepted fill", file=sys.stderr)
+                failed = True
+        if max(coalesced, default=0) > args.max_coalesced:
+            print(f"FAIL: coalesced sample batch exceeded {args.max_coalesced}; main-thread drawing is likely falling behind", file=sys.stderr)
+            failed = True
 
     return 1 if failed else 0
 

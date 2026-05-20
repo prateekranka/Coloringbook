@@ -10,6 +10,8 @@
 #   ./dev all           # unit + UI tests
 #   ./dev open          # open ColorFlow.xcodeproj in Xcode
 #   ./dev simlist       # list available iPad simulators
+#   ./dev watch-canvas  # launch installed iPad app + stream canvas diagnostics
+#   ./dev watch-canvas --test  # run guided clean/free Pencil jitter diagnostics
 #   ./dev help
 #
 # Simulator selection:
@@ -105,7 +107,8 @@ cmd_uitest()  { [[ -d "$PROJECT" ]] || cmd_gen; xb_uitest; }
 cmd_all()     { cmd_test; cmd_uitest; }
 cmd_open()    { [[ -d "$PROJECT" ]] || cmd_gen; open "$PROJECT"; }
 cmd_simlist() { info "iPad simulators:"; xb_simlist; }
-cmd_help()    { sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+cmd_watch_canvas() { Scripts/watch_canvas_diagnostics.sh "$@"; }
+cmd_help()    { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "${BASH_SOURCE[0]}"; }
 
 # ── Dispatch ─────────────────────────────────────────────────────────────────
 cmd="${1:-test}"
@@ -119,6 +122,7 @@ case "$cmd" in
     all)            cmd_all     ;;
     open)           cmd_open    ;;
     simlist)        cmd_simlist ;;
+    watch-canvas)   cmd_watch_canvas "$@" ;;
     help|-h|--help) cmd_help    ;;
     *)              warn "Unknown command: $cmd"; cmd_help; exit 2 ;;
 esac

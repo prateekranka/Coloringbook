@@ -114,6 +114,7 @@ struct ColoringCanvasView: View {
                             fingerPaints: fingerPaints,
                             liveStrokeSeed: viewModel.liveStrokeSeed,
                             canvasSize: canvasSize,
+                            documentSize: viewModel.canvasDocumentSize,
                             viewportSize: availableSize,
                             viewport: viewModel.viewport,
                             onViewportChanged: { viewport in
@@ -149,6 +150,9 @@ struct ColoringCanvasView: View {
                             onStrokeCancelled: {
                                 viewModel.cancelLiveStroke()
                             },
+                            onDebugInput: { input in
+                                viewModel.recordCanvasInput(input)
+                            },
                             liveStrokeClip: { samples in
                                 viewModel.liveStrokeClip(samples: samples, canvasSize: canvasSize)
                             }
@@ -161,6 +165,23 @@ struct ColoringCanvasView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                             .padding(.top, 74)
                     }
+
+                    #if DEBUG
+                    if viewModel.canvasDiagnostics.isEnabled {
+                        CanvasDebugOverlayView(
+                            diagnostics: viewModel.canvasDiagnostics,
+                            tool: viewModel.selectedTool,
+                            mode: viewModel.coloringMode,
+                            colorHex: viewModel.selectedTool == .eraser ? "#000000" : viewModel.selectedColorHex,
+                            viewport: viewModel.viewport,
+                            canvasSize: canvasSize,
+                            viewportSize: availableSize
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(.top, 74)
+                        .padding(.trailing, 22)
+                    }
+                    #endif
                 }
                 .clipped()
                 .contentShape(Rectangle())
@@ -187,7 +208,7 @@ struct ColoringCanvasView: View {
                         onRedo: { Task { await viewModel.redoFill() } },
                         onSettings: { showSettingsSheet = true },
                         onShare: { presentShareSheet() },
-                        onSave: { viewModel.save() },
+                        onSave: { Task { await viewModel.saveNowAfterPendingPigmentCommits() } },
                         onResetView: resetViewport,
                         onFocus: {
                             withAnimation(.easeInOut(duration: 0.22)) {
@@ -320,7 +341,15 @@ struct ColoringCanvasView: View {
                     colorHex: viewModel.selectedColorHex,
                     settings: viewModel.selectedToolSettings,
                     fingerPaints: true,
-                    onDrawingChanged: { viewModel.syncFreehandDrawingFromCanvas($0) }
+                    onDrawingChanged: { viewModel.syncFreehandDrawingFromCanvas($0) },
+                    onDebugEvent: { message, throttleKey, minimumInterval in
+                        viewModel.canvasDiagnostics.record(
+                            .stroke,
+                            message,
+                            throttleKey: throttleKey,
+                            minimumInterval: minimumInterval
+                        )
+                    }
                 )
             }
 
@@ -462,13 +491,15 @@ struct ColoringCanvasView: View {
         freehandFlushRequestID += 1
         Task { @MainActor in
             await Task.yield()
-            viewModel.saveNow()
+            await viewModel.saveNowAfterPendingPigmentCommits()
         }
     }
 
     private func presentShareSheet() {
-        guard let image = viewModel.exportImage() else { return }
-        sharePayload = CanvasSharePayload(image: image)
+        Task { @MainActor in
+            guard let image = await viewModel.exportImageAfterPendingPigmentCommits() else { return }
+            sharePayload = CanvasSharePayload(image: image)
+        }
     }
 }
 
@@ -486,6 +517,104 @@ private struct CanvasShareSheet: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
+
+#if DEBUG
+private struct CanvasDebugOverlayView: View {
+    let diagnostics: CanvasDebugDiagnostics
+    let tool: ToolType
+    let mode: CanvasColoringMode
+    let colorHex: String
+    let viewport: CanvasViewport
+    let canvasSize: CGSize
+    let viewportSize: CGSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color(hex: colorHex))
+                    .frame(width: 10, height: 10)
+                Text("Canvas Diagnostics")
+                    .font(.system(size: 13, weight: .black, design: .monospaced))
+                Spacer(minLength: 0)
+            }
+
+            Text("tool \(tool.rawValue) | mode \(mode.rawValue) | scale \(format(viewport.scale))")
+            Text("canvas \(format(canvasSize)) | viewport \(format(viewportSize))")
+            Text("offset \(format(viewport.offset))")
+
+            if let hit = diagnostics.latestEvent?.hit {
+                Divider().overlay(.white.opacity(0.22))
+                Text("region \(hit.regionSummary)")
+                    .foregroundStyle(hit.regionID == nil ? Color.yellow : Color.green)
+                Text("doc \(format(hit.documentPoint)) | canvas \(format(hit.canvasPoint))")
+                if let force = hit.force {
+                    Text("force \(format(force)) | altitude \(format(hit.altitude)) | azimuth \(format(hit.azimuth))")
+                }
+                if let dcs = hit.documentToCanvasScale {
+                    Text("doc→canvas \(format(dcs)) | doc→bitmap \(format(hit.documentToBitmapScale))")
+                }
+                if let ps = hit.previewStrokeSize, let cs = hit.committedStrokeSize {
+                    Text("preview sz \(format(ps)) | committed sz \(format(cs))")
+                }
+                if let bps = hit.bitmapPixelSize {
+                    Text("bitmap \(format(bps))")
+                }
+            }
+
+            Divider().overlay(.white.opacity(0.22))
+
+            ForEach(diagnostics.events.prefix(5)) { event in
+                Text("\(event.shortTimestamp) \(event.kind.rawValue) \(event.message)")
+                    .lineLimit(2)
+            }
+        }
+        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+        .foregroundStyle(.white)
+        .padding(12)
+        .frame(width: 380, alignment: .leading)
+        .background(Color.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.white.opacity(0.18), lineWidth: 1)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func format(_ point: CGPoint?) -> String {
+        guard let point else { return "nil" }
+        return "(\(format(point.x)),\(format(point.y)))"
+    }
+
+    private func format(_ size: CGSize) -> String {
+        "(\(format(size.width)),\(format(size.height)))"
+    }
+
+    private func format(_ size: CGSize?) -> String {
+        guard let size else { return "nil" }
+        return format(size)
+    }
+
+    private func format(_ value: CGFloat) -> String {
+        String(format: "%.1f", Double(value))
+    }
+
+    private func format(_ value: Double?) -> String {
+        guard let value else { return "nil" }
+        return String(format: "%.2f", value)
+    }
+
+    private func format(_ value: CGFloat?) -> String {
+        guard let value else { return "nil" }
+        return String(format: "%.1f", Double(value))
+    }
+
+    private func format(_ value: Double) -> String {
+        String(format: "%.2f", value)
+    }
+}
+#endif
 
 private struct NotebookCanvasRepresentable: UIViewRepresentable {
     let fillLayerImage: UIImage?
@@ -591,6 +720,7 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
     var settings: ToolSettings
     var fingerPaints: Bool
     var onDrawingChanged: (PKDrawing) -> Void
+    var onDebugEvent: (String, String?, TimeInterval) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -608,6 +738,9 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
         canvas.minimumZoomScale = 1
         canvas.maximumZoomScale = 1
         canvas.bounces = false
+        context.coordinator.recordFreehandEvent(
+            "freehand canvas mounted policy=\(fingerPaints ? "anyInput" : "pencilOnly") \(Self.drawingSummary(drawing))"
+        )
         return canvas
     }
 
@@ -650,6 +783,19 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
         return PKInkingTool(inkType, color: color, width: width)
     }
 
+    private static func drawingSummary(_ drawing: PKDrawing) -> String {
+        "strokes=\(drawing.strokes.count) bounds=\(format(drawing.bounds))"
+    }
+
+    private static func format(_ rect: CGRect) -> String {
+        guard !rect.isNull, !rect.isInfinite else { return "none" }
+        return "origin=(\(format(rect.origin.x)), \(format(rect.origin.y))) size=(\(format(rect.size.width)), \(format(rect.size.height)))"
+    }
+
+    private static func format(_ value: CGFloat) -> String {
+        String(format: "%.1f", Double(value))
+    }
+
     final class Coordinator: NSObject, PKCanvasViewDelegate {
         var parent: FreehandCanvasRepresentable
         var appliedExternalRevision = 0
@@ -666,6 +812,11 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
             guard !isApplyingExternalDrawing else { return }
             CanvasPerformanceProbe.count(.pencilKitDelegateSync)
             hasPendingCanvasDrawingChange = true
+            recordFreehandEvent(
+                "freehand drawing changed \(FreehandCanvasRepresentable.drawingSummary(canvasView.drawing)) tool=\(parent.selectedTool.rawValue) color=\(parent.colorHex)",
+                throttleKey: "freehand.changed",
+                minimumInterval: 0.25
+            )
             idleSyncTask?.cancel()
             idleSyncTask = Task { [weak self, weak canvasView] in
                 try? await Task.sleep(nanoseconds: 650_000_000)
@@ -677,13 +828,29 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
         }
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
+            recordFreehandEvent(
+                "freehand tool ended \(FreehandCanvasRepresentable.drawingSummary(canvasView.drawing)) tool=\(parent.selectedTool.rawValue) color=\(parent.colorHex)"
+            )
             flushDrawing(from: canvasView)
         }
 
         func flushDrawing(from canvasView: PKCanvasView) {
             idleSyncTask?.cancel()
+            if hasPendingCanvasDrawingChange {
+                recordFreehandEvent(
+                    "freehand flushed \(FreehandCanvasRepresentable.drawingSummary(canvasView.drawing))"
+                )
+            }
             hasPendingCanvasDrawingChange = false
             parent.onDrawingChanged(canvasView.drawing)
+        }
+
+        func recordFreehandEvent(
+            _ message: String,
+            throttleKey: String? = nil,
+            minimumInterval: TimeInterval = 0
+        ) {
+            parent.onDebugEvent(message, throttleKey, minimumInterval)
         }
     }
 }
@@ -695,6 +862,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
     var fingerPaints: Bool
     var liveStrokeSeed: UInt64?
     var canvasSize: CGSize
+    var documentSize: CGSize
     var viewportSize: CGSize
     var viewport: CanvasViewport
     var onViewportChanged: (CanvasViewport) -> Void
@@ -708,6 +876,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
     var onStrokeChanged: ([StrokeSample]) -> Bool
     var onStrokeEnded: ([StrokeSample]) -> Bool
     var onStrokeCancelled: () -> Void
+    var onDebugInput: (CanvasDebugInput) -> Void
     var liveStrokeClip: ([StrokeSample]) -> StrokeRenderClip?
 
     func makeCoordinator() -> Coordinator {
@@ -786,6 +955,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             seed: liveStrokeSeed ?? 0,
             viewport: viewport,
             canvasSize: canvasSize,
+            documentSize: documentSize,
             viewportSize: viewportSize
         )
     }
@@ -806,15 +976,27 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         private weak var previewView: CanvasInteractionUIView?
         private var lockedMode: InteractionMode = .idle
         private var workingViewport: CanvasViewport?
+        private var pencilSequenceNumber = 0
+        private var lastPencilSample: (point: CGPoint, timestamp: TimeInterval)?
+        private var currentStrokeClip: StrokeRenderClip?
 
         init(parent: CanvasInteractionOverlay) {
             self.parent = parent
         }
 
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
-            guard recognizer.state == .ended,
-                  parent.selectedTool == .fillBucket,
-                  let canvasPoint = canvasPoint(for: recognizer.location(in: recognizer.view)) else {
+            guard recognizer.state == .ended else { return }
+            let viewportPoint = recognizer.location(in: recognizer.view)
+            let canvasPoint = canvasPoint(for: viewportPoint)
+            emitInput(
+                phase: .tap,
+                input: .direct,
+                viewportPoint: viewportPoint,
+                canvasPoint: canvasPoint,
+                detail: parent.selectedTool == .fillBucket ? "fill tap" : "tap ignored for tool=\(parent.selectedTool.rawValue)"
+            )
+            guard parent.selectedTool == .fillBucket,
+                  let canvasPoint else {
                 return
             }
             parent.onFill(canvasPoint)
@@ -843,6 +1025,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
             switch recognizer.state {
             case .began:
+                let viewportPoint = recognizer.location(in: recognizer.view)
                 if recognizer.numberOfTouches >= 2 || parent.selectedTool == .fillBucket {
                     lockedMode = .viewportPan
                     panStartOffset = activeViewport.offset
@@ -858,6 +1041,14 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
                     lockedMode = .viewportPan
                     panStartOffset = activeViewport.offset
                 }
+                emitInput(
+                    phase: .panBegan,
+                    input: .gesture,
+                    viewportPoint: viewportPoint,
+                    canvasPoint: canvasPoint(for: viewportPoint),
+                    sampleCount: recognizer.numberOfTouches,
+                    detail: "mode=\(lockedMode)"
+                )
             case .changed:
                 switch lockedMode {
                 case .viewportPan:
@@ -871,6 +1062,15 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
                 #if DEBUG
                 AppLog.trace(AppLog.canvas, "pan ended: mode=\(lockedMode)")
                 #endif
+                let viewportPoint = recognizer.location(in: recognizer.view)
+                emitInput(
+                    phase: lockedMode == .drawing ? .fingerEnded : .panEnded,
+                    input: .gesture,
+                    viewportPoint: viewportPoint,
+                    canvasPoint: canvasPoint(for: viewportPoint),
+                    sampleCount: recognizer.numberOfTouches,
+                    detail: "mode=\(lockedMode)"
+                )
                 switch lockedMode {
                 case .viewportPan:
                     handleViewportPanEnded(recognizer)
@@ -884,6 +1084,15 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
                 #if DEBUG
                 AppLog.trace(AppLog.canvas, "pan cancelled/failed: mode=\(lockedMode)")
                 #endif
+                let viewportPoint = recognizer.location(in: recognizer.view)
+                emitInput(
+                    phase: .panEnded,
+                    input: .gesture,
+                    viewportPoint: viewportPoint,
+                    canvasPoint: canvasPoint(for: viewportPoint),
+                    sampleCount: recognizer.numberOfTouches,
+                    detail: "cancelled mode=\(lockedMode)"
+                )
                 switch lockedMode {
                 case .viewportPan:
                     parent.onViewportCommitted()
@@ -899,11 +1108,29 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         }
 
         private func handleFingerStrokeBegan(_ recognizer: UIPanGestureRecognizer) {
+            let viewportPoint = recognizer.location(in: recognizer.view)
+            emitInput(
+                phase: .fingerBegan,
+                input: .direct,
+                viewportPoint: viewportPoint,
+                canvasPoint: canvasPoint(for: viewportPoint),
+                sampleCount: recognizer.numberOfTouches,
+                detail: "finger stroke began"
+            )
             beginStroke(at: recognizer.location(in: recognizer.view), in: recognizer.view)
         }
 
         private func handleFingerStrokeMoved(_ recognizer: UIPanGestureRecognizer) {
-            appendStrokePoint(recognizer.location(in: recognizer.view))
+            let viewportPoint = recognizer.location(in: recognizer.view)
+            emitInput(
+                phase: .fingerMoved,
+                input: .direct,
+                viewportPoint: viewportPoint,
+                canvasPoint: canvasPoint(for: viewportPoint),
+                sampleCount: strokeSamples.count,
+                detail: "finger stroke moved"
+            )
+            appendStrokePoint(viewportPoint)
         }
 
         private func handleViewportPanChanged(_ recognizer: UIPanGestureRecognizer) {
@@ -917,6 +1144,15 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             )
             workingViewport = nextViewport
             parent.onViewportChanged(nextViewport)
+            let viewportPoint = recognizer.location(in: recognizer.view)
+            emitInput(
+                phase: .fingerMoved,
+                input: .gesture,
+                viewportPoint: viewportPoint,
+                canvasPoint: canvasPoint(for: viewportPoint),
+                sampleCount: recognizer.numberOfTouches,
+                detail: "viewport pan changed translation=(\(Int(translation.x)),\(Int(translation.y)))"
+            )
         }
 
         private func handleViewportPanEnded(_ recognizer: UIPanGestureRecognizer) {
@@ -934,6 +1170,15 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
                 #if DEBUG
                 AppLog.trace(AppLog.canvas, "pinch began: scale=\(activeViewport.scale), mode=pinchZoom")
                 #endif
+                let viewportPoint = recognizer.location(in: recognizer.view)
+                emitInput(
+                    phase: .pinchBegan,
+                    input: .gesture,
+                    viewportPoint: viewportPoint,
+                    canvasPoint: canvasPoint(for: viewportPoint),
+                    sampleCount: recognizer.numberOfTouches,
+                    detail: "scale=\(recognizer.scale)"
+                )
             case .changed:
                 var nextViewport = activeViewport
                 nextViewport.updateScale(
@@ -946,10 +1191,28 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
                 )
                 workingViewport = nextViewport
                 parent.onViewportChanged(nextViewport)
+                let viewportPoint = recognizer.location(in: recognizer.view)
+                emitInput(
+                    phase: .pinchChanged,
+                    input: .gesture,
+                    viewportPoint: viewportPoint,
+                    canvasPoint: canvasPoint(for: viewportPoint),
+                    sampleCount: recognizer.numberOfTouches,
+                    detail: "scale=\(recognizer.scale)"
+                )
             case .ended:
                 #if DEBUG
                 AppLog.trace(AppLog.canvas, "pinch ended: scale=\(workingViewport?.scale ?? activeViewport.scale)")
                 #endif
+                let viewportPoint = recognizer.location(in: recognizer.view)
+                emitInput(
+                    phase: .pinchEnded,
+                    input: .gesture,
+                    viewportPoint: viewportPoint,
+                    canvasPoint: canvasPoint(for: viewportPoint),
+                    sampleCount: recognizer.numberOfTouches,
+                    detail: "scale=\(recognizer.scale)"
+                )
                 parent.onViewportCommitted()
                 workingViewport = nil
                 resetInteractionMode()
@@ -957,6 +1220,15 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
                 #if DEBUG
                 AppLog.trace(AppLog.canvas, "pinch cancelled/failed")
                 #endif
+                let viewportPoint = recognizer.location(in: recognizer.view)
+                emitInput(
+                    phase: .pinchEnded,
+                    input: .gesture,
+                    viewportPoint: viewportPoint,
+                    canvasPoint: canvasPoint(for: viewportPoint),
+                    sampleCount: recognizer.numberOfTouches,
+                    detail: "cancelled scale=\(recognizer.scale)"
+                )
                 parent.onViewportCommitted()
                 workingViewport = nil
                 resetInteractionMode()
@@ -990,8 +1262,10 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             guard parent.selectedTool != .fillBucket,
                   let canvasPoint = canvasPoint(for: point) else { return }
             strokeSamples = [StrokeSample(point: canvasPoint, timestamp: CACurrentMediaTime())]
+            currentStrokeClip = parent.liveStrokeClip(strokeSamples)
             guard parent.onStrokeBegan(strokeSamples) else {
                 strokeSamples = []
+                currentStrokeClip = nil
                 return
             }
             startPreview(in: view)
@@ -1017,26 +1291,34 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             }
             previewView?.finishPreview()
             strokeSamples = []
+            currentStrokeClip = nil
         }
 
         func cancelStroke() {
             strokeSamples = []
+            currentStrokeClip = nil
             previewView?.finishPreview()
             parent.onStrokeCancelled()
         }
 
         func beginPencilStroke(with touch: UITouch, in view: UIView) {
+            pencilSequenceNumber = 0
+            lastPencilSample = nil
+            emitTouchInput(phase: .pencilBegan, touch: touch, in: view, sampleCount: 1, coalescedCount: 1, predictedCount: 0, detail: "pencil began")
             guard parent.selectedTool != .fillBucket,
                   let sample = strokeSample(for: touch, in: view) else { return }
             strokeSamples = [sample]
+            currentStrokeClip = parent.liveStrokeClip(strokeSamples)
             guard parent.onStrokeBegan(strokeSamples) else {
                 strokeSamples = []
+                currentStrokeClip = nil
                 return
             }
             startPreview(in: view)
         }
 
-        func appendPencilStroke(with touch: UITouch, in view: UIView) {
+        func appendPencilStroke(with touch: UITouch, in view: UIView, coalescedCount: Int? = nil, predictedCount: Int? = nil) {
+            emitTouchInput(phase: .pencilMoved, touch: touch, in: view, sampleCount: strokeSamples.count + 1, coalescedCount: coalescedCount, predictedCount: predictedCount, detail: "pencil moved")
             guard parent.selectedTool != .fillBucket,
                   !strokeSamples.isEmpty,
                   let sample = strokeSample(for: touch, in: view) else { return }
@@ -1046,22 +1328,36 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         }
 
         func endPencilStroke(with touch: UITouch, in view: UIView) {
-            appendPencilStroke(with: touch, in: view)
+            emitTouchInput(phase: .pencilEnded, touch: touch, in: view, sampleCount: strokeSamples.count, coalescedCount: 1, predictedCount: 0, detail: "pencil ended")
+            appendPencilStroke(with: touch, in: view, coalescedCount: 1, predictedCount: 0)
             let completedSamples = strokeSamples
             if completedSamples.count > 1 {
                 _ = parent.onStrokeEnded(completedSamples)
             }
             previewView?.finishPreview()
             strokeSamples = []
+            currentStrokeClip = nil
+        }
+
+        func emitCancelledPencilStroke(with touch: UITouch, in view: UIView) {
+            emitTouchInput(
+                phase: .pencilCancelled,
+                touch: touch,
+                in: view,
+                sampleCount: strokeSamples.count,
+                coalescedCount: 1,
+                predictedCount: 0,
+                detail: "pencil cancelled"
+            )
         }
 
         private func startPreview(in view: UIView?) {
             previewView = view as? CanvasInteractionUIView
-            previewView?.beginPreview(samples: strokeSamples, clip: parent.liveStrokeClip(strokeSamples))
+            previewView?.beginPreview(samples: strokeSamples, clip: currentStrokeClip)
         }
 
         private func appendPreview() {
-            previewView?.appendPreview(samples: strokeSamples, clip: parent.liveStrokeClip(strokeSamples))
+            previewView?.appendPreview(samples: strokeSamples, clip: currentStrokeClip)
         }
 
         private func canvasPoint(for viewportPoint: CGPoint) -> CGPoint? {
@@ -1074,6 +1370,125 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
                 return nil
             }
             return canvasPoint
+        }
+
+        private func emitTouchInput(
+            phase: CanvasDebugInput.Phase,
+            touch: UITouch,
+            in view: UIView,
+            sampleCount: Int?,
+            coalescedCount: Int?,
+            predictedCount: Int?,
+            detail: String
+        ) {
+            let viewportPoint = touch.location(in: view)
+            pencilSequenceNumber += 1
+            let previous = lastPencilSample
+            let timestamp = touch.timestamp
+            let delta: CGSize?
+            let distance: CGFloat?
+            let velocity: CGFloat?
+            if let previous {
+                let dx = viewportPoint.x - previous.point.x
+                let dy = viewportPoint.y - previous.point.y
+                let movement = hypot(dx, dy)
+                let dt = max(timestamp - previous.timestamp, 0)
+                delta = CGSize(width: dx, height: dy)
+                distance = movement
+                velocity = dt > 0 ? movement / CGFloat(dt) : nil
+            } else {
+                delta = nil
+                distance = nil
+                velocity = nil
+            }
+            lastPencilSample = (viewportPoint, timestamp)
+            let normalizedForce: Double?
+            if touch.maximumPossibleForce > 0 {
+                normalizedForce = Double(touch.force / touch.maximumPossibleForce)
+            } else {
+                normalizedForce = nil
+            }
+            let canvasPoint = canvasPoint(for: viewportPoint)
+            let hitRegionID: String?
+            if let canvasPoint,
+               currentStrokeClip?.path.contains(canvasPoint, using: currentStrokeClip?.fillRule ?? .winding, transform: .identity) == true {
+                hitRegionID = "fillable"
+            } else {
+                hitRegionID = nil
+            }
+            #if DEBUG
+            (view as? CanvasInteractionUIView)?.appendPencilTraceSample(
+                viewportPoint: viewportPoint,
+                pressure: normalizedForce,
+                velocity: velocity,
+                hitRegionID: hitRegionID,
+                isRejected: canvasPoint == nil
+            )
+            #endif
+            emitInput(
+                phase: phase,
+                input: .pencil,
+                viewportPoint: viewportPoint,
+                canvasPoint: canvasPoint,
+                sampleCount: sampleCount,
+                touchTimestamp: timestamp,
+                sequenceNumber: pencilSequenceNumber,
+                coalescedCount: coalescedCount,
+                predictedCount: predictedCount,
+                force: normalizedForce,
+                altitude: Double(touch.altitudeAngle),
+                azimuth: Double(touch.azimuthAngle(in: view)),
+                delta: delta,
+                distance: distance,
+                velocity: velocity,
+                isPredicted: false,
+                detail: detail
+            )
+        }
+
+        private func emitInput(
+            phase: CanvasDebugInput.Phase,
+            input: CanvasDebugInput.Input,
+            viewportPoint: CGPoint?,
+            canvasPoint: CGPoint?,
+            sampleCount: Int? = nil,
+            touchTimestamp: TimeInterval? = nil,
+            sequenceNumber: Int? = nil,
+            coalescedCount: Int? = nil,
+            predictedCount: Int? = nil,
+            force: Double? = nil,
+            altitude: Double? = nil,
+            azimuth: Double? = nil,
+            delta: CGSize? = nil,
+            distance: CGFloat? = nil,
+            velocity: CGFloat? = nil,
+            isPredicted: Bool = false,
+            detail: String? = nil
+        ) {
+            parent.onDebugInput(
+                CanvasDebugInput(
+                    phase: phase,
+                    input: input,
+                    viewportPoint: viewportPoint,
+                    canvasPoint: canvasPoint,
+                    canvasSize: parent.canvasSize,
+                    viewportSize: parent.viewportSize,
+                    viewport: activeViewport,
+                    sampleCount: sampleCount,
+                    touchTimestamp: touchTimestamp,
+                    sequenceNumber: sequenceNumber,
+                    coalescedCount: coalescedCount,
+                    predictedCount: predictedCount,
+                    force: force,
+                    altitude: altitude,
+                    azimuth: azimuth,
+                    delta: delta,
+                    distance: distance,
+                    velocity: velocity,
+                    isPredicted: isPredicted,
+                    detail: detail
+                )
+            )
         }
 
         private func strokeSample(for touch: UITouch, in view: UIView) -> StrokeSample? {
@@ -1103,7 +1518,12 @@ private struct LiveStrokePreviewConfiguration {
     let seed: UInt64
     let viewport: CanvasViewport
     let canvasSize: CGSize
+    let documentSize: CGSize
     let viewportSize: CGSize
+
+    var viewportStrokeSize: CGFloat {
+        size * documentToCanvasScale * viewport.scale
+    }
 
     func viewportSample(from sample: StrokeSample) -> StrokeSample {
         StrokeSample(
@@ -1129,56 +1549,83 @@ private struct LiveStrokePreviewConfiguration {
         guard let path = clip.path.copy(using: &transform) else { return nil }
         return StrokeRenderClip(path: path, fillRule: clip.fillRule)
     }
+
+    private var documentToCanvasScale: CGFloat {
+        guard documentSize.width > 0, documentSize.height > 0 else {
+            return 1
+        }
+        return min(canvasSize.width / documentSize.width, canvasSize.height / documentSize.height)
+    }
 }
 
 private final class CanvasInteractionUIView: UIView {
     weak var coordinator: CanvasInteractionOverlay.Coordinator?
     private var previewConfiguration: LiveStrokePreviewConfiguration?
     private var previewImage: UIImage?
-    private var previewedSampleCount = 0
+    private var renderedPreviewSampleCount = 0
+    private var activePreviewClip: StrokeRenderClip?
+    #if DEBUG
+    private var pencilTraceConfiguration = PencilTraceConfiguration.current
+    private var pencilTraceSamples: [PencilTraceSample] = []
+    private let maxPencilTraceSamples = 240
+    #endif
 
     func updatePreviewConfiguration(_ configuration: LiveStrokePreviewConfiguration) {
         previewConfiguration = configuration
+        #if DEBUG
+        pencilTraceConfiguration = PencilTraceConfiguration.current
+        #endif
     }
 
     func beginPreview(samples: [StrokeSample], clip: StrokeRenderClip?) {
         previewImage = nil
-        previewedSampleCount = 0
+        renderedPreviewSampleCount = 0
+        activePreviewClip = clip
         appendPreview(samples: samples, clip: clip)
     }
 
     func appendPreview(samples: [StrokeSample], clip: StrokeRenderClip?) {
         guard let previewConfiguration, samples.count > 1 else { return }
-        let startIndex = max(0, previewedSampleCount - 1)
-        guard startIndex < samples.count - 1 else { return }
-        let newSamples = samples[startIndex...].map(previewConfiguration.viewportSample(from:))
-        let dirtyRect = Self.dirtyRect(for: newSamples.map(\.cgPoint), size: previewConfiguration.size, bounds: bounds)
-        let viewportClip = previewConfiguration.viewportClip(from: clip)
+        if activePreviewClip == nil {
+            activePreviewClip = clip
+        }
+        guard renderedPreviewSampleCount < samples.count else { return }
+        let renderStartIndex = renderedPreviewSampleCount > 0 ? max(0, renderedPreviewSampleCount - 1) : 0
+        let renderSamples = Array(samples[renderStartIndex...])
+        let viewportSamples = renderSamples.map(previewConfiguration.viewportSample(from:))
+        let viewportClip = previewConfiguration.viewportClip(from: activePreviewClip)
+        let existingPreview = previewImage
         let format = UIGraphicsImageRendererFormat()
-        format.scale = UIScreen.main.scale
+        format.scale = 1
         format.opaque = false
         previewImage = UIGraphicsImageRenderer(size: bounds.size, format: format).image { context in
-            previewImage?.draw(in: bounds)
+            existingPreview?.draw(in: bounds)
             let stroke = PigmentStroke(
                 tool: previewConfiguration.tool,
                 colorHex: previewConfiguration.colorHex,
                 opacity: Double(previewConfiguration.opacity),
-                size: Double(previewConfiguration.size * previewConfiguration.viewport.scale),
-                points: newSamples.map(\.cgPoint),
+                size: Double(previewConfiguration.viewportStrokeSize),
+                points: viewportSamples.map(\.cgPoint),
                 regionID: nil,
                 seed: previewConfiguration.seed
             )
             let mask = viewportClip.map { RegionMask(regionID: "preview", path: $0.path, fillRule: $0.fillRule, image: UIImage()) }
             PigmentStrokeRenderer.render(stroke, in: context.cgContext, mask: mask)
         }
-        previewedSampleCount = samples.count
-        setNeedsDisplay(dirtyRect)
+        renderedPreviewSampleCount = samples.count
+        setNeedsDisplay(bounds)
     }
 
     func finishPreview() {
         let rect = previewImage == nil ? .null : bounds
         previewImage = nil
-        previewedSampleCount = 0
+        renderedPreviewSampleCount = 0
+        activePreviewClip = nil
+        #if DEBUG
+        if !pencilTraceConfiguration.persistsAfterStroke {
+            pencilTraceSamples.removeAll()
+        }
+        #endif
         if !rect.isNull {
             setNeedsDisplay(rect)
         }
@@ -1186,7 +1633,111 @@ private final class CanvasInteractionUIView: UIView {
 
     override func draw(_ rect: CGRect) {
         previewImage?.draw(in: bounds)
+        #if DEBUG
+        drawPencilTrace()
+        #endif
     }
+
+    #if DEBUG
+    func appendPencilTraceSample(
+        viewportPoint: CGPoint,
+        pressure: Double?,
+        velocity: CGFloat?,
+        hitRegionID: String?,
+        isRejected: Bool
+    ) {
+        guard pencilTraceConfiguration.isEnabled else { return }
+        let sample = PencilTraceSample(
+            viewportPoint: viewportPoint,
+            pressure: pressure,
+            velocity: velocity,
+            color: isRejected ? .systemRed : (hitRegionID == nil ? .systemYellow : .systemGreen)
+        )
+        pencilTraceSamples.append(sample)
+        if pencilTraceSamples.count > maxPencilTraceSamples {
+            pencilTraceSamples.removeFirst(pencilTraceSamples.count - maxPencilTraceSamples)
+        }
+        setNeedsDisplay()
+    }
+
+    private func drawPencilTrace() {
+        guard pencilTraceConfiguration.isEnabled,
+              !pencilTraceSamples.isEmpty,
+              let context = UIGraphicsGetCurrentContext() else {
+            return
+        }
+
+        context.saveGState()
+        context.setLineWidth(2)
+        context.setLineCap(.round)
+        context.setStrokeColor(UIColor.systemGreen.withAlphaComponent(0.78).cgColor)
+        let path = CGMutablePath()
+        path.move(to: pencilTraceSamples[0].viewportPoint)
+        for sample in pencilTraceSamples.dropFirst() {
+            path.addLine(to: sample.viewportPoint)
+        }
+        context.addPath(path)
+        context.strokePath()
+
+        if pencilTraceConfiguration.showsDots {
+            for sample in pencilTraceSamples {
+                context.setFillColor(sample.color.withAlphaComponent(0.85).cgColor)
+                let radius = CGFloat(2.5 + min((sample.pressure ?? 0) * 4, 4))
+                context.fillEllipse(in: CGRect(
+                    x: sample.viewportPoint.x - radius,
+                    y: sample.viewportPoint.y - radius,
+                    width: radius * 2,
+                    height: radius * 2
+                ))
+            }
+        }
+        context.restoreGState()
+
+        guard let latest = pencilTraceSamples.last else { return }
+        var labels: [String] = []
+        if pencilTraceConfiguration.showsPressure, let pressure = latest.pressure {
+            labels.append("p \(String(format: "%.2f", pressure))")
+        }
+        if pencilTraceConfiguration.showsVelocity, let velocity = latest.velocity {
+            labels.append("v \(Int(velocity))")
+        }
+        guard !labels.isEmpty else { return }
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold),
+            .foregroundColor: UIColor.white,
+            .backgroundColor: UIColor.black.withAlphaComponent(0.55)
+        ]
+        labels.joined(separator: "  ").draw(
+            at: CGPoint(x: latest.viewportPoint.x + 10, y: latest.viewportPoint.y + 10),
+            withAttributes: attributes
+        )
+    }
+
+    private struct PencilTraceConfiguration {
+        var isEnabled: Bool
+        var showsDots: Bool
+        var showsVelocity: Bool
+        var showsPressure: Bool
+        var persistsAfterStroke: Bool
+
+        static var current: PencilTraceConfiguration {
+            PencilTraceConfiguration(
+                isEnabled: CanvasDiagnosticsSettings.pencilTraceOverlayEnabled,
+                showsDots: CanvasDiagnosticsSettings.pencilSampleDotsEnabled,
+                showsVelocity: CanvasDiagnosticsSettings.pencilVelocityEnabled,
+                showsPressure: CanvasDiagnosticsSettings.pencilPressureEnabled,
+                persistsAfterStroke: CanvasDiagnosticsSettings.persistPencilTrace
+            )
+        }
+    }
+
+    private struct PencilTraceSample {
+        let viewportPoint: CGPoint
+        let pressure: Double?
+        let velocity: CGFloat?
+        let color: UIColor
+    }
+    #endif
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
@@ -1196,8 +1747,14 @@ private final class CanvasInteractionUIView: UIView {
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first(where: { $0.type == .pencil }) else { return }
         let coalescedTouches = event?.coalescedTouches(for: touch) ?? [touch]
+        let predictedCount = event?.predictedTouches(for: touch)?.filter { $0.type == .pencil }.count ?? 0
         for coalescedTouch in coalescedTouches where coalescedTouch.type == .pencil {
-            coordinator?.appendPencilStroke(with: coalescedTouch, in: self)
+            coordinator?.appendPencilStroke(
+                with: coalescedTouch,
+                in: self,
+                coalescedCount: coalescedTouches.count,
+                predictedCount: predictedCount
+            )
         }
     }
 
@@ -1208,18 +1765,10 @@ private final class CanvasInteractionUIView: UIView {
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard touches.contains(where: { $0.type == .pencil }) else { return }
-        coordinator?.cancelStroke()
-    }
-
-    private static func dirtyRect(for points: [CGPoint], size: CGFloat, bounds: CGRect) -> CGRect {
-        guard let first = points.first else { return .null }
-        let rect = points.dropFirst().reduce(CGRect(origin: first, size: .zero)) { partial, point in
-            partial.union(CGRect(origin: point, size: .zero))
+        if let touch = touches.first(where: { $0.type == .pencil }) {
+            coordinator?.emitCancelledPencilStroke(with: touch, in: self)
         }
-        return rect
-            .insetBy(dx: -max(24, size * 3), dy: -max(24, size * 3))
-            .integral
-            .intersection(bounds)
+        coordinator?.cancelStroke()
     }
 }
 
@@ -1676,6 +2225,30 @@ private struct CanvasSettingsSheet: View {
                     Toggle("Color Blind Mode", isOn: $colorBlindMode)
                 }
 
+                #if DEBUG
+                Section("Diagnostics") {
+                    Toggle("Canvas Diagnostics", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.enabledKey, alsoSetRuntimeEnabled: true))
+                    Toggle("Pencil Movement Logs", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilMovementEnabledKey))
+                    Toggle("Pencil Trace Overlay", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilTraceOverlayEnabledKey))
+                    Toggle("Pencil Sample Dots", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilSampleDotsEnabledKey, defaultValue: true))
+                    Toggle("Pencil Velocity", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilVelocityEnabledKey, defaultValue: true))
+                    Toggle("Pencil Pressure", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilPressureEnabledKey, defaultValue: true))
+                    Toggle("Log Every Pencil Sample", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.logEveryPencilSampleKey))
+                    Toggle("Persist Pencil Trace", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.persistPencilTraceKey))
+                    HStack {
+                        Text("Movement Log Interval")
+                        Slider(
+                            value: Binding(
+                                get: { CanvasDiagnosticsSettings.minimumMovementLogIntervalMs },
+                                set: { CanvasDiagnosticsSettings.minimumMovementLogIntervalMs = $0 }
+                            ),
+                            in: 0...250,
+                            step: 5
+                        )
+                    }
+                }
+                #endif
+
                 Section("Artwork") {
                     Button("Restart Artwork", systemImage: "arrow.counterclockwise", action: onRestart)
                     Button("Clear Artwork", systemImage: "trash", role: .destructive, action: onDelete)
@@ -1691,6 +2264,26 @@ private struct CanvasSettingsSheet: View {
         }
         .accessibilityIdentifier("canvas.settings.sheet")
     }
+
+    #if DEBUG
+    private func diagnosticsToggle(
+        _ key: String,
+        defaultValue: Bool = false,
+        alsoSetRuntimeEnabled: Bool = false
+    ) -> Binding<Bool> {
+        Binding(
+            get: {
+                UserDefaults.standard.object(forKey: key) as? Bool ?? defaultValue
+            },
+            set: { value in
+                UserDefaults.standard.set(value, forKey: key)
+                if alsoSetRuntimeEnabled {
+                    viewModel.canvasDiagnostics.isEnabled = value
+                }
+            }
+        )
+    }
+    #endif
 }
 
 #Preview("Canvas") {

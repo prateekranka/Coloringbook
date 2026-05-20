@@ -21,19 +21,28 @@ final class CanvasDebugDiagnostics {
     private(set) var latestEvent: CanvasDebugEvent?
     private(set) var events: [CanvasDebugEvent] = []
 
-    private let fileURL: URL?
+    private let fileHandle: FileHandle?
     private var lastEmittedAtByKey: [String: TimeInterval] = [:]
     private let maxStoredEvents = 8
 
     init(isEnabled: Bool? = nil) {
         let enabled = isEnabled ?? Self.defaultIsEnabled
         self.isEnabled = enabled
-        if enabled {
-            fileURL = Self.makeLogFileURL()
-            if let fileURL {
-                try? FileManager.default.removeItem(at: fileURL)
-                FileManager.default.createFile(atPath: fileURL.path, contents: nil)
+        self.fileURL = Self.makeLogFileURL()
+        if enabled, let url = fileURL {
+            if !FileManager.default.fileExists(atPath: url.path) {
+                FileManager.default.createFile(atPath: url.path, contents: nil)
             }
+            fileHandle = try? FileHandle(forWritingTo: url)
+            try? fileHandle?.seekToEnd()
+        } else {
+            fileHandle = nil
+        }
+    }
+
+    deinit {
+        try? fileHandle?.close()
+    }
         } else {
             fileURL = nil
         }
@@ -93,22 +102,8 @@ final class CanvasDebugDiagnostics {
     }
 
     private func appendToFile(_ line: String) {
-        guard let fileURL,
-              let data = (line + "\n").data(using: .utf8) else {
-            return
-        }
-        if !FileManager.default.fileExists(atPath: fileURL.path) {
-            FileManager.default.createFile(atPath: fileURL.path, contents: nil)
-        }
-        guard let handle = try? FileHandle(forWritingTo: fileURL) else { return }
-        do {
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data)
-            try handle.synchronize()
-            try handle.close()
-        } catch {
-            try? handle.close()
-        }
+        guard let fileHandle, let data = (line + "\n").data(using: .utf8) else { return }
+        try? fileHandle.write(contentsOf: data)
     }
 }
 

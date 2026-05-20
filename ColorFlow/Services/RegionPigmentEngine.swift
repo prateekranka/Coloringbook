@@ -160,6 +160,20 @@ final class PigmentBitmap {
         }
     }
 
+    fileprivate func render(clipRect: CGRect, _ block: (CGContext) -> Void) -> UIImage {
+        let paddedRect = clipRect.insetBy(dx: -8, dy: -8).intersection(CGRect(origin: .zero, size: size))
+        guard paddedRect.width > 1, paddedRect.height > 1 else {
+            return image
+        }
+        return UIGraphicsImageRenderer(size: size, format: Self.format).image { context in
+            image.draw(in: CGRect(origin: .zero, size: size))
+            context.cgContext.saveGState()
+            context.cgContext.clip(to: paddedRect)
+            block(context.cgContext)
+            context.cgContext.restoreGState()
+        }
+    }
+
     func savePNG(to url: URL) {
         guard let data = image.pngData() else { return }
         try? data.write(to: url, options: .atomic)
@@ -327,8 +341,9 @@ private struct WatercolorPigmentRenderer: PigmentBrushRenderer {
     func renderStroke(_ stroke: PigmentStroke, into bitmap: PigmentBitmap, mask: RegionMask?) -> PigmentPatch {
         let before = bitmap.image
         let points = stroke.cgPoints
+        let affectedRect = dirtyRect(points: points, size: CGFloat(stroke.size) * 2.2)
         let color = UIColor(hex: stroke.colorHex)
-        let rendered = bitmap.render { context in
+        let rendered = bitmap.render(clipRect: affectedRect) { context in
             clip(mask, in: context)
             var rng = PigmentSeededRandom(seed: stroke.seed)
             context.setBlendMode(.normal)
@@ -345,7 +360,7 @@ private struct WatercolorPigmentRenderer: PigmentBrushRenderer {
             }
         }
         bitmap.replace(with: rendered)
-        return PigmentPatch(rect: dirtyRect(points: points, size: CGFloat(stroke.size) * 2.2), before: before, after: rendered)
+        return PigmentPatch(rect: affectedRect, before: before, after: rendered)
     }
 }
 
@@ -353,7 +368,8 @@ private struct MarkerPigmentRenderer: PigmentBrushRenderer {
     func renderStroke(_ stroke: PigmentStroke, into bitmap: PigmentBitmap, mask: RegionMask?) -> PigmentPatch {
         let before = bitmap.image
         let points = stroke.cgPoints
-        let rendered = bitmap.render { context in
+        let affectedRect = dirtyRect(points: points, size: CGFloat(stroke.size) * 1.6)
+        let rendered = bitmap.render(clipRect: affectedRect) { context in
             clip(mask, in: context)
             context.setBlendMode(.multiply)
             context.setLineCap(.round)
@@ -363,7 +379,7 @@ private struct MarkerPigmentRenderer: PigmentBrushRenderer {
             strokePath(points, in: context)
         }
         bitmap.replace(with: rendered)
-        return PigmentPatch(rect: dirtyRect(points: points, size: CGFloat(stroke.size) * 1.5), before: before, after: rendered)
+        return PigmentPatch(rect: affectedRect, before: before, after: rendered)
     }
 }
 
@@ -371,21 +387,23 @@ private struct PencilPigmentRenderer: PigmentBrushRenderer {
     func renderStroke(_ stroke: PigmentStroke, into bitmap: PigmentBitmap, mask: RegionMask?) -> PigmentPatch {
         let before = bitmap.image
         let points = stroke.cgPoints
-        let rendered = bitmap.render { context in
+        let affectedRect = dirtyRect(points: points, size: CGFloat(stroke.size) * 1.8)
+        let rendered = bitmap.render(clipRect: affectedRect) { context in
             clip(mask, in: context)
             var rng = PigmentSeededRandom(seed: stroke.seed)
             let color = UIColor(hex: stroke.colorHex)
             context.setBlendMode(.normal)
             context.setLineCap(.round)
             context.setLineJoin(.round)
+            let baseSize = CGFloat(stroke.size)
             for _ in 0..<4 {
-                context.setLineWidth(CGFloat(stroke.size) * CGFloat(0.72 + rng.nextUnit() * 0.28))
+                context.setLineWidth(baseSize * CGFloat(0.72 + rng.nextUnit() * 0.28))
                 context.setStrokeColor(color.withAlphaComponent(CGFloat(stroke.opacity) * CGFloat(0.18 + rng.nextUnit() * 0.1)).cgColor)
-                strokeOffsetPath(points, offset: CGFloat(rng.nextUnit() * 3 - 1.5), in: context)
+                strokeOffsetPath(points, offset: baseSize * CGFloat(rng.nextUnit() * 0.16 - 0.08), in: context)
             }
         }
         bitmap.replace(with: rendered)
-        return PigmentPatch(rect: dirtyRect(points: points, size: CGFloat(stroke.size) * 1.8), before: before, after: rendered)
+        return PigmentPatch(rect: affectedRect, before: before, after: rendered)
     }
 }
 
@@ -393,14 +411,15 @@ private struct SprayPigmentRenderer: PigmentBrushRenderer {
     func renderStroke(_ stroke: PigmentStroke, into bitmap: PigmentBitmap, mask: RegionMask?) -> PigmentPatch {
         let before = bitmap.image
         let points = stroke.cgPoints
-        let rendered = bitmap.render { context in
+        let affectedRect = dirtyRect(points: points, size: CGFloat(stroke.size) * 2.2)
+        let rendered = bitmap.render(clipRect: affectedRect) { context in
             clip(mask, in: context)
             var rng = PigmentSeededRandom(seed: stroke.seed)
             let color = UIColor(hex: stroke.colorHex)
             let radius = CGFloat(stroke.size) / 2
 
             context.setBlendMode(.normal)
-            stamp(points: points, spacing: 3) { center in
+            stamp(points: points, spacing: max(1.5, CGFloat(stroke.size) * 0.06)) { center in
                 let dotCount = 8 + Int(rng.nextUnit() * 8)
                 for _ in 0..<dotCount {
                     let distance = radius * CGFloat(pow(rng.nextUnit(), 0.7))
@@ -423,7 +442,7 @@ private struct SprayPigmentRenderer: PigmentBrushRenderer {
             }
         }
         bitmap.replace(with: rendered)
-        return PigmentPatch(rect: dirtyRect(points: points, size: CGFloat(stroke.size)), before: before, after: rendered)
+        return PigmentPatch(rect: affectedRect, before: before, after: rendered)
     }
 }
 
@@ -431,7 +450,8 @@ private struct EraserPigmentRenderer: PigmentBrushRenderer {
     func renderStroke(_ stroke: PigmentStroke, into bitmap: PigmentBitmap, mask: RegionMask?) -> PigmentPatch {
         let before = bitmap.image
         let points = stroke.cgPoints
-        let rendered = bitmap.render { context in
+        let affectedRect = dirtyRect(points: points, size: CGFloat(stroke.size) * 1.6)
+        let rendered = bitmap.render(clipRect: affectedRect) { context in
             clip(mask, in: context)
             context.setBlendMode(.clear)
             context.setLineCap(.round)
@@ -441,7 +461,7 @@ private struct EraserPigmentRenderer: PigmentBrushRenderer {
             strokePath(points, in: context)
         }
         bitmap.replace(with: rendered)
-        return PigmentPatch(rect: dirtyRect(points: points, size: CGFloat(stroke.size) * 1.6), before: before, after: rendered)
+        return PigmentPatch(rect: affectedRect, before: before, after: rendered)
     }
 }
 

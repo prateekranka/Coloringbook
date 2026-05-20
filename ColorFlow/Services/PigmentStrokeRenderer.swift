@@ -98,10 +98,11 @@ private struct PencilBrushRenderer: BrushRenderer {
         context.setBlendMode(.normal)
         context.setLineCap(.round)
         context.setLineJoin(.round)
+        let baseSize = CGFloat(stroke.size)
         for _ in 0..<4 {
-            context.setLineWidth(CGFloat(stroke.size) * CGFloat(0.72 + rng.nextUnit() * 0.28))
+            context.setLineWidth(baseSize * CGFloat(0.72 + rng.nextUnit() * 0.28))
             context.setStrokeColor(color.withAlphaComponent(CGFloat(stroke.opacity) * CGFloat(0.18 + rng.nextUnit() * 0.1)).cgColor)
-            strokeOffsetPath(points, offset: CGFloat(rng.nextUnit() * 3 - 1.5), in: context)
+            strokeOffsetPath(points, offset: baseSize * CGFloat(rng.nextUnit() * 0.16 - 0.08), in: context)
         }
     }
 }
@@ -116,7 +117,7 @@ private struct SprayBrushRenderer: BrushRenderer {
         let radius = CGFloat(stroke.size) / 2
 
         context.setBlendMode(.normal)
-        stamp(points: points, spacing: 3) { center in
+        stamp(points: points, spacing: max(1.5, CGFloat(stroke.size) * 0.06)) { center in
             let dotCount = 8 + Int(rng.nextUnit() * 8)
             for _ in 0..<dotCount {
                 let distance = radius * CGFloat(pow(rng.nextUnit(), 0.7))

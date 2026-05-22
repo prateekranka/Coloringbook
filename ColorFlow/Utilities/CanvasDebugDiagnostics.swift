@@ -21,30 +21,22 @@ final class CanvasDebugDiagnostics {
     private(set) var latestEvent: CanvasDebugEvent?
     private(set) var events: [CanvasDebugEvent] = []
 
-    private let fileHandle: FileHandle?
+    let sessionID: String
+    private let fileWriter: CanvasDiagnosticsFileWriter?
     private var lastEmittedAtByKey: [String: TimeInterval] = [:]
     private let maxStoredEvents = 8
 
-    init(isEnabled: Bool? = nil) {
+    init(isEnabled: Bool? = nil, sessionID: String? = nil) {
         let enabled = isEnabled ?? Self.defaultIsEnabled
         self.isEnabled = enabled
-        self.fileURL = Self.makeLogFileURL()
-        if enabled, let url = fileURL {
-            if !FileManager.default.fileExists(atPath: url.path) {
-                FileManager.default.createFile(atPath: url.path, contents: nil)
-            }
-            fileHandle = try? FileHandle(forWritingTo: url)
-            try? fileHandle?.seekToEnd()
+        self.sessionID = sessionID ?? Self.environmentSessionID ?? UUID().uuidString
+        if enabled, let url = Self.makeLogFileURL() {
+            fileWriter = CanvasDiagnosticsFileWriter(
+                url: url,
+                resetsExistingLog: Self.shouldResetLog
+            )
         } else {
-            fileHandle = nil
-        }
-    }
-
-    deinit {
-        try? fileHandle?.close()
-    }
-        } else {
-            fileURL = nil
+            fileWriter = nil
         }
     }
 
@@ -74,12 +66,14 @@ final class CanvasDebugDiagnostics {
             events.removeLast(events.count - maxStoredEvents)
         }
 
-        let line = "[GouacheCanvas][\(kind.rawValue)] \(event.consoleLine)"
+        let line = "[GouacheCanvas][\(kind.rawValue)] session=\(sessionID) \(event.consoleLine)"
         AppLog.trace(AppLog.canvas, line)
 
         #if DEBUG
-        fputs(line + "\n", stderr)
-        fflush(stderr)
+        if Self.shouldMirrorToStderr {
+            fputs(line + "\n", stderr)
+            fflush(stderr)
+        }
         #endif
         appendToFile(line)
     }
@@ -95,6 +89,32 @@ final class CanvasDebugDiagnostics {
         #endif
     }
 
+    nonisolated private static var shouldResetLog: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["GOUACHE_CANVAS_DIAGNOSTICS_RESET_LOG"] == "1"
+        #else
+        false
+        #endif
+    }
+
+    nonisolated private static var environmentSessionID: String? {
+        #if DEBUG
+        let rawValue = ProcessInfo.processInfo.environment["GOUACHE_CANVAS_DIAGNOSTICS_SESSION_ID"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return rawValue?.isEmpty == false ? rawValue : nil
+        #else
+        return nil
+        #endif
+    }
+
+    nonisolated private static var shouldMirrorToStderr: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["GOUACHE_CANVAS_DIAGNOSTICS_STDERR"] == "1"
+        #else
+        false
+        #endif
+    }
+
     private static func makeLogFileURL() -> URL? {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
             .first?
@@ -102,7 +122,37 @@ final class CanvasDebugDiagnostics {
     }
 
     private func appendToFile(_ line: String) {
-        guard let fileHandle, let data = (line + "\n").data(using: .utf8) else { return }
+        guard let fileWriter else { return }
+        Task(priority: .utility) {
+            await fileWriter.append(line)
+        }
+    }
+}
+
+private actor CanvasDiagnosticsFileWriter {
+    private let fileHandle: FileHandle
+
+    init?(url: URL, resetsExistingLog: Bool) {
+        let fileManager = FileManager.default
+        if resetsExistingLog {
+            try? fileManager.removeItem(at: url)
+        }
+        if !fileManager.fileExists(atPath: url.path) {
+            fileManager.createFile(atPath: url.path, contents: nil)
+        }
+        guard let fileHandle = try? FileHandle(forWritingTo: url) else {
+            return nil
+        }
+        self.fileHandle = fileHandle
+        try? fileHandle.seekToEnd()
+    }
+
+    deinit {
+        try? fileHandle.close()
+    }
+
+    func append(_ line: String) {
+        guard let data = (line + "\n").data(using: .utf8) else { return }
         try? fileHandle.write(contentsOf: data)
     }
 }

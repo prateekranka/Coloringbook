@@ -12,6 +12,7 @@
 #   ./dev simlist       # list available iPad simulators
 #   ./dev watch-canvas  # launch installed iPad app + stream canvas diagnostics
 #   ./dev watch-canvas --test  # run guided clean/free Pencil jitter diagnostics
+#   ./dev pencil-canvas probe|record|replay|matrix  # true Pencil HID replay on iPad
 #   ./dev help
 #
 # Simulator selection:
@@ -78,7 +79,9 @@ xb_test() {
     info "Running unit tests on ${udid}…"
     xcodebuild test -project "$PROJECT" -scheme "$SCHEME" \
         -destination "platform=iOS Simulator,id=$udid" \
-        -only-testing:ColorFlowTests -configuration Debug
+        -only-testing:ColorFlowTests -configuration Debug \
+        -parallel-testing-enabled NO \
+        -maximum-concurrent-test-simulator-destinations 1
 }
 
 xb_uitest() {
@@ -86,7 +89,10 @@ xb_uitest() {
     info "Running UI tests on ${udid}…"
     xcodebuild test -project "$PROJECT" -scheme "$SCHEME" \
         -destination "platform=iOS Simulator,id=$udid" \
-        -only-testing:ColorFlowUITests -configuration Debug
+        -only-testing:ColorFlowUITests -configuration Debug \
+        -parallel-testing-enabled NO \
+        -parallel-testing-worker-count 1 \
+        -maximum-concurrent-test-simulator-destinations 1
 }
 
 xb_simlist() {
@@ -108,6 +114,7 @@ cmd_all()     { cmd_test; cmd_uitest; }
 cmd_open()    { [[ -d "$PROJECT" ]] || cmd_gen; open "$PROJECT"; }
 cmd_simlist() { info "iPad simulators:"; xb_simlist; }
 cmd_watch_canvas() { Scripts/watch_canvas_diagnostics.sh "$@"; }
+cmd_pencil_canvas() { Scripts/run_pencil_hid_canvas_matrix_ipad.sh "$@"; }
 cmd_help()    { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "${BASH_SOURCE[0]}"; }
 
 # ── Dispatch ─────────────────────────────────────────────────────────────────
@@ -123,6 +130,7 @@ case "$cmd" in
     open)           cmd_open    ;;
     simlist)        cmd_simlist ;;
     watch-canvas)   cmd_watch_canvas "$@" ;;
+    pencil-canvas)  cmd_pencil_canvas "$@" ;;
     help|-h|--help) cmd_help    ;;
     *)              warn "Unknown command: $cmd"; cmd_help; exit 2 ;;
 esac

@@ -15,7 +15,17 @@ final class AccessibilityUITests: XCTestCase {
             "-disableAnimations",
             "-disableTemplateThumbnailRendering"
         ]
+        app.terminate()
+        _ = app.wait(for: .notRunning, timeout: 5)
         app.launch()
+        if !app.wait(for: .runningForeground, timeout: 10) {
+            app.terminate()
+            _ = app.wait(for: .notRunning, timeout: 5)
+            Thread.sleep(forTimeInterval: 1)
+            app.launch()
+        }
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+        XCTAssertTrue(app.buttons["tab.home"].waitForExistence(timeout: 5))
         return app
     }
 
@@ -45,7 +55,7 @@ final class AccessibilityUITests: XCTestCase {
 
         app.buttons["tab.library"].tap()
         XCTAssertTrue(app.staticTexts["Library"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons["template.wildflowers"].waitForExistence(timeout: 3))
+        XCTAssertTrue(scrollTemplateIntoView(slug: "wildflowers", in: app))
 
         app.buttons["tab.profile"].tap()
         XCTAssertTrue(app.staticTexts["Profile"].waitForExistence(timeout: 2))
@@ -58,9 +68,7 @@ final class AccessibilityUITests: XCTestCase {
         app.buttons["tab.profile"].tap()
         XCTAssertTrue(app.staticTexts["Profile"].waitForExistence(timeout: 2))
 
-        let savedProject = app.buttons["profile.project.wildflowers"]
-        XCTAssertTrue(savedProject.waitForExistence(timeout: 3))
-        savedProject.tap()
+        tapProfileProject(slug: "wildflowers", in: app)
 
         assertCanvasChrome(in: app, title: "Wildflowers")
     }
@@ -105,7 +113,7 @@ final class AccessibilityUITests: XCTestCase {
     func test_moodTemplate_opensCanvas() throws {
         let app = launchSeededApp()
 
-        app.buttons["home.mood.calm"].tap()
+        tapHomeButton("home.mood.calm", in: app)
         XCTAssertTrue(app.staticTexts["CALM"].waitForExistence(timeout: 3))
 
         tapTemplate(slug: "wildflowers", in: app)
@@ -176,24 +184,40 @@ final class AccessibilityUITests: XCTestCase {
             return
         }
 
-        for _ in 0..<8 {
-            app.swipeUp()
-            if button.waitForExistence(timeout: 0.6), tapTemplateButtonIfVisible(button, in: app) {
-                return
-            }
-        }
-
-        for _ in 0..<8 {
-            app.swipeDown()
-            if button.waitForExistence(timeout: 0.6), tapTemplateButtonIfVisible(button, in: app) {
-                return
-            }
+        if scrollTemplateIntoView(slug: slug, in: app),
+           tapTemplateButtonIfVisible(button, in: app) {
+            return
         }
 
         XCTFail("Expected template.\(slug) to be reachable.")
     }
 
-    private func tapTemplateButtonIfVisible(_ button: XCUIElement, in app: XCUIApplication) -> Bool {
+    private func scrollTemplateIntoView(slug: String, in app: XCUIApplication) -> Bool {
+        let button = app.buttons["template.\(slug)"]
+        if button.waitForExistence(timeout: 1), tapTemplateButtonIfVisible(button, in: app, shouldTap: false) {
+            return true
+        }
+
+        for _ in 0..<8 {
+            app.swipeUp()
+            if button.waitForExistence(timeout: 0.6),
+               tapTemplateButtonIfVisible(button, in: app, shouldTap: false) {
+                return true
+            }
+        }
+
+        for _ in 0..<8 {
+            app.swipeDown()
+            if button.waitForExistence(timeout: 0.6),
+               tapTemplateButtonIfVisible(button, in: app, shouldTap: false) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private func tapTemplateButtonIfVisible(_ button: XCUIElement, in app: XCUIApplication, shouldTap: Bool = true) -> Bool {
         guard button.isHittable else { return false }
         let tabBarClearance: CGFloat = 170
         let headerClearance: CGFloat = 80
@@ -204,8 +228,38 @@ final class AccessibilityUITests: XCTestCase {
             return false
         }
 
-        button.coordinate(withNormalizedOffset: tapOffset).tap()
+        if shouldTap {
+            button.coordinate(withNormalizedOffset: tapOffset).tap()
+        }
         return true
+    }
+
+    private func tapProfileProject(slug: String, in app: XCUIApplication) {
+        let button = app.buttons["profile.project.\(slug)"]
+        if button.waitForExistence(timeout: 1), button.isHittable {
+            button.tap()
+            return
+        }
+
+        for _ in 0..<6 {
+            app.swipeUp()
+            if button.waitForExistence(timeout: 0.6), button.isHittable {
+                button.tap()
+                return
+            }
+        }
+
+        XCTFail("Expected profile.project.\(slug) to be reachable.")
+    }
+
+    private func tapHomeButton(_ identifier: String, in app: XCUIApplication) {
+        let button = app.buttons[identifier]
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        if button.isHittable {
+            button.tap()
+        } else {
+            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
     }
 
     private func tapCanvasUntilFillFeedback(canvas: XCUIElement, app: XCUIApplication) {
@@ -239,9 +293,19 @@ final class AccessibilityUITests: XCTestCase {
     }
 
     private func tapCanvasMenuItem(_ title: String, in app: XCUIApplication) {
-        app.buttons["canvas.more"].tap()
-        XCTAssertTrue(app.buttons[title].waitForExistence(timeout: 2))
-        app.buttons[title].tap()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
+        let menu = app.buttons["canvas.more"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        if menu.isHittable {
+            menu.tap()
+        } else {
+            menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+
+        let item = app.buttons[title]
+        XCTAssertTrue(item.waitForExistence(timeout: 3))
+        item.tap()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
     }
 
     private func tapBack(in app: XCUIApplication) {

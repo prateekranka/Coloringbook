@@ -35,8 +35,10 @@ enum CanvasDiagnosticsSettings {
 
     static var pencilMovementEnabled: Bool {
         get {
-            ProcessInfo.processInfo.environment["GOUACHE_CANVAS_DIAGNOSTICS_PENCIL_MOVEMENT"] == "1"
-                || UserDefaults.standard.object(forKey: pencilMovementEnabledKey) as? Bool ?? false
+            if let value = ProcessInfo.processInfo.environment["GOUACHE_CANVAS_DIAGNOSTICS_PENCIL_MOVEMENT"] {
+                return value == "1"
+            }
+            return UserDefaults.standard.object(forKey: pencilMovementEnabledKey) as? Bool ?? false
         }
         set { UserDefaults.standard.set(newValue, forKey: pencilMovementEnabledKey) }
     }
@@ -63,8 +65,10 @@ enum CanvasDiagnosticsSettings {
 
     static var logEveryPencilSample: Bool {
         get {
-            ProcessInfo.processInfo.environment["GOUACHE_CANVAS_DIAGNOSTICS_LOG_EVERY_SAMPLE"] == "1"
-                || UserDefaults.standard.object(forKey: logEveryPencilSampleKey) as? Bool ?? false
+            if let value = ProcessInfo.processInfo.environment["GOUACHE_CANVAS_DIAGNOSTICS_LOG_EVERY_SAMPLE"] {
+                return value == "1"
+            }
+            return UserDefaults.standard.object(forKey: logEveryPencilSampleKey) as? Bool ?? false
         }
         set { UserDefaults.standard.set(newValue, forKey: logEveryPencilSampleKey) }
     }

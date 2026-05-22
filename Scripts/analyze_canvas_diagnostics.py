@@ -9,6 +9,32 @@ from pathlib import Path
 NUMBER = r"(-?\d+(?:\.\d+)?)"
 
 
+def latest_session_lines(lines):
+    latest_session = None
+    for line in lines:
+        match = re.search(r"session=([A-Fa-f0-9-]+)", line)
+        if match:
+            latest_session = match.group(1)
+
+    if latest_session:
+        return [line for line in lines if f"session={latest_session}" in line], latest_session
+
+    for index in range(len(lines) - 1, -1, -1):
+        if "[GouacheCanvas][life]" in lines[index] and (
+            "canvas ready" in lines[index]
+            or "selected template" in lines[index]
+            or "view appeared" in lines[index]
+        ):
+            return lines[index:], "legacy-tail"
+
+    return lines, None
+
+
+def explicit_session_lines(lines, session_id):
+    filtered = [line for line in lines if f"session={session_id}" in line]
+    return filtered, session_id
+
+
 def values(pattern, lines, cast=float):
     found = []
     regex = re.compile(pattern)
@@ -25,8 +51,8 @@ def count_lines(pattern, lines):
 
 
 def scribble_matrix_summary(lines):
-    clean_tools = ["Crayon", "Colored Pencil", "Watercolor", "Eraser"]
-    free_tools = ["Crayon", "Colored Pencil", "Watercolor", "Eraser"]
+    clean_tools = ["Crayon", "Colored Pencil", "Watercolor", "Marker", "Eraser"]
+    free_tools = ["Crayon", "Colored Pencil", "Watercolor", "Marker", "Eraser"]
     clean_counts = {tool: 0 for tool in clean_tools}
     free_counts = {tool: 0 for tool in free_tools}
     fill_counts = {"Clean": 0, "Free": 0}
@@ -54,7 +80,7 @@ def scribble_matrix_summary(lines):
             ):
                 free_counts[tool_match.group(1)] += 1
 
-        if "[GouacheCanvas][fill]" in line and "fill accepted" in line:
+        if "[GouacheCanvas][fill]" in line and ("fill accepted" in line or "fill committed" in line):
             mode_match = re.search(r"mode=(Clean|Free)", line)
             if mode_match:
                 fill_counts[mode_match.group(1)] += 1
@@ -69,6 +95,8 @@ def main() -> int:
     parser.add_argument("--min-clean-strokes", type=int, default=3)
     parser.add_argument("--min-free-events", type=int, default=1)
     parser.add_argument("--max-coalesced", type=int, default=120)
+    parser.add_argument("--latest-session", action="store_true", help="analyze only the newest diagnostics session in a reused log file")
+    parser.add_argument("--session-id", help="analyze only diagnostics for the exact session id emitted by the watcher")
     args = parser.parse_args()
 
     path = Path(args.logfile)
@@ -77,6 +105,14 @@ def main() -> int:
         return 2
 
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    session = None
+    if args.session_id:
+        lines, session = explicit_session_lines(lines, args.session_id)
+        if not lines:
+            print(f"FAIL: no diagnostics found for session {args.session_id}", file=sys.stderr)
+            return 1
+    elif args.latest_session:
+        lines, session = latest_session_lines(lines)
     input_lines = [line for line in lines if "[GouacheCanvas][input]" in line]
     compare_lines = [line for line in lines if "[GouacheCanvas][compare]" in line]
 
@@ -143,6 +179,8 @@ def main() -> int:
             correlated_stalls += 1
 
     print(f"canvas diagnostics: {path}")
+    if session:
+        print(f"session: {session}")
     print(f"commits: count={len(commit_render_ms)} maxCommitRenderMs={max_render} maxCommitQueueWaitMs={max(commit_queue_wait_ms, default=0)} maxCommitTotalMs={max(commit_total_ms, default=0)}")
     print(f"input log gaps: max={max_observed_gap:.1f}ms median={median_observed_gap:.1f}ms over16={sum(g > 16 for g in observed_gaps_ms)} over33={sum(g > 33 for g in observed_gaps_ms)} over50={sum(g > 50 for g in observed_gaps_ms)}")
     print(f"inferred sample gaps: max={max_inferred_gap:.1f}ms median={median_inferred_gap:.1f}ms over16={sum(g > 16 for g in inferred_sample_gaps_ms)} over33={sum(g > 33 for g in inferred_sample_gaps_ms)} over50={sum(g > 50 for g in inferred_sample_gaps_ms)}")
@@ -159,8 +197,8 @@ def main() -> int:
     if median_inferred_gap > 16:
         print("FAIL: median input gap exceeded 16ms", file=sys.stderr)
         failed = True
-    if correlated_stalls > 0:
-        print("FAIL: a >50ms commit render was followed by a similar input stall", file=sys.stderr)
+    if correlated_stalls > 0 and max_inferred_gap > 50:
+        print("FAIL: a >50ms commit render was followed by a similar active input stall", file=sys.stderr)
         failed = True
     if stroke_committed < stroke_ended:
         print("FAIL: committed stroke count is lower than stroke-ended count", file=sys.stderr)

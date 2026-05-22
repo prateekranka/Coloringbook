@@ -6,8 +6,10 @@ cd "$REPO_ROOT"
 
 BUNDLE_ID="${COLORFLOW_BUNDLE_ID:-com.duckuwucky.sable}"
 ARTIFACT_DIR="${COLORFLOW_LOG_DIR:-artifacts/canvas-diagnostics}"
+OPEN_TEMPLATE="${COLORFLOW_WATCH_TEMPLATE:-wildflowers}"
 mkdir -p "$ARTIFACT_DIR"
 mode="watch"
+trace_samples=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -15,14 +17,21 @@ while [[ $# -gt 0 ]]; do
             mode="scribble-test"
             shift
             ;;
+        --trace-samples)
+            trace_samples=1
+            shift
+            ;;
         -h|--help)
             cat <<'EOF'
 Usage:
   ./dev watch-canvas
   ./dev watch-canvas --test
+  ./dev watch-canvas --test --trace-samples
 
 --test runs the same real-device watcher, prints the clean/free multi-tool
 Pencil checklist, and analyzes the captured log when you press Ctrl-C.
+--trace-samples logs every Pencil sample. It is useful for forensic traces,
+but it adds overhead and should not be used for the default jitter acceptance pass.
 EOF
             exit 0
             ;;
@@ -42,7 +51,7 @@ resolve_device() {
     local json_file
     json_file="$(mktemp)"
     xcrun devicectl list devices --json-output "$json_file" >/dev/null
-    /usr/bin/python3 - "$json_file" <<'PY'
+    if /usr/bin/python3 - "$json_file" <<'PY'
 import json
 import sys
 
@@ -63,7 +72,12 @@ for device in devices:
 
 sys.exit(1)
 PY
+    then
+        rm -f "$json_file"
+        return 0
+    fi
     rm -f "$json_file"
+    return 1
 }
 
 device="$(resolve_device)" || {
@@ -106,10 +120,13 @@ rm -f "$apps_json"
 
 timestamp="$(date -u +"%Y%m%d-%H%M%S")"
 log_file="$ARTIFACT_DIR/canvas-diagnostics-$timestamp.log"
+session_id="$(uuidgen | tr '[:lower:]' '[:upper:]')"
 
 echo "[watch-canvas] Device: $device"
 echo "[watch-canvas] Bundle: $BUNDLE_ID"
 echo "[watch-canvas] Log file: $log_file"
+echo "[watch-canvas] Session: $session_id"
+echo "[watch-canvas] Opening template: $OPEN_TEMPLATE"
 echo "[watch-canvas] Launching with GOUACHE_CANVAS_DIAGNOSTICS=1."
 echo "[watch-canvas] Waiting for canvas-diagnostics.log from the app data container."
 if [[ "$mode" == "scribble-test" ]]; then
@@ -120,10 +137,11 @@ if [[ "$mode" == "scribble-test" ]]; then
 [watch-canvas]     2. Crayon: draw at least 3 quick scribbly strokes in succession.
 [watch-canvas]     3. Colored Pencil: draw at least 3 quick scribbly strokes in succession.
 [watch-canvas]     4. Watercolor: draw at least 3 quick scribbly strokes in succession.
-[watch-canvas]     5. Eraser: draw at least 3 quick scribbly strokes in succession.
+[watch-canvas]     5. Marker: draw at least 3 quick scribbly strokes in succession.
+[watch-canvas]     6. Eraser: draw at least 3 quick scribbly strokes in succession.
 [watch-canvas]   Free mode:
 [watch-canvas]     1. Fill Bucket: tap at least 1 region.
-[watch-canvas]     2. Crayon, Colored Pencil, Watercolor, Eraser:
+[watch-canvas]     2. Crayon, Colored Pencil, Watercolor, Marker, Eraser:
 [watch-canvas]        draw multiple quick scribbly strokes with each tool.
 [watch-canvas] Press Ctrl-C when done; analysis will run automatically.
 EOF
@@ -133,12 +151,18 @@ else
 fi
 
 launch_error="$(mktemp)"
+launch_environment="{\"GOUACHE_CANVAS_DIAGNOSTICS\":\"1\",\"GOUACHE_CANVAS_DIAGNOSTICS_PENCIL_MOVEMENT\":\"1\",\"GOUACHE_CANVAS_DIAGNOSTICS_RESET_LOG\":\"1\",\"GOUACHE_CANVAS_DIAGNOSTICS_LOG_EVERY_SAMPLE\":\"0\",\"GOUACHE_CANVAS_DIAGNOSTICS_SESSION_ID\":\"$session_id\"}"
+if [[ "$trace_samples" -eq 1 ]]; then
+    launch_environment="{\"GOUACHE_CANVAS_DIAGNOSTICS\":\"1\",\"GOUACHE_CANVAS_DIAGNOSTICS_PENCIL_MOVEMENT\":\"1\",\"GOUACHE_CANVAS_DIAGNOSTICS_RESET_LOG\":\"1\",\"GOUACHE_CANVAS_DIAGNOSTICS_LOG_EVERY_SAMPLE\":\"1\",\"GOUACHE_CANVAS_DIAGNOSTICS_SESSION_ID\":\"$session_id\"}"
+fi
 if ! xcrun devicectl device process launch \
     --device "$device" \
     --terminate-existing \
-    --environment-variables '{"GOUACHE_CANVAS_DIAGNOSTICS":"1","GOUACHE_CANVAS_DIAGNOSTICS_PENCIL_MOVEMENT":"1","GOUACHE_CANVAS_DIAGNOSTICS_LOG_EVERY_SAMPLE":"1"}' \
+    --environment-variables "$launch_environment" \
     "$BUNDLE_ID" \
-    --gouache-canvas-diagnostics >"$launch_error" 2>&1; then
+    -- \
+    --gouache-canvas-diagnostics \
+    -gouacheOpenTemplate "$OPEN_TEMPLATE" >"$launch_error" 2>&1; then
     if grep -Eqi "device is locked|DeviceLocked|kAMDMobileImageMounterDeviceLocked" "$launch_error"; then
         echo "The iPad is locked. Unlock it, leave it awake, then run './dev watch-canvas' again." >&2
     else
@@ -157,12 +181,32 @@ pulled_file="$snapshot_dir/canvas-diagnostics.log"
 copy_error="$pull_dir/copy-error.log"
 last_size=0
 stopping=0
+fresh_session_seen=0
 
 cleanup() {
     rm -rf "$pull_dir"
 }
 trap cleanup EXIT
 trap 'stopping=1' INT TERM
+
+rm -rf "$snapshot_dir"
+mkdir -p "$snapshot_dir"
+rm -f "$copy_error"
+if xcrun devicectl device copy from \
+    --device "$device" \
+    --domain-type appDataContainer \
+    --domain-identifier "$BUNDLE_ID" \
+    --source "Documents" \
+    --destination "$snapshot_dir" \
+    --timeout 20 \
+    --quiet >"$copy_error" 2>&1; then
+    if [[ -f "$pulled_file" ]]; then
+        last_size="$(wc -c < "$pulled_file" | tr -d '[:space:]')"
+        echo "[watch-canvas] Ignoring $last_size bytes from any pre-existing device log; waiting for new session data."
+    fi
+elif grep -Eqi "device is locked|DeviceLocked|kAMDMobileImageMounterDeviceLocked" "$copy_error"; then
+    echo "The iPad locked before watching could start. Unlock it to continue receiving diagnostics." >&2
+fi
 
 while [[ "$stopping" -eq 0 ]]; do
     rm -rf "$snapshot_dir"
@@ -184,15 +228,24 @@ while [[ "$stopping" -eq 0 ]]; do
             if (( size > last_size )); then
                 dd if="$pulled_file" bs=1 skip="$last_size" 2>/dev/null | tee -a "$log_file"
                 last_size="$size"
+                if [[ "$fresh_session_seen" -eq 0 ]] && grep -q "session=$session_id" "$log_file"; then
+                    echo "[watch-canvas] Fresh diagnostics session detected: $session_id"
+                    fresh_session_seen=1
+                fi
             fi
         fi
     elif grep -Eqi "device is locked|DeviceLocked|kAMDMobileImageMounterDeviceLocked" "$copy_error"; then
         echo "The iPad locked while watching. Unlock it to continue receiving diagnostics." >&2
     fi
-    sleep 1
+    sleep 1 || true
 done
 
 if [[ "$mode" == "scribble-test" ]]; then
+    if [[ ! -f "$log_file" ]] || ! grep -q "session=$session_id" "$log_file"; then
+        echo "[watch-canvas] No diagnostics were captured for fresh session $session_id." >&2
+        echo "[watch-canvas] Open a coloring canvas after the watcher launches, wait for the fresh-session message, then draw." >&2
+        exit 1
+    fi
     echo "[watch-canvas] Analyzing guided jitter test..."
-    Scripts/analyze_canvas_diagnostics.py --scenario scribble-matrix "$log_file"
+    Scripts/analyze_canvas_diagnostics.py --session-id "$session_id" --scenario scribble-matrix "$log_file"
 fi

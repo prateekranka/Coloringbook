@@ -88,6 +88,49 @@ final class RegionPigmentEngineTests: XCTestCase {
         XCTAssertGreaterThan(engine.image.alpha(at: untouched), 180)
     }
 
+    func test_cleanEraserStartingOutsideRegionErasesAfterEnteringRegion() throws {
+        let region = try XCTUnwrap(geometry.regions.first)
+        let interior = CanvasTestFixture.interiorPoint(of: region)
+        let outside = CGPoint(x: region.bounds.minX - 12, y: interior.y)
+
+        _ = engine.fill(regionID: region.id, colorHex: "#FF0000")
+        let patch = engine.renderCleanStroke(
+            tool: .eraser,
+            colorHex: "#000000",
+            points: [outside, CGPoint(x: region.bounds.minX + 8, y: interior.y), interior],
+            size: 24,
+            opacity: 1
+        )
+
+        XCTAssertNotNil(patch)
+        XCTAssertLessThan(engine.image.alpha(at: interior), 30)
+    }
+
+    func test_cleanPaintStartingOutsideRegionStillDoesNotCommit() throws {
+        let region = try XCTUnwrap(geometry.regions.first)
+        let interior = CanvasTestFixture.interiorPoint(of: region)
+        let outside = CGPoint(x: region.bounds.minX - 12, y: interior.y)
+
+        let patch = engine.renderCleanStroke(
+            tool: .marker,
+            colorHex: "#00AAFF",
+            points: [outside, interior],
+            size: 24,
+            opacity: 1
+        )
+
+        XCTAssertNil(patch)
+        XCTAssertEqual(engine.image.alpha(at: interior), 0)
+    }
+
+    func test_regionNearAcceptsNearBoundaryFillTap() {
+        let geometry = CanvasTestFixture.makeClippingGeometry()
+        let outsideBoundary = CGPoint(x: 38, y: 80)
+
+        XCTAssertNil(geometry.region(at: outsideBoundary))
+        XCTAssertEqual(geometry.region(near: outsideBoundary, radius: 4)?.id, "clip-region-a")
+    }
+
     func test_eraserDoesNotCreateGrayPixelsInErasedArea() throws {
         let region = try XCTUnwrap(geometry.regions.first)
         let interior = CanvasTestFixture.interiorPoint(of: region)
@@ -153,15 +196,20 @@ final class RegionPigmentEngineTests: XCTestCase {
         XCTAssertNil(patch)
     }
 
-    func test_cleanModeEraserStartingOutsideFillableRegionIsRejected() {
+    func test_cleanModeEraserStartingOutsideCanvasErasesAfterEnteringRegion() {
+        _ = engine.fill(regionID: "clip-region-a", colorHex: "#FF0000")
+        let interior = CGPoint(x: 80, y: 80)
+
         let patch = engine.renderCleanStroke(
             tool: .eraser,
             colorHex: "#FFFFFF",
-            points: [CanvasTestFixture.pointOutsideAllRegions, CGPoint(x: 80, y: 80)],
+            points: [CanvasTestFixture.pointOutsideAllRegions, interior],
             size: 18,
             opacity: 1
         )
-        XCTAssertNil(patch)
+
+        XCTAssertNotNil(patch)
+        XCTAssertLessThan(engine.image.alpha(at: interior), 30)
     }
 
     func test_freeModeAllowsUnrestrictedDrawing() {

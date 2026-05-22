@@ -69,6 +69,7 @@ final class ColoringSessionViewModel {
     @ObservationIgnored private let initialTemplate: Template?
     @ObservationIgnored private let projectId: UUID?
     @ObservationIgnored private let templateId: UUID?
+    @ObservationIgnored private let renderTargetLongestSide: CGFloat
     @ObservationIgnored private var geometry: TemplateGeometry?
     @ObservationIgnored private var pigmentEngine: RegionPigmentEngine?
     @ObservationIgnored var paintState = ProjectPaintState()
@@ -84,6 +85,7 @@ final class ColoringSessionViewModel {
     @ObservationIgnored private var lastCommitTask: Task<Void, Never>?
     @ObservationIgnored private var pendingPigmentCommitCount = 0
     @ObservationIgnored private var commitGeneration = 0
+    @ObservationIgnored private var lastRecordedCanvasInputAtByKey: [String: TimeInterval] = [:]
     #if DEBUG
     @ObservationIgnored private var pixelCompareStrokeCounter = 0
     #endif
@@ -98,10 +100,11 @@ final class ColoringSessionViewModel {
         let beforeImage: UIImage
         let tool: ToolType
         let colorHex: String
-        let regionID: String?
+        var regionID: String?
         let size: CGFloat
         let opacity: Double
         let seed: UInt64
+        let freehandDrawingToFlatten: PKDrawing?
         var latestPatch: PigmentPatch?
         var latestDocumentSamples: [StrokeSample] = []
     }
@@ -112,11 +115,18 @@ final class ColoringSessionViewModel {
         let geometry: TemplateGeometry
         let bitmapSize: CGSize
         let canvasSize: CGSize
-        let activeStroke: ActivePigmentStroke
-        let documentPoints: [CGPoint]
         let action: StrokeAction
+        let freehandDrawingToFlatten: PKDrawing?
         let strokeID: UUID
         let queuedAt: CFAbsoluteTime
+    }
+
+    private struct CommitSampleSimplificationProfile {
+        let minimumDistance: CGFloat
+        let cornerMinimumLeg: CGFloat
+        let cornerCosineThreshold: CGFloat
+        let rdpTolerance: CGFloat
+        let maximumSamples: Int
     }
 
     /// Lightweight descriptor for the live-stroke preview renderer.
@@ -171,15 +181,35 @@ final class ColoringSessionViewModel {
         activePigmentStroke?.seed
     }
 
+    #if DEBUG
+    var debugTemplateGeometry: TemplateGeometry? {
+        geometry
+    }
+
+    var debugPigmentLayerImage: UIImage? {
+        pigmentEngine?.image
+    }
+
+    var debugPigmentBitmapSize: CGSize? {
+        pigmentEngine?.bitmap.size
+    }
+    #endif
+
+    #if DEBUG
+    static var debugRenderTargetLongestSideOverride: CGFloat?
+    #endif
+
     init(
         project: Project,
         template: Template,
-        storageService: StorageService = StorageService()
+        storageService: StorageService = StorageService(),
+        renderTargetLongestSide: CGFloat? = nil
     ) {
         self.initialProject = project
         self.initialTemplate = template
         self.projectId = project.id
         self.templateId = template.id
+        self.renderTargetLongestSide = renderTargetLongestSide ?? Self.defaultRenderTargetLongestSide
         self.fallbackTitle = template.name
         self.repository = SableHomeRepository(storageService: storageService, templates: [template])
         self.storageService = storageService
@@ -191,12 +221,14 @@ final class ColoringSessionViewModel {
         templateId: UUID?,
         fallbackTitle: String,
         repository: any ColoringFlowRepositoryProtocol = SableHomeRepository(),
-        storageService: StorageService = StorageService()
+        storageService: StorageService = StorageService(),
+        renderTargetLongestSide: CGFloat? = nil
     ) {
         self.initialProject = nil
         self.initialTemplate = nil
         self.projectId = projectId
         self.templateId = templateId
+        self.renderTargetLongestSide = renderTargetLongestSide ?? Self.defaultRenderTargetLongestSide
         self.fallbackTitle = fallbackTitle
         self.repository = repository
         self.storageService = storageService
@@ -402,9 +434,10 @@ final class ColoringSessionViewModel {
             viewSize: canvasSize
         )
         let documentPoint = point.applying(transform.inverted())
+        let documentHitRadius = fillHitRadius(canvasSize: canvasSize, geometry: geometry)
         let hit = canvasDebugHit(canvasPoint: point, canvasSize: canvasSize, phase: "fill", input: "tap")
         canvasDiagnostics.record(.fill, "fill requested", hit: hit)
-        let didFill = await fill(atDocumentPoint: documentPoint)
+        let didFill = await fill(atDocumentPoint: documentPoint, hitRadius: documentHitRadius)
         canvasDiagnostics.record(
             didFill ? .fill : .warning,
             didFill ? "fill accepted" : "fill ignored after request",
@@ -414,14 +447,14 @@ final class ColoringSessionViewModel {
     }
 
     @discardableResult
-    func fill(atDocumentPoint point: CGPoint) async -> Bool {
+    func fill(atDocumentPoint point: CGPoint, hitRadius: CGFloat = 0) async -> Bool {
         await waitForPendingPigmentCommits()
         guard let geometry else {
             canvasDiagnostics.record(.warning, "fill ignored: geometry unavailable document=\(debugPoint(point))")
             return false
         }
-        guard let region = geometry.region(at: point) else {
-            canvasDiagnostics.record(.warning, "fill ignored: no region document=\(debugPoint(point))")
+        guard let region = geometry.region(near: point, radius: hitRadius) else {
+            canvasDiagnostics.record(.warning, "fill ignored: no region document=\(debugPoint(point)) radius=\(debugNumber(hitRadius))")
             return false
         }
 
@@ -441,6 +474,14 @@ final class ColoringSessionViewModel {
         HapticService.shared.impact(.light)
         canvasDiagnostics.record(.fill, "fill committed region=\(region.id) color=\(selectedColorHex)")
         return true
+    }
+
+    private func fillHitRadius(canvasSize: CGSize, geometry: TemplateGeometry) -> CGFloat {
+        let documentPointsPerCanvasPoint = max(
+            geometry.viewBox.width / max(canvasSize.width, 1),
+            geometry.viewBox.height / max(canvasSize.height, 1)
+        )
+        return max(6, documentPointsPerCanvasPoint * 14)
     }
 
     func undoLastFill() async {
@@ -585,7 +626,16 @@ final class ColoringSessionViewModel {
         let firstDocumentPoint = documentSamples.first?.cgPoint ?? firstSample.cgPoint
         let regionID: String?
         if coloringMode == .clean {
-            guard let region = geometry.region(at: firstDocumentPoint) else {
+            if let region = cleanStrokeRegion(
+                for: documentSamples,
+                firstDocumentPoint: firstDocumentPoint,
+                tool: selectedTool,
+                geometry: geometry
+            ) {
+                regionID = region.id
+            } else if selectedTool == .eraser {
+                regionID = nil
+            } else {
                 activePigmentStroke = nil
                 #if DEBUG
                 AppLog.trace(AppLog.canvas, "beginLiveStroke no region at point")
@@ -606,13 +656,17 @@ final class ColoringSessionViewModel {
                 )
                 return false
             }
-            regionID = region.id
         } else {
             regionID = nil
         }
 
         let opacity = selectedTool == .eraser ? 1 : selectedToolSettings.opacity
         let colorHex = selectedTool == .eraser ? "#000000" : selectedColorHex
+        let freehandDrawingToFlatten = selectedTool == .eraser
+            && coloringMode == .clean
+            && hasVisibleFreehandDrawing(freehandDrawing)
+            ? freehandDrawing
+            : nil
         activePigmentStroke = ActivePigmentStroke(
             beforeImage: pigmentEngine.image,
             tool: selectedTool,
@@ -627,6 +681,7 @@ final class ColoringSessionViewModel {
                 size: selectedToolSettings.size,
                 opacity: opacity
             ),
+            freehandDrawingToFlatten: freehandDrawingToFlatten,
             latestDocumentSamples: documentSamples
         )
         isLiveDrawing = true
@@ -704,6 +759,13 @@ final class ColoringSessionViewModel {
             activeStroke.latestDocumentSamples.append(contentsOf: nextDocumentSamples.dropFirst())
         }
 
+        if coloringMode == .clean,
+           activeStroke.tool == .eraser,
+           activeStroke.regionID == nil,
+           let region = cleanStrokeRegion(for: nextDocumentSamples, tool: activeStroke.tool, geometry: geometry) {
+            activeStroke.regionID = region.id
+        }
+
         guard activeStroke.latestDocumentSamples.count > 1 else {
             activePigmentStroke = activeStroke
             return true
@@ -739,7 +801,7 @@ final class ColoringSessionViewModel {
         }
 
         _ = updateLiveStroke(samples: canvasSamples, canvasSize: canvasSize)
-        guard let activeStroke = activePigmentStroke,
+        guard var activeStroke = activePigmentStroke,
               let pigmentEngine,
               let geometry,
               let projectID = project?.id,
@@ -763,12 +825,48 @@ final class ColoringSessionViewModel {
             return false
         }
 
-        let documentPoints = activeStroke.latestDocumentSamples.map(\.cgPoint)
+        if coloringMode == .clean,
+           activeStroke.tool == .eraser,
+           activeStroke.regionID == nil {
+            activeStroke.regionID = cleanStrokeRegion(
+                for: activeStroke.latestDocumentSamples,
+                tool: activeStroke.tool,
+                geometry: geometry
+            )?.id
+        }
+
+        if coloringMode == .clean,
+           activeStroke.tool == .eraser,
+           activeStroke.regionID == nil {
+            canvasDiagnostics.record(
+                .warning,
+                "stroke end aborted: clean eraser did not enter a region",
+                hit: canvasDebugHit(
+                    canvasPoint: canvasSamples.last?.cgPoint,
+                    canvasSize: canvasSize,
+                    phase: "strokeEnded",
+                    input: "sample",
+                    sampleCount: canvasSamples.count
+                )
+            )
+            activePigmentStroke = nil
+            isLiveDrawing = false
+            return false
+        }
+
+        let compactDocumentSamples = simplifyCommitSamples(
+            activeStroke.latestDocumentSamples,
+            tool: activeStroke.tool,
+            size: activeStroke.size
+        )
+        let compactDocumentPoints = compactDocumentSamples.map(\.cgPoint)
         let action = StrokeAction(
             tool: activeStroke.tool,
             colorHex: activeStroke.colorHex,
-            points: documentPoints.map { CodablePoint(x: $0.x, y: $0.y) },
-            samples: activeStroke.latestDocumentSamples,
+            points: compactDocumentPoints.map { CodablePoint(x: $0.x, y: $0.y) },
+            samples: compactDocumentSamples,
+            highFidelitySamples: activeStroke.latestDocumentSamples,
+            seed: activeStroke.seed,
             clippedRegionID: activeStroke.regionID,
             size: activeStroke.size,
             opacity: activeStroke.opacity
@@ -779,9 +877,8 @@ final class ColoringSessionViewModel {
             geometry: geometry,
             bitmapSize: pigmentEngine.bitmap.size,
             canvasSize: canvasSize,
-            activeStroke: activeStroke,
-            documentPoints: documentPoints,
             action: action,
+            freehandDrawingToFlatten: activeStroke.freehandDrawingToFlatten,
             strokeID: action.id,
             queuedAt: CFAbsoluteTimeGetCurrent()
         )
@@ -791,7 +888,7 @@ final class ColoringSessionViewModel {
         pendingPigmentCommitCount += 1
         canvasDiagnostics.record(
             .stroke,
-            "stroke queued tool=\(activeStroke.tool.rawValue) region=\(activeStroke.regionID ?? "free") samples=\(activeStroke.latestDocumentSamples.count) strokeID=\(action.id.uuidString)",
+            "stroke queued tool=\(action.tool.rawValue) region=\(action.clippedRegionID ?? "free") samples=\(compactDocumentSamples.count) rawSamples=\(activeStroke.latestDocumentSamples.count) renderSamples=\(action.renderSamples.count) strokeID=\(action.id.uuidString)",
             hit: canvasDebugHit(
                 canvasPoint: canvasSamples.last?.cgPoint,
                 canvasSize: canvasSize,
@@ -802,6 +899,192 @@ final class ColoringSessionViewModel {
         )
         enqueuePigmentCommit(pendingCommit)
         return true
+    }
+
+    private func simplifyCommitSamples(
+        _ samples: [StrokeSample],
+        tool: ToolType,
+        size: CGFloat
+    ) -> [StrokeSample] {
+        guard samples.count > 2 else { return samples }
+
+        let profile = commitSampleSimplificationProfile(tool: tool, size: size)
+        var filtered: [StrokeSample] = [samples[0]]
+
+        for index in 1..<(samples.count - 1) {
+            let sample = samples[index]
+            guard let previousKept = filtered.last else { continue }
+            let distanceFromKept = distance(previousKept.cgPoint, sample.cgPoint)
+            if distanceFromKept >= profile.minimumDistance
+                || isCornerSample(
+                    previous: samples[index - 1],
+                    current: sample,
+                    next: samples[index + 1],
+                    minimumLeg: profile.cornerMinimumLeg,
+                    cosineThreshold: profile.cornerCosineThreshold
+                ) {
+                appendSampleIfDistinct(sample, to: &filtered)
+            }
+        }
+
+        appendSampleIfDistinct(samples[samples.count - 1], to: &filtered)
+        guard filtered.count > profile.maximumSamples else { return filtered }
+
+        var tolerance = profile.rdpTolerance
+        var simplified = filtered
+        while simplified.count > profile.maximumSamples, tolerance <= profile.rdpTolerance * 16 {
+            simplified = ramerDouglasPeucker(samples: filtered, tolerance: tolerance)
+            tolerance *= 1.35
+        }
+        return simplified
+    }
+
+    private func commitSampleSimplificationProfile(
+        tool: ToolType,
+        size: CGFloat
+    ) -> CommitSampleSimplificationProfile {
+        switch tool {
+        case .coloredPencil:
+            return CommitSampleSimplificationProfile(
+                minimumDistance: max(1.0, size * 0.06),
+                cornerMinimumLeg: max(1.4, size * 0.08),
+                cornerCosineThreshold: 0.9,
+                rdpTolerance: max(0.55, size * 0.035),
+                maximumSamples: 900
+            )
+        case .crayon:
+            return CommitSampleSimplificationProfile(
+                minimumDistance: max(1.8, size * 0.08),
+                cornerMinimumLeg: max(2.0, size * 0.10),
+                cornerCosineThreshold: 0.88,
+                rdpTolerance: max(0.9, size * 0.045),
+                maximumSamples: 800
+            )
+        case .watercolor:
+            return CommitSampleSimplificationProfile(
+                minimumDistance: max(2.4, size * 0.10),
+                cornerMinimumLeg: max(2.8, size * 0.12),
+                cornerCosineThreshold: 0.84,
+                rdpTolerance: max(1.35, size * 0.06),
+                maximumSamples: 650
+            )
+        case .marker:
+            return CommitSampleSimplificationProfile(
+                minimumDistance: max(2.0, size * 0.075),
+                cornerMinimumLeg: max(2.2, size * 0.10),
+                cornerCosineThreshold: 0.86,
+                rdpTolerance: max(1.0, size * 0.045),
+                maximumSamples: 700
+            )
+        case .eraser:
+            return CommitSampleSimplificationProfile(
+                minimumDistance: max(2.3, size * 0.08),
+                cornerMinimumLeg: max(2.5, size * 0.10),
+                cornerCosineThreshold: 0.86,
+                rdpTolerance: max(1.1, size * 0.05),
+                maximumSamples: 550
+            )
+        case .sprayPaint, .fillBucket:
+            return CommitSampleSimplificationProfile(
+                minimumDistance: max(1.8, size * 0.07),
+                cornerMinimumLeg: max(2.0, size * 0.09),
+                cornerCosineThreshold: 0.88,
+                rdpTolerance: max(0.9, size * 0.04),
+                maximumSamples: 800
+            )
+        }
+    }
+
+    private func isCornerSample(
+        previous: StrokeSample,
+        current: StrokeSample,
+        next: StrokeSample,
+        minimumLeg: CGFloat,
+        cosineThreshold: CGFloat
+    ) -> Bool {
+        let a = previous.cgPoint
+        let b = current.cgPoint
+        let c = next.cgPoint
+        let ab = CGVector(dx: b.x - a.x, dy: b.y - a.y)
+        let bc = CGVector(dx: c.x - b.x, dy: c.y - b.y)
+        let abLength = hypot(ab.dx, ab.dy)
+        let bcLength = hypot(bc.dx, bc.dy)
+        guard abLength >= minimumLeg, bcLength >= minimumLeg else { return false }
+        let cosine = (ab.dx * bc.dx + ab.dy * bc.dy) / (abLength * bcLength)
+        return cosine < cosineThreshold
+    }
+
+    private func ramerDouglasPeucker(samples: [StrokeSample], tolerance: CGFloat) -> [StrokeSample] {
+        guard samples.count > 2 else { return samples }
+
+        let points = samples.map(\.cgPoint)
+        var keep = Set([0, samples.count - 1])
+        var stack = [(start: 0, end: samples.count - 1)]
+
+        while let segment = stack.popLast() {
+            guard segment.end > segment.start + 1 else { continue }
+            var farthestIndex: Int?
+            var farthestDistance: CGFloat = 0
+
+            for index in (segment.start + 1)..<segment.end {
+                let sampleDistance = perpendicularDistance(
+                    points[index],
+                    from: points[segment.start],
+                    to: points[segment.end]
+                )
+                if sampleDistance > farthestDistance {
+                    farthestDistance = sampleDistance
+                    farthestIndex = index
+                }
+            }
+
+            guard farthestDistance > tolerance, let split = farthestIndex else { continue }
+            keep.insert(split)
+            stack.append((segment.start, split))
+            stack.append((split, segment.end))
+        }
+
+        return keep.sorted().map { samples[$0] }
+    }
+
+    private func perpendicularDistance(_ point: CGPoint, from start: CGPoint, to end: CGPoint) -> CGFloat {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let lengthSquared = dx * dx + dy * dy
+        guard lengthSquared > 0 else { return distance(point, start) }
+
+        let t = max(0, min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared))
+        let projection = CGPoint(x: start.x + t * dx, y: start.y + t * dy)
+        return distance(point, projection)
+    }
+
+    private func appendSampleIfDistinct(_ sample: StrokeSample, to samples: inout [StrokeSample]) {
+        guard samples.last?.cgPoint != sample.cgPoint else { return }
+        samples.append(sample)
+    }
+
+    private func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
+        hypot(a.x - b.x, a.y - b.y)
+    }
+
+    private func cleanStrokeRegion(
+        for documentSamples: [StrokeSample],
+        firstDocumentPoint: CGPoint? = nil,
+        tool: ToolType,
+        geometry: TemplateGeometry
+    ) -> RegionGeometry? {
+        guard tool == .eraser else {
+            return (firstDocumentPoint ?? documentSamples.first?.cgPoint).flatMap { geometry.region(at: $0) }
+        }
+        for sample in documentSamples {
+            if let region = geometry.region(at: sample.cgPoint) {
+                return region
+            }
+        }
+        if let firstDocumentPoint {
+            return geometry.region(at: firstDocumentPoint)
+        }
+        return nil
     }
 
     func waitForPendingPigmentCommits() async {
@@ -828,23 +1111,29 @@ final class ColoringSessionViewModel {
 
             let renderStart = CFAbsoluteTimeGetCurrent()
             let result = await Task.detached(priority: .userInitiated) {
+                let renderBase = Self.pigmentImageByFlatteningFreehandDrawing(
+                    commit.freehandDrawingToFlatten,
+                    over: base,
+                    canvasSize: commit.canvasSize,
+                    bitmapSize: commit.bitmapSize
+                )
                 let scratch = RegionPigmentEngine(
                     geometry: commit.geometry,
                     bitmapSize: commit.bitmapSize,
-                    existingImage: base
+                    existingImage: renderBase
                 )
                 guard let renderedPatch = scratch.renderStroke(
-                    tool: commit.activeStroke.tool,
-                    colorHex: commit.activeStroke.colorHex,
-                    points: commit.documentPoints,
-                    regionID: commit.activeStroke.regionID,
-                    size: commit.activeStroke.size,
-                    opacity: commit.activeStroke.opacity,
-                    seed: commit.activeStroke.seed
+                    tool: commit.action.tool,
+                    colorHex: commit.action.colorHex,
+                    points: commit.action.renderSamples.map(\.cgPoint),
+                    regionID: commit.action.clippedRegionID,
+                    size: CGFloat(commit.action.size),
+                    opacity: commit.action.opacity,
+                    seed: commit.action.seed
                 ) else {
-                    return nil as (patch: PigmentPatch, image: UIImage)?
+                    return nil as (patch: PigmentPatch, image: UIImage, base: UIImage)?
                 }
-                return (patch: renderedPatch, image: scratch.image)
+                return (patch: renderedPatch, image: scratch.image, base: renderBase)
             }.value
             let renderMs = Int((CFAbsoluteTimeGetCurrent() - renderStart) * 1000)
 
@@ -854,12 +1143,12 @@ final class ColoringSessionViewModel {
             }
 
             await MainActor.run {
-                self?.applyPigmentCommit(
-                    commit,
-                    base: base,
-                    renderedPatch: result.patch,
-                    resultImage: result.image,
-                    queueWaitMs: queueWaitMs,
+                    self?.applyPigmentCommit(
+                        commit,
+                        base: result.base,
+                        renderedPatch: result.patch,
+                        resultImage: result.image,
+                        queueWaitMs: queueWaitMs,
                     renderMs: renderMs
                 )
             }
@@ -900,21 +1189,24 @@ final class ColoringSessionViewModel {
         let patch = PigmentPatch(rect: renderedPatch.rect, before: base, after: resultImage)
         paintState.strokeActions.append(commit.action)
         undoStack.append(
-            commit.activeStroke.tool == .eraser
+            commit.action.tool == .eraser
                 ? .erasePatch(StrokePatchAction(action: commit.action, patch: patch))
                 : .pigmentStrokePatch(StrokePatchAction(action: commit.action, patch: patch))
         )
         redoStack.removeAll()
         syncUndoRedoState()
         fillLayerImage = resultImage
+        if let flattenedDrawing = commit.freehandDrawingToFlatten {
+            clearFlattenedFreehandDrawingIfUnchanged(flattenedDrawing)
+        }
         CanvasPerformanceProbe.count(.fillLayerPublish)
 
         #if DEBUG
-        AppLog.trace(AppLog.canvas, "endLiveStroke committed: tool=\(commit.activeStroke.tool.rawValue), region=\(commit.activeStroke.regionID ?? "free"), samples=\(commit.activeStroke.latestDocumentSamples.count)")
+        AppLog.trace(AppLog.canvas, "endLiveStroke committed: tool=\(commit.action.tool.rawValue), region=\(commit.action.clippedRegionID ?? "free"), samples=\(commit.action.renderSamples.count)")
         #endif
         canvasDiagnostics.record(
             .stroke,
-            "stroke committed tool=\(commit.activeStroke.tool.rawValue) region=\(commit.activeStroke.regionID ?? "free") samples=\(commit.activeStroke.latestDocumentSamples.count) patch=\(debugRect(patch.rect)) strokeID=\(commit.strokeID.uuidString)",
+            "stroke committed tool=\(commit.action.tool.rawValue) region=\(commit.action.clippedRegionID ?? "free") samples=\(commit.action.renderSamples.count) patch=\(debugRect(patch.rect)) strokeID=\(commit.strokeID.uuidString)",
             hit: canvasDebugHit(
                 canvasPoint: commit.action.samples.last?.cgPoint,
                 canvasSize: commit.canvasSize,
@@ -923,12 +1215,12 @@ final class ColoringSessionViewModel {
                 sampleCount: commit.action.samples.count
             )
         )
-        let commitMetrics = canvasScaleMetrics(canvasSize: commit.canvasSize, toolSize: commit.activeStroke.size)
+        let commitMetrics = canvasScaleMetrics(canvasSize: commit.canvasSize, toolSize: CGFloat(commit.action.size))
         let applyMs = Int((CFAbsoluteTimeGetCurrent() - applyStart) * 1000)
         let totalMs = Int((CFAbsoluteTimeGetCurrent() - commit.queuedAt) * 1000)
         canvasDiagnostics.record(
             .compare,
-            "stroke compare tool=\(commit.activeStroke.tool.rawValue) previewSize=\(debugNumber(commitMetrics.previewStrokeSize)) committedBitmapSize=\(debugNumber(commitMetrics.committedBitmapStrokeSize)) effectiveCommittedSize=\(debugNumber(commitMetrics.committedBitmapStrokeSize * (commit.canvasSize.width / max(commitMetrics.bitmapSize.width, 1)) * viewport.scale)) docToCanvas=\(debugNumber(commitMetrics.documentToCanvasScale)) docToBitmap=\(debugNumber(commitMetrics.documentToBitmapScale)) viewportScale=\(debugNumber(viewport.scale)) opacity=\(debugNumber(CGFloat(commit.activeStroke.opacity))) commitRenderMs=\(renderMs) commitQueueWaitMs=\(queueWaitMs) commitApplyMs=\(applyMs) commitTotalMs=\(totalMs) strokeID=\(commit.strokeID.uuidString) tool=\(commit.activeStroke.tool.rawValue) mode=\(coloringMode.rawValue)",
+            "stroke compare tool=\(commit.action.tool.rawValue) previewSize=\(debugNumber(commitMetrics.previewStrokeSize)) committedBitmapSize=\(debugNumber(commitMetrics.committedBitmapStrokeSize)) effectiveCommittedSize=\(debugNumber(commitMetrics.committedBitmapStrokeSize * (commit.canvasSize.width / max(commitMetrics.bitmapSize.width, 1)) * viewport.scale)) docToCanvas=\(debugNumber(commitMetrics.documentToCanvasScale)) docToBitmap=\(debugNumber(commitMetrics.documentToBitmapScale)) viewportScale=\(debugNumber(viewport.scale)) opacity=\(debugNumber(CGFloat(commit.action.opacity))) commitRenderMs=\(renderMs) commitQueueWaitMs=\(queueWaitMs) commitApplyMs=\(applyMs) commitTotalMs=\(totalMs) strokeID=\(commit.strokeID.uuidString) tool=\(commit.action.tool.rawValue) mode=\(coloringMode.rawValue)",
             hit: canvasDebugHit(
                 canvasPoint: commit.action.samples.last?.cgPoint,
                 canvasSize: commit.canvasSize,
@@ -946,12 +1238,12 @@ final class ColoringSessionViewModel {
         pixelCompareStrokeCounter += 1
         if ProcessInfo.processInfo.environment["GOUACHE_CANVAS_DIAGNOSTICS_PIXEL_COMPARE"] == "1",
            pixelCompareStrokeCounter % 3 == 0 {
-            let stroke = commit.activeStroke
+            let action = commit.action
             let docViewBox = geometry?.viewBox ?? .zero
             let bitmapSize = pigmentEngine.bitmap.size
-            Task.detached(priority: .background) { [activeStroke = stroke, counter = pixelCompareStrokeCounter, canvasDiagnostics, docViewBox, bitmapSize] in
+            Task.detached(priority: .background) { [action, counter = pixelCompareStrokeCounter, canvasDiagnostics, docViewBox, bitmapSize] in
                 let cs = CFAbsoluteTimeGetCurrent()
-                await Self.runPixelComparisonOffMain(activeStroke: activeStroke, docViewBox: docViewBox, bitmapSize: bitmapSize, canvasDiagnostics: canvasDiagnostics)
+                await Self.runPixelComparisonOffMain(action: action, docViewBox: docViewBox, bitmapSize: bitmapSize, canvasDiagnostics: canvasDiagnostics)
                 let ms = Int((CFAbsoluteTimeGetCurrent() - cs) * 1000)
                 await canvasDiagnostics.record(.compare, "timing pixelCompare=\(ms)ms stroke=#\(counter)")
             }
@@ -984,18 +1276,18 @@ final class ColoringSessionViewModel {
 
     #if DEBUG
     private static nonisolated func runPixelComparisonOffMain(
-        activeStroke: ActivePigmentStroke,
+        action: StrokeAction,
         docViewBox: CGRect,
         bitmapSize: CGSize,
         canvasDiagnostics: CanvasDebugDiagnostics
     ) async {
-        let documentSamples = activeStroke.latestDocumentSamples
+        let documentSamples = action.renderSamples
         guard documentSamples.count > 1 else { return }
-        let seed = activeStroke.seed
-        let tool = activeStroke.tool
-        let colorHex = activeStroke.colorHex
-        let opacity = activeStroke.opacity
-        let size = activeStroke.size
+        let seed = action.seed ?? 0
+        let tool = action.tool
+        let colorHex = action.colorHex
+        let opacity = action.opacity
+        let size = CGFloat(action.size)
         let targetSize = CGSize(width: 256, height: 256)
 
         let fmt1 = UIGraphicsImageRendererFormat()
@@ -1066,12 +1358,20 @@ final class ColoringSessionViewModel {
 
     func recordCanvasInput(_ input: CanvasDebugInput) {
         guard canvasDiagnostics.isEnabled else { return }
+        if let throttleKey = input.throttleKey, input.minimumInterval > 0 {
+            let now = Date().timeIntervalSince1970
+            if let previous = lastRecordedCanvasInputAtByKey[throttleKey],
+               now - previous < input.minimumInterval {
+                return
+            }
+            lastRecordedCanvasInputAtByKey[throttleKey] = now
+        }
         canvasDiagnostics.record(
             .input,
             input.message,
             hit: canvasDebugHit(input),
-            throttleKey: input.throttleKey,
-            minimumInterval: input.minimumInterval
+            throttleKey: nil,
+            minimumInterval: 0
         )
     }
 
@@ -1213,7 +1513,15 @@ final class ColoringSessionViewModel {
     }
 
     private func canvasScaleMetrics(canvasSize: CGSize, toolSize: CGFloat) -> (documentToCanvasScale: CGFloat, documentToBitmapScale: CGFloat, previewStrokeSize: CGFloat, committedBitmapStrokeSize: CGFloat, bitmapSize: CGSize, canvasDocumentSize: CGSize) {
-        let dcs = documentToCanvasScale
+        let dcs: CGFloat
+        if let geometry {
+            dcs = min(
+                canvasSize.width / max(geometry.viewBox.width, 1),
+                canvasSize.height / max(geometry.viewBox.height, 1)
+            )
+        } else {
+            dcs = documentToCanvasScale
+        }
         let dbs = documentToBitmapScale
         let previewSize = toolSize * dcs * viewport.scale
         let bitmapSize = pigmentEngine?.bitmap.size ?? (geometry?.viewBox.size ?? .zero)
@@ -1251,6 +1559,61 @@ final class ColoringSessionViewModel {
         #endif
         freehandDrawing = drawing
         markCanvasStateDirty()
+    }
+
+    private func clearFlattenedFreehandDrawingIfUnchanged(_ flattenedDrawing: PKDrawing) {
+        guard hasVisibleFreehandDrawing(flattenedDrawing) else { return }
+        guard freehandDrawing.dataRepresentation() == flattenedDrawing.dataRepresentation() else {
+            canvasDiagnostics.record(
+                .stroke,
+                "freehand flatten preserved newer drawing strokes=\(freehandDrawing.strokes.count)"
+            )
+            return
+        }
+        freehandDrawing = PKDrawing()
+        freehandExternalRevision += 1
+        markCanvasStateDirty()
+        canvasDiagnostics.record(
+            .stroke,
+            "freehand flattened into pigment layer strokes=\(flattenedDrawing.strokes.count)"
+        )
+    }
+
+    private func hasVisibleFreehandDrawing(_ drawing: PKDrawing) -> Bool {
+        !drawing.bounds.isNull && !drawing.bounds.isEmpty && !drawing.strokes.isEmpty
+    }
+
+    private static nonisolated func pigmentImageByFlatteningFreehandDrawing(
+        _ drawing: PKDrawing?,
+        over baseImage: UIImage,
+        canvasSize: CGSize,
+        bitmapSize: CGSize
+    ) -> UIImage {
+        guard let drawing,
+              !drawing.bounds.isNull,
+              !drawing.bounds.isEmpty,
+              !drawing.strokes.isEmpty,
+              canvasSize.width > 0,
+              canvasSize.height > 0,
+              bitmapSize.width > 0,
+              bitmapSize.height > 0 else {
+            return baseImage
+        }
+
+        let scale = min(bitmapSize.width / canvasSize.width, bitmapSize.height / canvasSize.height)
+        let freehandImage = drawing.image(
+            from: CGRect(origin: .zero, size: canvasSize),
+            scale: max(1, scale)
+        )
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        format.preferredRange = .standard
+
+        return UIGraphicsImageRenderer(size: bitmapSize, format: format).image { _ in
+            baseImage.draw(in: CGRect(origin: .zero, size: bitmapSize))
+            freehandImage.draw(in: CGRect(origin: .zero, size: bitmapSize))
+        }
     }
 
     func liveStrokeClip(samples canvasSamples: [StrokeSample], canvasSize: CGSize) -> StrokeRenderClip? {
@@ -1330,11 +1693,11 @@ final class ColoringSessionViewModel {
     }
 
     private func premiumLineArtSize(for documentSize: CGSize) -> CGSize {
-        premiumPixelSize(for: documentSize, targetLongestSide: 4096)
+        premiumPixelSize(for: documentSize, targetLongestSide: renderTargetLongestSide)
     }
 
     private func premiumPigmentBitmapSize(for documentSize: CGSize) -> CGSize {
-        premiumPixelSize(for: documentSize, targetLongestSide: 4096)
+        premiumPixelSize(for: documentSize, targetLongestSide: renderTargetLongestSide)
     }
 
     private func premiumPixelSize(for documentSize: CGSize, targetLongestSide: CGFloat) -> CGSize {
@@ -1342,6 +1705,15 @@ final class ColoringSessionViewModel {
         guard longestSide > 0 else { return documentSize }
         let scale = max(1, targetLongestSide / longestSide)
         return CGSize(width: documentSize.width * scale, height: documentSize.height * scale)
+    }
+
+    private static var defaultRenderTargetLongestSide: CGFloat {
+        #if DEBUG
+        if let override = debugRenderTargetLongestSideOverride {
+            return override
+        }
+        #endif
+        return 4096
     }
 
     private func storeViewportState() {
@@ -1550,6 +1922,7 @@ private enum CanvasEditAction {
 
 enum CanvasPerformanceProbe {
     enum Counter: String {
+        case cleanPreviewRender = "CleanPreviewRender"
         case cleanLiveStrokeUpdate = "CleanLiveStrokeUpdate"
         case fillLayerPublish = "FillLayerPublish"
         case pencilKitDelegateSync = "PencilKitDelegateSync"

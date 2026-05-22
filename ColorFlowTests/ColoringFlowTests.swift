@@ -16,6 +16,7 @@ final class ColoringFlowTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        ColoringSessionViewModel.debugRenderTargetLongestSideOverride = 1024
         storage = StorageService()
         for project in storage.loadAllProjects() {
             storage.delete(project: project)
@@ -29,6 +30,7 @@ final class ColoringFlowTests: XCTestCase {
         }
         projectsToDelete = []
         storage = nil
+        ColoringSessionViewModel.debugRenderTargetLongestSideOverride = nil
         super.tearDown()
     }
 
@@ -264,6 +266,12 @@ final class ColoringFlowTests: XCTestCase {
         XCTAssertEqual(ColoringSessionViewModel.SaveState.saving.label, "Saving...")
     }
 
+    func test_canvasDiagnostics_usesExplicitSessionIDForWatcherIsolation() {
+        let diagnostics = CanvasDebugDiagnostics(isEnabled: false, sessionID: "WATCHER-SESSION-123")
+
+        XCTAssertEqual(diagnostics.sessionID, "WATCHER-SESSION-123")
+    }
+
     func test_allBundledTemplatesLoadInCanvasAndAcceptRepresentativeFill() async throws {
         let templates = Template.loadAll()
         XCTAssertFalse(templates.isEmpty)
@@ -378,6 +386,99 @@ final class ColoringFlowTests: XCTestCase {
         )
 
         XCTAssertEqual(committed.pngData(), live.pngData())
+    }
+
+    func test_pigmentPreviewRasterScaleMatchesCommittedDisplayPixels() throws {
+        let geometry = CanvasTestFixture.makeClippingGeometry()
+        let region = try XCTUnwrap(geometry.regions.first)
+        let canvasSize = CGSize(width: 400, height: 400)
+        let bitmapSize = CGSize(width: 1200, height: 1200)
+        let toolSize: CGFloat = 14
+        let opacity = 0.78
+        let seed: UInt64 = 0x4D595DF4D0F33173
+        let documentPoints = [
+            CGPoint(x: 52, y: 70),
+            CGPoint(x: 68, y: 82),
+            CGPoint(x: 92, y: 76),
+            CGPoint(x: 110, y: 98)
+        ]
+
+        let engine = RegionPigmentEngine(geometry: geometry, bitmapSize: bitmapSize)
+        let committedPatch = engine.renderStroke(
+            tool: .crayon,
+            colorHex: "#2BBCB3",
+            points: documentPoints,
+            regionID: region.id,
+            size: toolSize,
+            opacity: opacity,
+            seed: seed
+        )
+        XCTAssertNotNil(committedPatch)
+        let committedDisplay = displayImage(engine.image, size: canvasSize)
+
+        var documentToCanvas = TemplateRenderer.documentToViewTransform(
+            viewBox: geometry.viewBox,
+            viewSize: canvasSize
+        )
+        let canvasPoints = documentPoints.map { $0.applying(documentToCanvas) }
+        let clipPath = try XCTUnwrap(region.path.copy(using: &documentToCanvas))
+        let documentToCanvasScale = canvasSize.width / geometry.viewBox.width
+        let documentToBitmapScale = bitmapSize.width / geometry.viewBox.width
+        let preview = renderPigmentPreviewStroke(
+            points: canvasPoints,
+            tool: .crayon,
+            colorHex: "#2BBCB3",
+            size: toolSize * documentToCanvasScale,
+            opacity: opacity,
+            seed: seed,
+            canvasSize: canvasSize,
+            rasterScale: documentToBitmapScale / documentToCanvasScale,
+            clipPath: clipPath,
+            clipFillRule: region.fillRule
+        )
+        let previewDisplay = displayImage(preview, size: canvasSize)
+
+        XCTAssertEqual(
+            pixelDigest(previewDisplay),
+            pixelDigest(committedDisplay),
+            "Live preview must rasterize at the committed bitmap density before display downsampling."
+        )
+    }
+
+    func test_canvasArtworkBackingScaleTracksZoomWithoutExceedingSourcePixels() {
+        let bounds = CGSize(width: 800, height: 800)
+        let sourcePixels = CGSize(width: 4096, height: 4096)
+
+        XCTAssertEqual(
+            CanvasArtworkRasterization.preferredBackingScale(
+                viewportScale: 1,
+                screenScale: 2,
+                boundsSize: bounds,
+                sourcePixelSize: sourcePixels
+            ),
+            2,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            CanvasArtworkRasterization.preferredBackingScale(
+                viewportScale: 3,
+                screenScale: 2,
+                boundsSize: bounds,
+                sourcePixelSize: sourcePixels
+            ),
+            5.12,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            CanvasArtworkRasterization.preferredBackingScale(
+                viewportScale: 6,
+                screenScale: 2,
+                boundsSize: bounds,
+                sourcePixelSize: sourcePixels
+            ),
+            5.12,
+            accuracy: 0.001
+        )
     }
 
     func test_crayonRendering_hasTextureVariation() {
@@ -587,12 +688,15 @@ final class ColoringFlowTests: XCTestCase {
         XCTAssertTrue(committed)
         let committedAction = try XCTUnwrap(vm.paintState.strokeActions.last)
         let committedDigest = pixelDigest(renderStroke(committedAction, geometry: geometry, size: geometry.viewBox.size))
+        let committedSamples = committedAction.renderSamples
 
         var previousVisiblePixels = 0
-        for prefixCount in 2...committedAction.points.count {
+        for prefixCount in 2...committedSamples.count {
             var previewAction = committedAction
-            previewAction.points = Array(committedAction.points.prefix(prefixCount))
-            previewAction.samples = Array(committedAction.samples.prefix(prefixCount))
+            let prefixSamples = Array(committedSamples.prefix(prefixCount))
+            previewAction.points = prefixSamples.map(\.point)
+            previewAction.samples = prefixSamples
+            previewAction.highFidelitySamples = prefixSamples
             let previewDigest = pixelDigest(renderStroke(previewAction, geometry: geometry, size: geometry.viewBox.size))
 
             let toleratedEndpointAdjustment = max(8, Int(Double(previousVisiblePixels) * 0.02))
@@ -603,7 +707,7 @@ final class ColoringFlowTests: XCTestCase {
             )
             previousVisiblePixels = previewDigest.visiblePixelCount
 
-            if prefixCount == committedAction.points.count {
+            if prefixCount == committedSamples.count {
                 XCTAssertEqual(previewDigest, committedDigest)
             } else {
                 XCTAssertNotEqual(previewDigest, committedDigest)
@@ -765,29 +869,294 @@ final class ColoringFlowTests: XCTestCase {
         XCTAssertEqual(vm.paintState.strokeActions.count, 1)
     }
 
+    func test_cleanRapidScribbleSamplesAreSimplifiedBeforeCommit() async throws {
+        let expectedMaximumSamples: [ToolType: Int] = [
+            .crayon: 800,
+            .coloredPencil: 900,
+            .watercolor: 650,
+            .marker: 700,
+            .eraser: 550
+        ]
+
+        for tool in pigmentStrokeTools {
+            let template = try uniqueTemplate(named: "Simplify \(tool.rawValue) \(UUID().uuidString.prefix(6))")
+            let geometry = try CanvasTestFixture.makeGeometry()
+            let project = Project(template: template)
+            let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
+            let canvasSize = CGSize(width: 800, height: 800)
+
+            await vm.loadIfNeeded()
+            vm.selectColoringMode(.clean)
+
+            if tool == .eraser {
+                vm.selectTool(.marker)
+                vm.selectColor(hex: "#4169E1")
+                let didDrawBase = await vm.drawStroke(
+                    canvasPoints: canvasStrokePoints(in: geometry, canvasSize: canvasSize),
+                    canvasSize: canvasSize
+                )
+                XCTAssertTrue(didDrawBase)
+            }
+
+            vm.selectTool(tool)
+            vm.selectColor(hex: SableTheme.progressPinkHex)
+            let rawSamples = scribbleCanvasStrokeSamples(
+                in: geometry,
+                canvasSize: canvasSize,
+                count: 2_400
+            )
+            let documentTransform = TemplateRenderer.documentToViewTransform(
+                viewBox: geometry.viewBox,
+                viewSize: canvasSize
+            ).inverted()
+            let firstDocumentPoint = rawSamples[0].cgPoint.applying(documentTransform)
+            let lastDocumentPoint = rawSamples[rawSamples.count - 1].cgPoint.applying(documentTransform)
+
+            XCTAssertTrue(vm.beginLiveStroke(samples: [rawSamples[0]], canvasSize: canvasSize))
+            XCTAssertTrue(vm.updateLiveStroke(samples: rawSamples, canvasSize: canvasSize))
+            XCTAssertTrue(vm.endLiveStroke(samples: rawSamples, canvasSize: canvasSize))
+            await vm.waitForPendingPigmentCommits()
+
+            let action = try XCTUnwrap(vm.paintState.strokeActions.last)
+            let firstCommittedSample = try XCTUnwrap(action.samples.first)
+            let lastCommittedSample = try XCTUnwrap(action.samples.last)
+            XCTAssertEqual(action.tool, tool)
+            XCTAssertLessThan(action.samples.count, rawSamples.count / 2)
+            XCTAssertLessThanOrEqual(action.samples.count, try XCTUnwrap(expectedMaximumSamples[tool]))
+            XCTAssertEqual(action.renderSamples.count, rawSamples.count)
+            XCTAssertNotNil(action.seed)
+            XCTAssertEqual(firstCommittedSample.cgPoint.x, firstDocumentPoint.x, accuracy: 0.001)
+            XCTAssertEqual(firstCommittedSample.cgPoint.y, firstDocumentPoint.y, accuracy: 0.001)
+            XCTAssertEqual(lastCommittedSample.cgPoint.x, lastDocumentPoint.x, accuracy: 0.001)
+            XCTAssertEqual(lastCommittedSample.cgPoint.y, lastDocumentPoint.y, accuracy: 0.001)
+        }
+    }
+
+    func test_committedPigmentBitmapUsesUnsimplifiedPreviewSamples() async throws {
+        let template = try uniqueTemplate(named: "Preview Fidelity \(UUID().uuidString.prefix(6))")
+        let geometry = try CanvasTestFixture.makeGeometry()
+        let project = Project(template: template)
+        let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
+        let canvasSize = CGSize(width: 800, height: 800)
+
+        await vm.loadIfNeeded()
+        let renderGeometry = try XCTUnwrap(vm.debugTemplateGeometry)
+        vm.selectColoringMode(.clean)
+        vm.selectTool(.crayon)
+        vm.selectColor(hex: SableTheme.progressPinkHex)
+
+        let rawSamples = scribbleCanvasStrokeSamples(
+            in: geometry,
+            canvasSize: canvasSize,
+            count: 1_600
+        )
+        let initialPigmentImage = try XCTUnwrap(vm.debugPigmentLayerImage)
+        let bitmapSize = try XCTUnwrap(vm.debugPigmentBitmapSize)
+        let toolSize = vm.selectedToolSettings.size
+        let opacity = vm.selectedToolSettings.opacity
+
+        XCTAssertTrue(vm.beginLiveStroke(samples: [rawSamples[0]], canvasSize: canvasSize))
+        XCTAssertTrue(vm.updateLiveStroke(samples: rawSamples, canvasSize: canvasSize))
+        XCTAssertTrue(vm.endLiveStroke(samples: rawSamples, canvasSize: canvasSize))
+        await vm.waitForPendingPigmentCommits()
+
+        let action = try XCTUnwrap(vm.paintState.strokeActions.last)
+        XCTAssertEqual(vm.paintState.strokeActions.count, 1)
+        XCTAssertLessThan(action.samples.count, rawSamples.count / 2)
+        XCTAssertEqual(action.renderSamples.count, rawSamples.count)
+        let seed = action.seed ?? canvasStrokeSeed(
+            tool: .crayon,
+            colorHex: SableTheme.progressPinkHex,
+            samples: action.renderSamples,
+            size: toolSize,
+            opacity: opacity
+        )
+
+        let expectedRawEngine = RegionPigmentEngine(
+            geometry: renderGeometry,
+            bitmapSize: bitmapSize,
+            existingImage: initialPigmentImage
+        )
+        XCTAssertNotNil(expectedRawEngine.renderStroke(
+            tool: .crayon,
+            colorHex: SableTheme.progressPinkHex,
+            points: action.renderSamples.map(\.cgPoint),
+            regionID: action.clippedRegionID,
+            size: toolSize,
+            opacity: opacity,
+            seed: seed
+        ))
+
+        let compactEngine = RegionPigmentEngine(
+            geometry: renderGeometry,
+            bitmapSize: bitmapSize,
+            existingImage: initialPigmentImage
+        )
+        XCTAssertNotNil(compactEngine.renderStroke(
+            tool: .crayon,
+            colorHex: SableTheme.progressPinkHex,
+            points: action.samples.map(\.cgPoint),
+            regionID: action.clippedRegionID,
+            size: toolSize,
+            opacity: opacity,
+            seed: seed
+        ))
+
+        let actualDigest = pixelDigest(try XCTUnwrap(vm.fillLayerImage))
+        let actualPigmentDigest = pixelDigest(try XCTUnwrap(vm.debugPigmentLayerImage))
+        let rawDigest = pixelDigest(expectedRawEngine.image)
+        let compactDigest = pixelDigest(compactEngine.image)
+
+        XCTAssertEqual(actualDigest, actualPigmentDigest)
+        XCTAssertEqual(
+            actualDigest,
+            rawDigest,
+            "actual=\(actualDigest) raw=\(rawDigest) compact=\(compactDigest) region=\(action.clippedRegionID ?? "nil") seed=\(seed) compactSamples=\(action.samples.count) renderSamples=\(action.renderSamples.count) bitmapSize=\(bitmapSize)"
+        )
+        XCTAssertNotEqual(compactDigest, rawDigest)
+    }
+
     func test_rapidThreeStrokeRegression_cleanAndFreeModes() async throws {
-        try await assertRapidThreeStrokeSequence(mode: .clean)
-        try await assertRapidThreeStrokeSequence(mode: .free)
+        for mode in [CanvasColoringMode.clean, .free] {
+            for tool in pigmentStrokeTools {
+                try await assertRapidThreeStrokeSequence(mode: mode, tool: tool)
+            }
+        }
     }
 
     func test_asyncStrokeCommitIsDeterministicForPigmentToolsAndFillBucket() async throws {
-        try await assertToolCommit(.crayon)
-        try await assertToolCommit(.marker)
-        try await assertToolCommit(.watercolor)
-        try await assertToolCommit(.eraser)
+        for mode in [CanvasColoringMode.clean, .free] {
+            for tool in pigmentStrokeTools {
+                try await assertToolCommit(tool, mode: mode)
+            }
+        }
 
         let template = try uniqueTemplate()
+        for mode in [CanvasColoringMode.clean, .free] {
+            let project = Project(template: template)
+            let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
+            await vm.loadIfNeeded()
+            vm.selectColoringMode(mode)
+            vm.selectTool(.fillBucket)
+            vm.selectColor(hex: "#00AAFF")
+
+            let didFill = await vm.fill(atDocumentPoint: try representativeFillPoint())
+            XCTAssertTrue(didFill)
+            XCTAssertFalse(vm.hasPendingPigmentCommits)
+            XCTAssertEqual(vm.paintState.strokeActions.count, 0)
+            XCTAssertEqual(vm.filledRegionCount, 1)
+        }
+    }
+
+    func test_cleanModeEraserFlattensAndErasesFreehandDrawing() async throws {
+        let template = try uniqueTemplate()
+        let geometry = try CanvasTestFixture.makeGeometry()
         let project = Project(template: template)
         let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
+        let canvasSize = CGSize(width: 800, height: 800)
+        let erasePoints = canvasStrokePoints(in: geometry, canvasSize: canvasSize)
+
         await vm.loadIfNeeded()
+        let freehandStroke = PKStrokeFactory.pencilLine(
+            from: try XCTUnwrap(erasePoints.first),
+            to: try XCTUnwrap(erasePoints.last),
+            color: UIColor(hex: "#00AAFF"),
+            width: 36,
+            steps: 36
+        )
+        vm.syncFreehandDrawingFromCanvas(PKStrokeFactory.drawing(with: [freehandStroke]))
+        let revisionBeforeErase = vm.freehandExternalRevision
+        let exportedBeforeErase = try XCTUnwrap(vm.exportImage())
+
+        vm.selectColoringMode(.clean)
+        vm.selectTool(.eraser)
+        vm.updateSelectedToolSize(44)
+        let didErase = await vm.drawStroke(canvasPoints: erasePoints, canvasSize: canvasSize)
+
+        XCTAssertTrue(didErase)
+        XCTAssertTrue(vm.freehandDrawing.strokes.isEmpty)
+        XCTAssertGreaterThan(vm.freehandExternalRevision, revisionBeforeErase)
+        XCTAssertEqual(vm.paintState.strokeActions.last?.tool, .eraser)
+        XCTAssertNotEqual(pixelDigest(try XCTUnwrap(vm.exportImage())), pixelDigest(exportedBeforeErase))
+    }
+
+    func test_cleanModeEraserCanStartOutsideRegionAndEraseAfterEntering() async throws {
+        let template = try uniqueTemplate()
+        let geometry = try CanvasTestFixture.makeGeometry()
+        let project = Project(template: template)
+        let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
+        let canvasSize = CGSize(width: 800, height: 800)
+
+        await vm.loadIfNeeded()
+        vm.selectColoringMode(.clean)
         vm.selectTool(.fillBucket)
         vm.selectColor(hex: "#00AAFF")
-
-        let didFill = await vm.fill(atDocumentPoint: try representativeFillPoint())
+        let fillPoint = try XCTUnwrap(CanvasTestFixture.representativeFillPoint(in: geometry))
+        let didFill = await vm.fill(atDocumentPoint: fillPoint)
         XCTAssertTrue(didFill)
-        XCTAssertFalse(vm.hasPendingPigmentCommits)
+        let digestBeforeErase = pixelDigest(try XCTUnwrap(vm.fillLayerImage))
+
+        vm.selectTool(.eraser)
+        vm.updateSelectedToolSize(44)
+        let didErase = await vm.drawStroke(
+            canvasPoints: try canvasStrokePointsStartingOutsideRegion(in: geometry, canvasSize: canvasSize),
+            canvasSize: canvasSize
+        )
+
+        XCTAssertTrue(didErase)
+        let eraseAction = try XCTUnwrap(vm.paintState.strokeActions.last)
+        XCTAssertEqual(eraseAction.tool, .eraser)
+        XCTAssertNotNil(eraseAction.clippedRegionID)
+        XCTAssertNotEqual(pixelDigest(try XCTUnwrap(vm.fillLayerImage)), digestBeforeErase)
+    }
+
+    func test_cleanModePaintStillRejectsStrokeStartingOutsideRegion() async throws {
+        let template = try uniqueTemplate()
+        let geometry = try CanvasTestFixture.makeGeometry()
+        let project = Project(template: template)
+        let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
+        let canvasSize = CGSize(width: 800, height: 800)
+
+        await vm.loadIfNeeded()
+        vm.selectColoringMode(.clean)
+        vm.selectTool(.marker)
+        vm.selectColor(hex: "#00AAFF")
+
+        let didDraw = await vm.drawStroke(
+            canvasPoints: try canvasStrokePointsStartingOutsideRegion(in: geometry, canvasSize: canvasSize),
+            canvasSize: canvasSize
+        )
+
+        XCTAssertFalse(didDraw)
         XCTAssertEqual(vm.paintState.strokeActions.count, 0)
-        XCTAssertEqual(vm.filledRegionCount, 1)
+    }
+
+    func test_freeModeEraserCanEraseCleanModePigment() async throws {
+        let template = try uniqueTemplate()
+        let geometry = try CanvasTestFixture.makeGeometry()
+        let project = Project(template: template)
+        let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
+        let canvasSize = CGSize(width: 800, height: 800)
+        let strokePoints = canvasStrokePoints(in: geometry, canvasSize: canvasSize)
+
+        await vm.loadIfNeeded()
+        vm.selectColoringMode(.clean)
+        vm.selectTool(.marker)
+        vm.selectColor(hex: "#00AAFF")
+        let didDrawCleanStroke = await vm.drawStroke(canvasPoints: strokePoints, canvasSize: canvasSize)
+        XCTAssertTrue(didDrawCleanStroke)
+        let digestBeforeErase = pixelDigest(try XCTUnwrap(vm.fillLayerImage))
+
+        vm.selectColoringMode(.free)
+        vm.selectTool(.eraser)
+        vm.updateSelectedToolSize(44)
+        let didEraseCleanPigment = await vm.drawStroke(canvasPoints: strokePoints, canvasSize: canvasSize)
+        XCTAssertTrue(didEraseCleanPigment)
+
+        let eraseAction = try XCTUnwrap(vm.paintState.strokeActions.last)
+        XCTAssertEqual(eraseAction.tool, .eraser)
+        XCTAssertNil(eraseAction.clippedRegionID)
+        XCTAssertNotEqual(pixelDigest(try XCTUnwrap(vm.fillLayerImage)), digestBeforeErase)
     }
 
     func test_exportMatchesCanvasSnapshotRendererOutput() async throws {
@@ -936,19 +1305,33 @@ final class ColoringFlowTests: XCTestCase {
         return vm.endLiveStroke(samples: samples, canvasSize: canvasSize)
     }
 
-    private func assertRapidThreeStrokeSequence(mode: CanvasColoringMode) async throws {
-        let template = try uniqueTemplate(named: "Rapid \(mode.rawValue) \(UUID().uuidString.prefix(6))")
+    private var pigmentStrokeTools: [ToolType] {
+        [.crayon, .coloredPencil, .watercolor, .marker, .eraser]
+    }
+
+    private func assertRapidThreeStrokeSequence(mode: CanvasColoringMode, tool: ToolType) async throws {
+        let template = try uniqueTemplate(named: "Rapid \(mode.rawValue) \(tool.rawValue) \(UUID().uuidString.prefix(6))")
         let geometry = try CanvasTestFixture.makeGeometry()
         let project = Project(template: template)
         let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
 
         await vm.loadIfNeeded()
-        vm.selectTool(.crayon)
         vm.selectColor(hex: SableTheme.progressPinkHex)
         vm.selectColoringMode(mode)
+        if tool == .eraser {
+            vm.selectTool(.marker)
+            vm.selectColor(hex: "#00AAFF")
+            let didDrawBase = await vm.drawStroke(
+                canvasPoints: canvasStrokePoints(in: geometry, canvasSize: CGSize(width: 800, height: 800)),
+                canvasSize: CGSize(width: 800, height: 800)
+            )
+            XCTAssertTrue(didDrawBase)
+        }
+        vm.selectTool(tool)
 
         let canvasSize = CGSize(width: 800, height: 800)
         let initialDigest = pixelDigest(try XCTUnwrap(vm.fillLayerImage))
+        let startingActionCount = vm.paintState.strokeActions.count
         for index in 0..<3 {
             let points = canvasStrokePoints(
                 in: geometry,
@@ -961,20 +1344,21 @@ final class ColoringFlowTests: XCTestCase {
 
         await vm.waitForPendingPigmentCommits()
 
-        XCTAssertEqual(vm.paintState.strokeActions.count, 3)
+        XCTAssertEqual(vm.paintState.strokeActions.count, startingActionCount + 3)
         XCTAssertTrue(vm.canUndo)
         XCTAssertNotEqual(pixelDigest(try XCTUnwrap(vm.fillLayerImage)), initialDigest)
-        XCTAssertEqual(Set(vm.paintState.strokeActions.map(\.id)).count, 3)
+        XCTAssertEqual(Set(vm.paintState.strokeActions.suffix(3).map(\.id)).count, 3)
+        XCTAssertEqual(vm.paintState.strokeActions.suffix(3).map(\.tool), Array(repeating: tool, count: 3))
     }
 
-    private func assertToolCommit(_ tool: ToolType) async throws {
-        let template = try uniqueTemplate(named: "Tool \(tool.rawValue) \(UUID().uuidString.prefix(6))")
+    private func assertToolCommit(_ tool: ToolType, mode: CanvasColoringMode) async throws {
+        let template = try uniqueTemplate(named: "Tool \(tool.rawValue) \(mode.rawValue) \(UUID().uuidString.prefix(6))")
         let geometry = try CanvasTestFixture.makeGeometry()
         let project = Project(template: template)
         let vm = ColoringSessionViewModel(project: project, template: template, storageService: storage)
 
         await vm.loadIfNeeded()
-        vm.selectColoringMode(.free)
+        vm.selectColoringMode(mode)
         let canvasSize = CGSize(width: 800, height: 800)
 
         if tool == .eraser {
@@ -1079,6 +1463,49 @@ final class ColoringFlowTests: XCTestCase {
                 clipFillRule: clipFillRule,
                 in: ctx.cgContext
             )
+        }
+    }
+
+    private func renderPigmentPreviewStroke(
+        points: [CGPoint],
+        tool: ToolType,
+        colorHex: String,
+        size: CGFloat,
+        opacity: Double,
+        seed: UInt64,
+        canvasSize: CGSize,
+        rasterScale: CGFloat,
+        clipPath: CGPath?,
+        clipFillRule: CGPathFillRule
+    ) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = rasterScale
+        format.opaque = false
+        format.preferredRange = .standard
+        return UIGraphicsImageRenderer(size: canvasSize, format: format).image { ctx in
+            let stroke = PigmentStroke(
+                tool: tool,
+                colorHex: colorHex,
+                opacity: opacity,
+                size: Double(size),
+                points: points,
+                regionID: nil,
+                seed: seed
+            )
+            let mask = clipPath.map {
+                RegionMask(regionID: "preview", path: $0, fillRule: clipFillRule, image: UIImage())
+            }
+            PigmentStrokeRenderer.render(stroke, in: ctx.cgContext, mask: mask)
+        }
+    }
+
+    private func displayImage(_ image: UIImage, size: CGSize) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        format.preferredRange = .standard
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
         }
     }
 
@@ -1208,6 +1635,54 @@ final class ColoringFlowTests: XCTestCase {
         }
     }
 
+    private func canvasStrokePointsStartingOutsideRegion(
+        in geometry: TemplateGeometry,
+        canvasSize: CGSize
+    ) throws -> [CGPoint] {
+        let transform = TemplateRenderer.documentToViewTransform(
+            viewBox: geometry.viewBox,
+            viewSize: canvasSize
+        )
+        let anchor = try XCTUnwrap(CanvasTestFixture.representativeFillPoint(in: geometry))
+        let outside = try outsidePointNearRegion(containing: anchor, in: geometry)
+        return (0..<12).map { index in
+            let t = CGFloat(index) / 11
+            let wobble = sin(t * .pi * 2) * geometry.viewBox.height * 0.012
+            return CGPoint(
+                x: outside.x + (anchor.x - outside.x) * t,
+                y: outside.y + (anchor.y - outside.y) * t + wobble
+            ).applying(transform)
+        }
+    }
+
+    private func outsidePointNearRegion(
+        containing anchor: CGPoint,
+        in geometry: TemplateGeometry
+    ) throws -> CGPoint {
+        let region = try XCTUnwrap(geometry.region(at: anchor))
+        let step = max(min(region.bounds.width, region.bounds.height) * 0.08, 4)
+        let directions = [
+            CGVector(dx: -1, dy: 0),
+            CGVector(dx: 1, dy: 0),
+            CGVector(dx: 0, dy: -1),
+            CGVector(dx: 0, dy: 1)
+        ]
+        for multiplier in 1...24 {
+            for direction in directions {
+                let point = CGPoint(
+                    x: anchor.x + direction.dx * step * CGFloat(multiplier),
+                    y: anchor.y + direction.dy * step * CGFloat(multiplier)
+                )
+                guard geometry.viewBox.contains(point),
+                      geometry.region(at: point) == nil else {
+                    continue
+                }
+                return point
+            }
+        }
+        return CanvasTestFixture.pointOutsideAllRegions
+    }
+
     private func heavyCanvasStrokePoints(
         in geometry: TemplateGeometry,
         canvasSize: CGSize,
@@ -1228,6 +1703,58 @@ final class ColoringFlowTests: XCTestCase {
         }
     }
 
+    private func scribbleCanvasStrokeSamples(
+        in geometry: TemplateGeometry,
+        canvasSize: CGSize,
+        count: Int
+    ) -> [StrokeSample] {
+        let transform = TemplateRenderer.documentToViewTransform(
+            viewBox: geometry.viewBox,
+            viewSize: canvasSize
+        )
+        let anchor = CanvasTestFixture.representativeFillPoint(in: geometry)
+            ?? CGPoint(x: geometry.viewBox.midX, y: geometry.viewBox.midY)
+        return (0..<count).map { index in
+            if index == 0 {
+                return StrokeSample(point: anchor.applying(transform), timestamp: 0)
+            }
+            let t = CGFloat(index) / CGFloat(max(count - 1, 1))
+            let wobbleX = sin(t * .pi * 54) * geometry.viewBox.width * 0.025
+                + cos(t * .pi * 19) * geometry.viewBox.width * 0.012
+            let wobbleY = cos(t * .pi * 47) * geometry.viewBox.height * 0.025
+                + sin(t * .pi * 23) * geometry.viewBox.height * 0.012
+            let drift = (t - 0.5) * geometry.viewBox.width * 0.05
+            let point = CGPoint(
+                x: anchor.x + drift + wobbleX,
+                y: anchor.y + wobbleY
+            ).applying(transform)
+            return StrokeSample(point: point, timestamp: Double(index) / 240.0)
+        }
+    }
+
+    private func canvasStrokeSeed(
+        tool: ToolType,
+        colorHex: String,
+        samples: [StrokeSample],
+        size: CGFloat,
+        opacity: Double
+    ) -> UInt64 {
+        var hasher = TestCanvasStrokeHasher()
+        hasher.combine(tool.rawValue)
+        hasher.combine(colorHex)
+        hasher.combine(Double(size))
+        hasher.combine(opacity)
+        if let firstSample = samples.first {
+            hasher.combine(firstSample.point.x)
+            hasher.combine(firstSample.point.y)
+            hasher.combine(firstSample.timestamp ?? 0)
+            if let force = firstSample.force {
+                hasher.combine(force)
+            }
+        }
+        return hasher.value
+    }
+
     private func makePreviewAction(
         vm: ColoringSessionViewModel,
         geometry: TemplateGeometry,
@@ -1239,11 +1766,21 @@ final class ColoringFlowTests: XCTestCase {
             viewSize: canvasSize
         ).inverted()
         let documentPoints = canvasPoints.map { $0.applying(transform) }
+        let documentSamples = documentPoints.map { StrokeSample(point: $0) }
 
         return StrokeAction(
             tool: vm.selectedTool,
             colorHex: vm.selectedColorHex,
             points: documentPoints.map { CodablePoint(x: $0.x, y: $0.y) },
+            samples: documentSamples,
+            highFidelitySamples: documentSamples,
+            seed: canvasStrokeSeed(
+                tool: vm.selectedTool,
+                colorHex: vm.selectedColorHex,
+                samples: documentSamples,
+                size: vm.selectedToolSettings.size,
+                opacity: vm.selectedToolSettings.opacity
+            ),
             clippedRegionID: vm.coloringMode == .clean ? documentPoints.first.flatMap { geometry.region(at: $0)?.id } : nil,
             size: vm.selectedToolSettings.size,
             opacity: vm.selectedToolSettings.opacity
@@ -1406,5 +1943,25 @@ final class ColoringFlowTests: XCTestCase {
 
         XCTAssertEqual(vm.freehandExternalRevision, revisionBefore, "External revision should not change on canvas-origin sync")
         XCTAssertEqual(vm.saveState, .dirty, "Canvas sync should mark the session dirty")
+    }
+}
+
+private struct TestCanvasStrokeHasher {
+    private(set) var value: UInt64 = 0xcbf29ce484222325
+
+    mutating func combine(_ string: String) {
+        for byte in string.utf8 {
+            combine(byte)
+        }
+        combine(UInt8(0xff))
+    }
+
+    mutating func combine(_ double: Double) {
+        combine(String(format: "%.6f", double))
+    }
+
+    private mutating func combine(_ byte: UInt8) {
+        value ^= UInt64(byte)
+        value &*= 0x100000001b3
     }
 }

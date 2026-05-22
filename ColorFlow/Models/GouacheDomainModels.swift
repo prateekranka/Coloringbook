@@ -168,6 +168,8 @@ struct StrokeAction: Identifiable, Codable, Equatable {
     var colorHex: String
     var points: [CodablePoint]
     var samples: [StrokeSample]
+    var highFidelitySamples: [StrokeSample]
+    var seed: UInt64?
     var clippedRegionID: String?
     var size: Double
     var opacity: Double
@@ -178,6 +180,8 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         colorHex: String,
         points: [CodablePoint],
         samples: [StrokeSample]? = nil,
+        highFidelitySamples: [StrokeSample]? = nil,
+        seed: UInt64? = nil,
         clippedRegionID: String?,
         size: Double,
         opacity: Double
@@ -187,13 +191,18 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         self.colorHex = colorHex
         self.points = points
         self.samples = samples ?? points.map { StrokeSample(point: $0) }
+        self.highFidelitySamples = highFidelitySamples ?? self.samples
+        self.seed = seed
         self.clippedRegionID = clippedRegionID
         self.size = size
         self.opacity = opacity
     }
 
     var renderSamples: [StrokeSample] {
-        samples.isEmpty ? points.map { StrokeSample(point: $0) } : samples
+        if !highFidelitySamples.isEmpty {
+            return highFidelitySamples
+        }
+        return samples.isEmpty ? points.map { StrokeSample(point: $0) } : samples
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -202,6 +211,8 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         case colorHex
         case points
         case samples
+        case highFidelitySamples
+        case seed
         case clippedRegionID
         case size
         case opacity
@@ -213,10 +224,13 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         tool = try container.decode(ToolType.self, forKey: .tool)
         colorHex = try container.decode(String.self, forKey: .colorHex)
         let decodedSamples = try container.decodeIfPresent([StrokeSample].self, forKey: .samples)
+        let decodedHighFidelitySamples = try container.decodeIfPresent([StrokeSample].self, forKey: .highFidelitySamples)
         points = try container.decodeIfPresent([CodablePoint].self, forKey: .points)
             ?? decodedSamples?.map(\.point)
             ?? []
         samples = decodedSamples ?? points.map { StrokeSample(point: $0) }
+        highFidelitySamples = decodedHighFidelitySamples ?? samples
+        seed = try container.decodeIfPresent(UInt64.self, forKey: .seed)
         clippedRegionID = try container.decodeIfPresent(String.self, forKey: .clippedRegionID)
         size = try container.decode(Double.self, forKey: .size)
         opacity = try container.decode(Double.self, forKey: .opacity)
@@ -231,6 +245,10 @@ struct StrokeAction: Identifiable, Codable, Equatable {
         if samples.contains(where: \.hasExtendedData) || samples.map(\.point) != points {
             try container.encode(samples, forKey: .samples)
         }
+        if highFidelitySamples != samples {
+            try container.encode(highFidelitySamples, forKey: .highFidelitySamples)
+        }
+        try container.encodeIfPresent(seed, forKey: .seed)
         try container.encodeIfPresent(clippedRegionID, forKey: .clippedRegionID)
         try container.encode(size, forKey: .size)
         try container.encode(opacity, forKey: .opacity)

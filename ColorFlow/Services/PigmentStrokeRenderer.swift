@@ -9,6 +9,10 @@ enum PigmentStrokeRenderer {
 
     // MARK: - Public entry point
 
+    static func affectedRect(for stroke: PigmentStroke) -> CGRect {
+        dirtyRect(points: stroke.cgPoints, size: dirtyMargin(for: stroke))
+    }
+
     static func render(
         _ stroke: PigmentStroke,
         in context: CGContext,
@@ -42,6 +46,19 @@ enum PigmentStrokeRenderer {
             return SprayBrushRenderer()
         case .fillBucket:
             return MarkerBrushRenderer()
+        }
+    }
+
+    private static func dirtyMargin(for stroke: PigmentStroke) -> CGFloat {
+        switch stroke.tool {
+        case .watercolor, .sprayPaint:
+            return CGFloat(stroke.size) * 2.2
+        case .marker, .eraser:
+            return CGFloat(stroke.size) * 1.6
+        case .coloredPencil, .crayon:
+            return CGFloat(stroke.size) * 1.8
+        case .fillBucket:
+            return CGFloat(stroke.size) * 1.6
         }
     }
 }
@@ -200,4 +217,12 @@ private func stamp(points: [CGPoint], spacing: CGFloat, draw: (CGPoint) -> Void)
             draw(CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t))
         }
     }
+}
+
+private func dirtyRect(points: [CGPoint], size: CGFloat) -> CGRect {
+    guard !points.isEmpty else { return .zero }
+    let rect = points.reduce(CGRect.null) { partial, point in
+        partial.union(CGRect(x: point.x, y: point.y, width: 1, height: 1))
+    }
+    return rect.insetBy(dx: -size, dy: -size).integral
 }

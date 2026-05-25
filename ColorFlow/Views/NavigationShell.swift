@@ -268,28 +268,38 @@ private struct SableTabBar: View {
     @Binding var selectedTab: SableTab
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             ForEach(SableTab.allCases) { tab in
                 Button {
                     selectedTab = tab
                 } label: {
-                    VStack(spacing: SableTheme.Spacing.xxs) {
+                    let isSelected = selectedTab == tab
+
+                    HStack(spacing: 8) {
                         Image(systemName: tab.systemImageName)
-                            .font(.system(size: 25, weight: .semibold))
+                            .font(.system(size: 18, weight: .medium))
 
                         Text(tab.title)
-                            .font(SableTheme.Typography.bodySmall)
+                            .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
                     }
-                    .foregroundStyle(selectedTab == tab ? SableTheme.progressPink : SableTheme.gouachePrimaryText(for: colorScheme))
-                    .frame(maxWidth: .infinity, minHeight: 76)
+                    .foregroundStyle(isSelected ? selectedForeground : unselectedForeground)
+                    .frame(minWidth: 118, minHeight: 38)
+                    .background {
+                        if isSelected {
+                            Capsule()
+                                .fill(selectedFill)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 52)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("tab.\(tab.rawValue)")
             }
         }
-        .frame(maxWidth: 900)
-        .background(SableTheme.elevatedSurface(for: colorScheme), in: Capsule())
+        .padding(.horizontal, 10)
+        .frame(height: 58)
+        .background(tabBarFill, in: Capsule())
         .overlay {
             Capsule().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
         }
@@ -299,6 +309,22 @@ private struct SableTabBar: View {
             x: SableTheme.Shadow.tabBar(for: colorScheme).x,
             y: SableTheme.Shadow.tabBar(for: colorScheme).y
         )
+    }
+
+    private var tabBarFill: Color {
+        colorScheme == .dark ? Color(hex: "#171816").opacity(0.96) : Color(hex: "#F1E7DA").opacity(0.92)
+    }
+
+    private var selectedFill: Color {
+        colorScheme == .dark ? Color(hex: "#4A3B2E").opacity(0.92) : Color(hex: "#E4D5C2").opacity(0.94)
+    }
+
+    private var selectedForeground: Color {
+        colorScheme == .dark ? Color(hex: "#F2DEC3") : Color(hex: "#201E1B")
+    }
+
+    private var unselectedForeground: Color {
+        colorScheme == .dark ? Color(hex: "#BDAE99") : Color(hex: "#6C6258")
     }
 }
 

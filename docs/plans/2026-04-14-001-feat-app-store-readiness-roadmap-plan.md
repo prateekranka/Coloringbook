@@ -33,7 +33,7 @@ Meanwhile the repo itself isn't yet submission-ready: Info.plist has a subtle or
 - R2. App does not crash on cold launch on current iPadOS 17 and iPadOS 18 on iPad Air (non-Pencil) and iPad Pro (Pencil) — covered by manual + automated smoke.
 - R3. Privacy nutrition label is defensible: "No Data Collected" stance is consistent with actual app behavior (no analytics SDKs, no network calls except optional ambient-sound CDN — research doc is explicit that "your photos never leave your device" must hold).
 - R4. Production Release build ships without debug-level `fault`/`NSLog` output leaking to Console.app, without `ENABLE_TESTABILITY`, and with a dSYM uploaded for symbolication.
-- R5. Accessibility baseline: Dynamic Type respected on text surfaces, minimum 44pt tap targets, VoiceOver labels on tab bar + primary canvas controls, high-contrast line art renders on both light/dark OS preference (app forces dark, but onboarding + alerts respect system contrast).
+- R5. Accessibility baseline: Dynamic Type respected on text surfaces, minimum 44pt tap targets, VoiceOver labels on tab bar + primary canvas controls, high-contrast line art renders across System / Light / Dark appearances.
 - R6. Store Connect listing assets complete: app name, subtitle, description, keywords, support URL, marketing URL, privacy policy URL, 13-inch iPad screenshots (6.9" and 12.9" / 13"), preview video optional.
 - R7. TestFlight internal-testing loop exercised end-to-end before submission: build uploads, processes, installs on a real iPad, launches, completes a full "open template → color → save → export" loop without crash.
 
@@ -65,7 +65,7 @@ Meanwhile the repo itself isn't yet submission-ready: Info.plist has a subtle or
 
 ### Relevant code and patterns
 
-- `ColorFlow/App/ColorFlowApp.swift` — `@main`, forces `.dark`, configures `UITabBarAppearance` / `UINavigationBarAppearance`, presents the single `CanvasView` via `galleryViewModel.openedProject`. Currently calls `appLogger.fault(...)` and `NSLog(...)` at init time — both must be gated to Debug only for submission.
+- `ColorFlow/App/ColorFlowApp.swift` — `@main`, launches `NavigationShell`; theme selection is applied by `AppThemeStore` in the shell. Currently calls `appLogger.fault(...)` and `NSLog(...)` at init time — both must be gated to Debug only for submission.
 - `ColorFlow/ViewModels/CanvasViewModel.swift` — `@MainActor`, owns `PKDrawing`, `BrushSettings`, `backgroundColor`, `templateImage`, `fillLayerImage`, and the `FillAction` undo/redo stacks. This is the integration seam for photo-pipeline-produced templates: the photo feature must produce a `Template` + `TemplateGeometry` the existing `loadTemplate()` path can consume unchanged.
 - `ColorFlow/Services/SVGParser.swift` — strict SVG parser: no arcs, only `translate(x,y)` transforms, `viewBox` required. Every catalog pipeline SVG and every photo-feature SVG must satisfy this, and the validator should reject anything that won't.
 - `ColorFlow/Services/TemplateRenderer.swift` — rasterizes line art + fills. Existing caller for any new pipeline output.
@@ -101,7 +101,7 @@ Meanwhile the repo itself isn't yet submission-ready: Info.plist has a subtle or
 - **Photo pipeline output uses the same `Template` + SVG surface as the bundled catalog.** Rationale: reuses the entire `CanvasViewModel` path (loading, rendering, flood fill, export, save). Means the post-processor validator is the single gate for both pipelines — what it accepts is what the canvas can render.
 - **User-generated templates live in `Documents/UserTemplates/` and are distinct from `Projects/`.** A template describes line art + regions (no fills yet); a project is a user's coloring of a template. Mixing them in `projects.json` would corrupt the gallery semantics. Two indexes: `projects.json` (existing) and `user_templates.json` (new).
 - **SVG catalog pipeline runs host-side in Python, not in-app.** VTracer, svgpathtools, lxml are all Python ecosystem. Outputs check into `ColorFlow/Resources/Templates/`. No runtime bundling of Python into the app.
-- **Dark-mode lock stays.** Research doesn't challenge it; accessibility work respects system dynamic-type + contrast but the palette itself remains fixed. If App Store review pushes back on the forced-dark choice, fall-back is to add a `ColorScheme` toggle in settings — tracked as a known risk, not a v1 requirement.
+- **Theme selection is supported.** Profile exposes System / Light / Dark through `AppThemeStore`; accessibility work must respect system dynamic type, contrast, and the selected appearance. Canvas/template paper remains warm cream across themes.
 - **The "No Data Collected" privacy label is load-bearing for positioning.** Every Phase C and Phase B decision is evaluated against whether it breaks that claim. No analytics SDK lands in v1. Ambient-sound streaming (if any today) must either be fully bundled or explicitly disclosed — audit during Phase A.
 - **Catalog growth for v1 target: 50 templates minimum, 100 stretch.** Rationale: the research recommends 500 eventually but ties it to a multi-month freelancer engagement. 11 (today) is too thin for a paid coloring app listing. 50 across 5+ categories is a credible first-impression catalog; 100 is comfortable. The pipeline itself is sized for 500, so this is a scheduling call, not a capacity call.
 
@@ -303,7 +303,7 @@ Three phases, 12 units total. Phase A is strictly ordered (each unit unblocks th
 
 - [ ] **Unit A4: Accessibility baseline**
 
-**Goal:** Minimum-viable accessibility coverage: Dynamic Type respected on text, VoiceOver labels on tab bar + primary canvas controls, 44pt tap targets on toolbar, and system contrast respected where the dark-mode lock doesn't override it.
+**Goal:** Minimum-viable accessibility coverage: Dynamic Type respected on text, VoiceOver labels on tab bar + primary canvas controls, 44pt tap targets on toolbar, and system contrast respected across System / Light / Dark appearances.
 
 **Requirements:** R5
 
@@ -715,13 +715,13 @@ AlgorithmicPhotoPipeline.run(image, preset):
 - **State lifecycle risks:** User-template persistence introduces a new directory tree that partial-write failures could corrupt. Writes must be atomic (write to temp + rename). The Informative Drawings model's lifecycle is the other critical state boundary — holding a reference across pipeline invocations would break the memory invariant.
 - **API surface parity:** User-generated templates must be consumed through the *same* `CanvasViewModel` constructor as bundled templates. If any new code path emerges that only bundled templates flow through, it creates a latent divergence (e.g., a bug in export that only affects user templates). Explicit check in C4: every `Template` + `UserTemplate` flows through `CanvasViewModel.loadTemplate()` unchanged.
 - **Integration coverage:** Several cross-layer invariants only prove out under real integration: (a) photo-pipeline SVGs parse via the same `SVGParser` as catalog SVGs (B1 parity test + C2 assertion), (b) saved user templates survive a relaunch (C4 integration test), (c) full airplane-mode run (C1 + C2 integration test — proves privacy invariant), (d) TestFlight-installed build runs the full loop (A5).
-- **Unchanged invariants:** (a) `TARGETED_DEVICE_FAMILY` stays "2" — this plan adds no iPhone surface. (b) Dark-mode lock stays — accessibility (A4) respects Dynamic Type and contrast but not a color-scheme toggle. (c) The in-house `SVGParser` stays authoritative — no SVGKit revival, no arc support added, no gradient support added. (d) Existing 11 templates keep their UUIDs forever — B4 must preserve them.
+- **Unchanged invariants:** (a) `TARGETED_DEVICE_FAMILY` stays "2" — this plan adds no iPhone surface. (b) Theme support remains System / Light / Dark via `AppThemeStore`, with warm cream canvas/template paper in every appearance. (c) The in-house `SVGParser` stays authoritative — no SVGKit revival, no arc support added, no gradient support added. (d) Existing 11 templates keep their UUIDs forever — B4 must preserve them.
 
 ## Risks & Dependencies
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| Apple rejects submission for the forced-dark `preferredColorScheme`. | Low | Medium | Keep a fallback plan: add a system-default option behind a settings toggle. Not in v1 scope, but code seam preserved. |
+| Theme rendering drifts between System / Light / Dark appearances. | Medium | Medium | Keep screenshot and accessibility coverage across all three settings, with canvas/template paper fixed to warm cream. |
 | Informative Drawings CoreML model pushes the binary past 200MB and onto "cellular download blocked" treatment. | Medium | High | Measure binary size after C3 lands. If > 200MB, split the model into an On-Demand Resource tag (`NSBundleResourceRequest`) and fetch on first Artistic use — also fits the "No Data Collected" stance since it's an Apple-served download. |
 | `VNDetectContoursRequest` quality is visibly worse than VTracer for photo output, and users feel the difference. | Medium | Medium | Ship v1 anyway (it's a moat feature no competitor has); track user feedback; VTracer Rust FFI is a v1.1 investment if needed. Hidden debug toggle in internal builds to compare. |
 | CoreML model conversion from PyTorch fails on subtle ops (common pain point). | Medium | High | Budget 2–3 days of spike work at the start of C3. If conversion stalls, fall back to HED-CoreML (pre-converted, 30MB, lower quality but shipping unblocked). |

@@ -1,0 +1,13 @@
+{
+  "images" : [
+    {
+      "filename" : "template_garden_window_light.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

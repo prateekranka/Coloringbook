@@ -91,8 +91,10 @@ Do not change these without an explicit discussion in the PR description.
 - **iPad only.** `TARGETED_DEVICE_FAMILY: "2"`. Do not add iPhone layouts,
   size-class branches for iPhone, or `@EnvironmentObject`-style code that
   assumes phone idioms.
-- **Dark theme only.** Root view forces `.preferredColorScheme(.dark)`. Do
-  not read `@Environment(\.colorScheme)` to branch behavior.
+- **Theme is user-selectable.** `AppThemeStore` persists System / Light /
+  Dark and `NavigationShell` applies that selection. Use
+  `@Environment(\.colorScheme)` with the scheme-aware `SableTheme` APIs.
+  Do not force a single appearance at the app root.
 - **ViewModels are `@Observable` + `@MainActor`.** Do not reintroduce
   `ObservableObject` / `@Published` / `@StateObject` / `@EnvironmentObject`.
   Use `@State` for ownership, `@Environment(Type.self)` for injection,

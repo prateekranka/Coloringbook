@@ -6,31 +6,37 @@ A premium, distraction-free coloring book app for iPad with Apple Pencil support
 - Tap-to-fill flood fill (enclosed regions, respects SVG line art boundaries)
 - Apple Pencil with pressure-sensitive pencil, marker, and watercolor tools
 - 8 curated color palettes + custom HSB/hex color picker
-- 25+ royalty-free SVG templates across 5 categories
+- 17 original SVG templates across 6 categories
 - Auto-save, gallery, and PNG/JPEG export
-- Ambient sounds (rain, lo-fi, nature)
 - Layer panel (background, color, line art)
 
-## Setup (Xcode)
+## Setup
 
-1. Open Xcode → File → New → Project → **App** (iOS, SwiftUI, iPad only)
-2. Copy the `ColorFlow/` folder into your project root
-3. Add SVGKit via **File → Add Package Dependencies**:
-   ```
-   https://github.com/SVGKit/SVGKit
-   ```
-4. Add all files in `ColorFlow/` to the Xcode target
-5. Add `Resources/` folder to the target with **Copy Bundle Resources** build phase
-6. Set deployment target to **iPadOS 17.0**
-7. Set supported device to **iPad** only
-8. Build & run on a connected iPad
+Use the repo entrypoint so simulator selection, build settings, and generated
+project files stay consistent:
+
+```sh
+./dev gen
+./dev build
+./dev test
+```
 
 ## Adding SVG Templates
 
-1. Source royalty-free SVGs from [Wikimedia Commons](https://commons.wikimedia.org), [OpenClipArt](https://openclipart.org), or [FreeSVG.org](https://freesvg.org)
-2. Clean up in Inkscape: flatten transforms, ensure closed paths, remove metadata
-3. Place in `Resources/Templates/<category>/`
-4. Add entry to `Resources/templates.json`
+Run the template pipeline described in `Scripts/pipeline/README.md`.
+Passing SVGs live flat in `ColorFlow/Resources/Templates/`, and
+`ColorFlow/Resources/templates.json` is the manifest.
+
+## Privacy
+
+Gouache does not collect, store, sell, or transmit personal data.
+
+Artwork you create is stored locally on your device. If you choose to export
+artwork to your Photos library, Gouache uses iOS's save-to-Photos permission
+for that user-initiated action.
+
+Gouache does not use analytics SDKs, advertising networks, tracking SDKs,
+crash-reporting services, accounts, or user-facing network features.
 
 ## Architecture
 
@@ -54,5 +60,4 @@ TemplateLibraryView ← TemplateLibraryViewModel
 - [x] Phase 3: Template library, categories, browsing UI
 - [x] Phase 4: Save/load system, gallery, export
 - [x] Phase 5: Polish — layers, ambient sounds, haptics, onboarding
-- [ ] Phase 6: App Store prep — icon, screenshots, TestFlight
- icon, screenshots, TestFlight
+- [ ] Phase 6: App Store prep — screenshots, TestFlight, App Store Connect metadata

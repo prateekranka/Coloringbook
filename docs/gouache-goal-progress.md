@@ -27,7 +27,7 @@
 - Resources: bundled SVG templates in `ColorFlow/Resources/Templates`, manifest in `templates.json`, palettes, Fraunces font, and hero artwork.
 - Build/test entrypoint: `./dev`; project source of truth is `project.yml`.
 - Deployment/device: iPad-only, iOS 18.0, `TARGETED_DEVICE_FAMILY = 2`.
-- Implemented user-selectable System / Light / Dark theme support as a product override.
+- Implemented user-selectable System / Light / Dark theme support.
 - Implemented Home / Library / Profile tabs, with My Work inside Profile.
 - Implemented Home search, editorial hero line, mood cards, featured collections, and recently added.
 - Implemented Library search, difficulty/mood filters, and adaptive visual wall.
@@ -44,7 +44,7 @@
 - Add real precomputed mask assets if the pipeline starts producing them; current Clean mode uses parsed SVG region geometry.
 
 ## Known compromises or limitations
-- Product override: AGENTS.md dark-only invariant is intentionally superseded by this goal. The canvas/template paper must remain warm cream in all themes.
+- Theme support is now canonical: System / Light / Dark are user-selectable, and the canvas/template paper must remain warm cream in all themes.
 - Existing worktree was dirty before this goal, including SwiftUI/model/resource changes; new work will avoid reverting unrelated edits.
 - Canvas stroke rendering is a v1 bitmap commit foundation using structured stroke actions; Apple Pencil-specific input discrimination is not fully wired yet, so finger drawing can also produce strokes.
 - Template masks use existing SVG parsed region geometry through `TemplateMask`; no separate precomputed mask assets were present.

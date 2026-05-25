@@ -79,6 +79,18 @@ struct Template: Identifiable, Codable, Hashable {
             }
     }
 
+    var previewURL: URL? {
+        let filename = "\(slug).png"
+        let name = (filename as NSString).deletingPathExtension
+        let ext = (filename as NSString).pathExtension
+
+        return Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "TemplatePreviews")
+            ?? Bundle.main.resourceURL.flatMap {
+                let url = $0.appendingPathComponent("TemplatePreviews/\(filename)")
+                return FileManager.default.fileExists(atPath: url.path) ? url : nil
+            }
+    }
+
     static func == (lhs: Template, rhs: Template) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }

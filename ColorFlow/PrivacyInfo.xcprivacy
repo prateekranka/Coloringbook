@@ -9,11 +9,11 @@
 	  Required Reason API audit is version-controlled there; update both together
 	  when the Required Reason API usage changes.
 
-	  Current state (Phase B pre-submission):
+	  Current state (v1 submission):
 	    - No data is collected, transmitted, or linked to users.
 	    - No tracking.
 	    - Only Required Reason API category is UserDefaults, used via SwiftUI
-	      @AppStorage for onboarding state and recent-colour persistence.
+	      preferences and recent-colour persistence.
 	      Reason CA92.1 — accessing info stored in UserDefaults from the same
 	      app, as the documentation permits.
 

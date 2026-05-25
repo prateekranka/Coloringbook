@@ -1,0 +1,13 @@
+{
+  "images" : [
+    {
+      "filename" : "library_hero_background_light.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

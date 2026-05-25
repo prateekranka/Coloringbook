@@ -43,6 +43,8 @@ targets:
       - path: ColorFlow/Resources/Palettes/palettes.json
       - path: ColorFlow/Resources/Artwork
       - path: ColorFlow/Resources/TemplateLineArt
+      - path: ColorFlow/Resources/TemplatePreviews
+      - path: ColorFlow/Resources/ProfileArtwork
       - path: ColorFlow/Resources/Fonts
       - path: ColorFlow/PrivacyInfo.xcprivacy        # Required for App Store submission
       # CoreML model directory (populated after running Scripts/coreml/convert_informative_drawings.py)
@@ -69,6 +71,18 @@ targets:
             [ -e "${PNG}" ] || continue
             cp -f "${PNG}" "${DEST}/TemplateLineArt/"
           done
+          mkdir -p "${DEST}/TemplatePreviews"
+          find "${DEST}/TemplatePreviews" -type f -name "*.png" -delete
+          for PNG in "${SRCROOT}/ColorFlow/Resources/TemplatePreviews/"*.png; do
+            [ -e "${PNG}" ] || continue
+            cp -f "${PNG}" "${DEST}/TemplatePreviews/"
+          done
+          mkdir -p "${DEST}/ProfileArtwork"
+          find "${DEST}/ProfileArtwork" -type f \( -name "*.jpg" -o -name "*.png" \) -delete
+          for IMAGE in "${SRCROOT}/ColorFlow/Resources/ProfileArtwork/"*; do
+            [ -e "${IMAGE}" ] || continue
+            cp -f "${IMAGE}" "${DEST}/ProfileArtwork/"
+          done
           if [ -f "${SRCROOT}/ColorFlow/Resources/templates.json" ]; then
             cp -f "${SRCROOT}/ColorFlow/Resources/templates.json" "${DEST}/"
           fi
@@ -77,6 +91,9 @@ targets:
           fi
           if [ -f "${SRCROOT}/ColorFlow/Resources/Fonts/Fraunces.ttf" ]; then
             cp -f "${SRCROOT}/ColorFlow/Resources/Fonts/Fraunces.ttf" "${DEST}/"
+          fi
+          if [ -f "${SRCROOT}/ColorFlow/Resources/Fonts/Fraunces-OFL.txt" ]; then
+            cp -f "${SRCROOT}/ColorFlow/Resources/Fonts/Fraunces-OFL.txt" "${DEST}/"
           fi
           if [ -f "${SRCROOT}/ColorFlow/Resources/Artwork/poppy-hero.png" ]; then
             cp -f "${SRCROOT}/ColorFlow/Resources/Artwork/poppy-hero.png" "${DEST}/"

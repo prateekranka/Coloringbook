@@ -91,8 +91,6 @@ final class PrivacyManifestTests: XCTestCase {
         let info = Bundle.main.infoDictionary ?? [:]
         let expectedKeys = [
             "NSPhotoLibraryAddUsageDescription",     // save artwork
-            "NSPhotoLibraryUsageDescription",        // import photo → coloring page (Phase C)
-            "NSCameraUsageDescription",              // camera capture → coloring page (Phase C)
         ]
         for key in expectedKeys {
             let value = info[key] as? String ?? ""
@@ -101,5 +99,14 @@ final class PrivacyManifestTests: XCTestCase {
                 "\(key) must be present and non-empty before App Store submission."
             )
         }
+
+        XCTAssertNil(
+            info["NSPhotoLibraryUsageDescription"],
+            "Do not request photo-library read access until photo import is implemented and listed in App Store metadata."
+        )
+        XCTAssertNil(
+            info["NSCameraUsageDescription"],
+            "Do not request camera access until camera capture is implemented and listed in App Store metadata."
+        )
     }
 }

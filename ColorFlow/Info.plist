@@ -81,20 +81,11 @@
 	</dict>
 
 	<!-- ── Privacy ─────────────────────────────────────────────── -->
-	<!-- Write: save finished artwork to Photos (used today). -->
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Gouache needs permission to save your artwork to the Photos library.</string>
+		<!-- Write: save finished artwork to Photos (used today). -->
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>Gouache needs permission to save your artwork to the Photos library.</string>
 
-	<!-- Read: import a photo and turn it into a coloring page (Phase C). -->
-	<!-- Shipped early so the string is reviewed once, not twice. -->
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Gouache can turn a photo from your library into a hand-drawn coloring page. The photo stays on your device and is never uploaded.</string>
-
-	<!-- Camera capture → coloring page (Phase C). Same early-ship rationale. -->
-	<key>NSCameraUsageDescription</key>
-	<string>Gouache can use your camera to turn a photo into a hand-drawn coloring page. The image stays on your device and is never uploaded.</string>
-
-	<!-- ── Base orientation key (required alongside ~ipad variant) ── -->
+		<!-- ── Base orientation key (required alongside ~ipad variant) ── -->
 	<!-- Mirrors ~ipad variant so Split View / Slide Over don't hit an empty-set edge case. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

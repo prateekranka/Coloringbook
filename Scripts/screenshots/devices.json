@@ -1,33 +1,23 @@
 {
   "devices": [
     {
-      "name": "iPad Pro 12.9-inch",
-      "simulatorName": "iPad Pro (12.9-inch) (6th generation)",
-      "outputDir": "iPadPro12_9",
+      "name": "iPad 13-inch",
+      "simulatorName": "iPad Pro 13-inch (M5)",
+      "outputDir": "iPad13",
       "resolutions": {
-        "portrait": "2048x2732",
-        "landscape": "2732x2048"
-      }
-    },
-    {
-      "name": "iPad 11-inch",
-      "simulatorName": "iPad Pro (11-inch) (M4)",
-      "outputDir": "iPad11",
-      "resolutions": {
-        "portrait": "1668x2388",
-        "landscape": "2388x1668"
+        "portrait": "2064x2752",
+        "landscape": "2752x2064"
       }
     }
   ],
   "orientations": [
-    { "name": "Portrait", "simctlValue": "portrait" },
-    { "name": "Landscape", "simctlValue": "landscapeRight" }
+    { "name": "Portrait", "simctlValue": "portrait" }
   ],
   "screens": [
-    { "name": "01_Home", "testMethod": "test_captureHome" },
-    { "name": "02_Explore", "testMethod": "test_captureExplore" },
-    { "name": "03_Canvas", "testMethod": "test_captureCanvas" },
-    { "name": "04_Library", "testMethod": "test_captureLibrary" },
-    { "name": "05_Collection", "testMethod": "test_captureCollection" }
+    { "name": "01_Home", "filename": "gouache_ipad_13in_01_home.png", "testMethod": "test_captureHome" },
+    { "name": "02_Library", "filename": "gouache_ipad_13in_02_library.png", "testMethod": "test_captureLibrary" },
+    { "name": "03_Canvas", "filename": "gouache_ipad_13in_03_canvas.png", "testMethod": "test_captureCanvas" },
+    { "name": "04_Profile", "filename": "gouache_ipad_13in_04_profile.png", "testMethod": "test_captureProfile" },
+    { "name": "05_Collection", "filename": "gouache_ipad_13in_05_collection.png", "testMethod": "test_captureCollection" }
   ]
 }

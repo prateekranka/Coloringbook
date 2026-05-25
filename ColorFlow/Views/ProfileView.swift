@@ -10,7 +10,7 @@ struct ProfileView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(AppThemeStore.self) private var themeStore
     @State private var viewModel: MyLibraryViewModel
-    @AppStorage("gouache.displayName") private var displayName = "Artist"
+    @AppStorage("gouache.displayName") private var displayName = "Prateek"
     @State private var selectedFilter: MyWorkFilter = .all
     @State private var resetPage: ColoringPage?
     let focus: ProfileFocus?
@@ -27,25 +27,32 @@ struct ProfileView: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: SableTheme.Spacing.xxxl) {
-                    header
-                    settingsPanel
-                    myWorkSection
-                        .id(ProfileFocus.myWork)
+        GeometryReader { geometry in
+            let metrics = GouacheProfileMetrics(size: geometry.size)
+
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
+                        profileTopBar(proxy: proxy)
+                        profileHero(metrics: metrics)
+                        recentlyCompletedSection(metrics: metrics)
+                        settingsPanel
+                            .id("profile.settings")
+                        myWorkSection
+                            .id(ProfileFocus.myWork)
+                    }
+                    .padding(.horizontal, metrics.horizontalInset)
+                    .padding(.top, metrics.topContentPadding)
+                    .padding(.bottom, 110)
                 }
-                .padding(.horizontal, SableTheme.Spacing.pageInset)
-                .padding(.top, SableTheme.Spacing.xxxl)
-                .padding(.bottom, 110)
-            }
-            .background(SableTheme.appBackground(for: colorScheme).ignoresSafeArea())
-            .task {
-                await viewModel.load()
-                scrollToFocus(with: proxy)
-            }
-            .onChange(of: focus) { _, _ in
-                scrollToFocus(with: proxy)
+                .background(SableTheme.appBackground(for: colorScheme).ignoresSafeArea())
+                .task {
+                    await viewModel.load()
+                    scrollToFocus(with: proxy)
+                }
+                .onChange(of: focus) { _, _ in
+                    scrollToFocus(with: proxy)
+                }
             }
         }
         .confirmationDialog(
@@ -77,16 +84,193 @@ struct ProfileView: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: SableTheme.Spacing.xs) {
-            Text("Profile")
-                .font(.system(size: 46, weight: .black))
+    private func profileTopBar(proxy: ScrollViewProxy) -> some View {
+        HStack(alignment: .center) {
+            Text("Gouache")
+                .font(SableTheme.Typography.fraunces(14, weight: .regular))
                 .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
 
-            Text("A calm desk for your artwork, preferences, and palettes.")
-                .font(SableTheme.Typography.bodyMedium.weight(.semibold))
-                .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
+            Spacer()
+
+            Button {
+                navigate(.search(""))
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 18, weight: .regular))
+                    .frame(width: 42, height: 42)
+                    .background(controlFill, in: Circle())
+                    .overlay {
+                        Circle().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
+                    }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+            .accessibilityLabel("Search")
+
+            Button {
+                withAnimation(.snappy(duration: 0.28)) {
+                    proxy.scrollTo("profile.settings", anchor: .top)
+                }
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 18, weight: .regular))
+                    .frame(width: 42, height: 42)
+                    .background(controlFill, in: Circle())
+                    .overlay {
+                        Circle().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
+                    }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+            .accessibilityLabel("Settings")
         }
+        .frame(height: 44)
+    }
+
+    private func profileHero(metrics: GouacheProfileMetrics) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(SableTheme.gouachePanel(for: colorScheme).opacity(colorScheme == .dark ? 0.62 : 0.54))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
+                }
+
+            if metrics.isLandscape {
+                HStack(alignment: .center, spacing: 20) {
+                    profileIdentity
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, 18)
+
+                    GouacheProfileArtworkImage()
+                        .frame(width: metrics.profileArtworkWidth, height: metrics.profileArtworkHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .mask(
+                            LinearGradient(
+                                colors: [.clear, .black, .black],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 18)
+
+                VStack {
+                    Spacer()
+                    profileStatsRow
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 18)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 16) {
+                    profileIdentity
+
+                    GouacheProfileArtworkImage()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: metrics.profileArtworkHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .mask(
+                            LinearGradient(
+                                colors: [.clear, .black, .black],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+
+                    profileStatsRow
+                }
+                .padding(18)
+            }
+        }
+        .frame(height: metrics.profileHeroHeight)
+        .shadow(
+            color: SableTheme.Shadow.card(for: colorScheme).color,
+            radius: SableTheme.Shadow.card(for: colorScheme).radius,
+            x: SableTheme.Shadow.card(for: colorScheme).x,
+            y: SableTheme.Shadow.card(for: colorScheme).y
+        )
+        .accessibilityElement(children: .contain)
+    }
+
+    private var profileIdentity: some View {
+        HStack(spacing: 22) {
+            GouacheProfileAvatarImage()
+                .frame(width: 118, height: 118)
+                .clipShape(Circle())
+                .overlay {
+                    Circle().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
+                }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(displayName.isEmpty ? "Prateek" : displayName)
+                    .font(SableTheme.Typography.fraunces(42, weight: .regular))
+                    .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                Text("Color slowly. Make it yours.")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
+            }
+        }
+    }
+
+    private var profileStatsRow: some View {
+        HStack(spacing: 12) {
+            ProfileStatCard(systemImage: "leaf", title: "Favorite mood", value: "Calm")
+            ProfileStatCard(systemImage: "book.closed", title: "Completed pages", value: "\(completedPageCount)")
+            ProfileStatCard(systemImage: "camera.macro", title: "Favorite subject", value: "Botanicals")
+        }
+    }
+
+    private func recentlyCompletedSection(metrics: GouacheProfileMetrics) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Recently Completed")
+                .font(SableTheme.Typography.fraunces(24, weight: .regular))
+                .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: metrics.cardGap) {
+                    ForEach(recentlyCompletedPages) { page in
+                        ProfileRecentCompletedCard(
+                            page: page,
+                            width: metrics.recentCardWidth,
+                            imageHeight: metrics.recentImageHeight
+                        ) {
+                            navigate(.coloringPage(page))
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
+    private var completedPageCount: Int {
+        viewModel.pages.filter { $0.progress >= 1 }.count
+    }
+
+    private var recentlyCompletedPages: [ColoringPage] {
+        let completed = viewModel.pages.filter { $0.progress >= 1 }
+        let candidates = completed.isEmpty ? viewModel.pages : completed
+        if !candidates.isEmpty {
+            return Array(candidates.prefix(5))
+        }
+
+        return Template.loadAll().prefix(5).map {
+            ColoringPage(
+                id: $0.id,
+                templateId: $0.id,
+                title: $0.name,
+                progress: 0,
+                thumbnailColorHex: SableTheme.progressPinkHex
+            )
+        }
+    }
+
+    private var controlFill: Color {
+        colorScheme == .dark ? SableTheme.controlFillDark : SableTheme.controlFillLight
     }
 
     private var settingsPanel: some View {
@@ -251,6 +435,132 @@ private enum MyWorkFilter: String, CaseIterable, Identifiable {
         case .complete:
             return "Complete"
         }
+    }
+}
+
+private struct GouacheProfileMetrics {
+    let size: CGSize
+
+    var isLandscape: Bool {
+        size.width > size.height
+    }
+
+    var horizontalInset: CGFloat {
+        isLandscape ? 42 : 30
+    }
+
+    var topContentPadding: CGFloat {
+        isLandscape ? 18 : 20
+    }
+
+    var sectionSpacing: CGFloat {
+        isLandscape ? 22 : 26
+    }
+
+    var profileHeroHeight: CGFloat {
+        isLandscape ? 350 : 472
+    }
+
+    var profileArtworkWidth: CGFloat {
+        min(max(size.width * 0.42, 420), 560)
+    }
+
+    var profileArtworkHeight: CGFloat {
+        isLandscape ? 220 : 205
+    }
+
+    var cardGap: CGFloat {
+        isLandscape ? 22 : 16
+    }
+
+    var recentCardWidth: CGFloat {
+        isLandscape ? 248 : 206
+    }
+
+    var recentImageHeight: CGFloat {
+        isLandscape ? 148 : 132
+    }
+}
+
+private struct ProfileStatCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let systemImage: String
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(SableTheme.Typography.fraunces(17, weight: .semibold))
+                    .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Text(value)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity)
+        .frame(height: 72)
+        .background(SableTheme.gouachePanel(for: colorScheme).opacity(0.66), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: SableTheme.Radius.card, style: .continuous)
+                .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
+        }
+    }
+}
+
+private struct ProfileRecentCompletedCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let page: ColoringPage
+    let width: CGFloat
+    let imageHeight: CGFloat
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 0) {
+                ProjectArtworkThumbnail(page: page, style: .wide)
+                    .frame(width: width, height: imageHeight)
+                    .clipped()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(page.title)
+                        .font(SableTheme.Typography.fraunces(19, weight: .semibold))
+                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    ProgressTrack(progress: page.progress)
+                        .frame(width: 66)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(colorScheme == .dark ? SableTheme.cardFooterDark : SableTheme.cardFooterLight)
+            }
+            .frame(width: width)
+            .background(SableTheme.gouachePanel(for: colorScheme).opacity(0.72))
+            .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card, style: .continuous))
+            .shadow(
+                color: SableTheme.Shadow.cardSmall(for: colorScheme).color,
+                radius: SableTheme.Shadow.cardSmall(for: colorScheme).radius,
+                x: SableTheme.Shadow.cardSmall(for: colorScheme).x,
+                y: SableTheme.Shadow.cardSmall(for: colorScheme).y
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(page.title)
     }
 }
 

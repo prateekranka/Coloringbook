@@ -50,20 +50,19 @@ same PR as the manifest change.
 
 ## Purpose strings (Info.plist)
 
-Purpose strings shipped ahead of their features on purpose: the string goes
-through App Review with the TestFlight/production build that first carries it,
-and we want **one** review cycle on the copy, not one per phase.
+The v1 submission carries only purpose strings for features that are visible
+and reviewable in the shipping app. Photo-import and camera strings were removed
+until those flows have user-facing UI and matching App Store metadata.
 
 | Key                                    | Needed by                                 | Shipping now? | Copy reviewed for clarity? |
 | -------------------------------------- | ----------------------------------------- | ------------- | -------------------------- |
-| `NSPhotoLibraryAddUsageDescription`    | Save finished artwork to Photos (today)   | ✅            | ✅                         |
-| `NSPhotoLibraryUsageDescription`       | Import a photo → coloring page (Phase C)  | ✅            | ✅                         |
-| `NSCameraUsageDescription`             | Capture a photo → coloring page (Phase C) | ✅            | ✅                         |
+| `NSPhotoLibraryAddUsageDescription`    | Save finished artwork to Photos (today)   | Yes           | Yes                        |
+| `NSPhotoLibraryUsageDescription`       | Import a photo to a coloring page         | No            | Add when the feature ships |
+| `NSCameraUsageDescription`             | Capture a photo to a coloring page        | No            | Add when the feature ships |
 
 Copy follows Apple's guidance: specific, user-visible reason, no marketing.
-The Phase C strings add the "stays on your device and is never uploaded"
-clause because the research pack calls out on-device processing as a core
-privacy promise of the pipeline.
+When photo import/camera support ships, add the purpose strings in the same PR
+as the visible picker/camera UI, tests, privacy-label update, and App Store copy.
 
 Deliberately **not** shipping:
 - `NSMicrophoneUsageDescription` — no audio input.
@@ -78,7 +77,9 @@ Deliberately **not** shipping:
 - Data collection is empty.
 - Required Reason API categories equal `{ UserDefaults }` exactly — adding a
   new category without updating this doc trips a test failure.
-- All three purpose strings are present and non-empty.
+- The write-only Photos export purpose string is present and non-empty.
+- Photo-library read and camera purpose strings stay absent until those features
+  are visible and reviewable.
 
 These tests run once the `ColorFlowTests` target is wired in `project.yml`
 (blocker `F-05` in the A1 audit). Until then, the test file serves as the
@@ -91,7 +92,7 @@ contract that the wiring PR unlocks.
   Apple's static analyzer in App Store Connect runs its own pass at upload
   time; any gap will surface there as a non-blocking warning on the first
   TestFlight upload and is easy to remediate before promoting to production.
-- **Phase C is pre-declared, not pre-implemented.** If the photo feature
-  lands differently than the research pack suggests (e.g., requires network
-  calls for CoreML model fetch), the `NSPrivacyTracking` / data-collection
-  posture must be re-evaluated before C1 ships.
+- **Photo-to-template remains future work.** If the photo feature lands
+  differently than the research pack suggests (e.g., requires network calls for
+  model fetch), the `NSPrivacyTracking` / data-collection posture must be
+  re-evaluated before it ships.

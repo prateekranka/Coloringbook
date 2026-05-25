@@ -1,93 +1,72 @@
-# App Store Privacy Label — ColorFlow
+# App Store Privacy Label - Gouache
 
-Answers to the App Store Connect "App Privacy" questionnaire. Derived from
-and consistent with `docs/solutions/2026-04-privacy-manifest-audit.md`.
-
-Update both documents together whenever the app's data practices change.
-
----
+Answers to the App Store Connect "App Privacy" questionnaire. Keep this file,
+`ColorFlow/PrivacyInfo.xcprivacy`, and
+`docs/solutions/2026-04-privacy-manifest-audit.md` in sync whenever data
+practices change.
 
 ## Does this app collect data?
 
-**No.**
+No.
 
 Select "No, we do not collect data from this app" in App Store Connect.
 
----
+## Detailed answers
 
-## Detailed answers (in case App Review questions the "No" selection)
-
-The answers below document why each data category is "Not collected":
-
-| Category                         | Collected? | Reason                                                                           |
-|----------------------------------|------------|----------------------------------------------------------------------------------|
-| Contact info (name, email, etc.) | No         | No accounts, no sign-in, no user-facing network calls.                          |
-| Health & fitness                 | No         | Not applicable.                                                                  |
-| Financial info                   | No         | No IAP, no payment flows in v1.                                                 |
-| Location                         | No         | App never calls CoreLocation.                                                    |
-| Sensitive info                   | No         | No sensitive category access.                                                    |
-| Contacts                         | No         | App never calls Contacts framework.                                             |
-| User content (artwork)           | *Stored locally only* — artwork stays in the app's Documents directory and the user's own Photos library. Not transmitted to any server. App Store defines "collect" as transmitting off-device; this data never leaves the device. |
-| Browsing history                 | No         | No web views, no URL tracking.                                                   |
-| Search history                   | No         | Template search is in-memory, not persisted or transmitted.                     |
-| Identifiers (Device ID, etc.)    | No         | No analytics SDK, no advertising framework.                                     |
-| Usage data (crashes, sessions)   | No         | No crash reporter, no session analytics in v1.                                  |
-| Diagnostics                      | No         | No Crashlytics, Sentry, Firebase, or equivalent.                                |
-| Other data                       | No         |                                                                                  |
-
----
+| Category | Collected? | Reason |
+| --- | --- | --- |
+| Contact info | No | No accounts, sign-in, forms, or user-facing network calls. |
+| Health & fitness | No | Not applicable. |
+| Financial info | No | No in-app purchases or payment flows in v1. |
+| Location | No | App does not call CoreLocation. |
+| Sensitive info | No | No sensitive category access. |
+| Contacts | No | App does not call Contacts. |
+| User content | No | Artwork is stored locally on-device and may be saved to the user's own Photos library only when the user chooses export. It is not transmitted off-device by Gouache. |
+| Browsing history | No | No web views or URL tracking. |
+| Search history | No | Template search/filtering is local and not transmitted. |
+| Identifiers | No | No analytics, ads, device identifiers, or tracking SDKs. |
+| Usage data | No | No session analytics. |
+| Diagnostics | No | No crash reporter such as Crashlytics, Sentry, or Firebase. |
+| Other data | No | Not applicable. |
 
 ## Third-party SDKs with their own privacy manifests
 
-None. ColorFlow has no third-party SDK dependencies at submission time.
-Every capability uses first-party Apple frameworks (SwiftUI, PencilKit,
-Vision, CoreML, Core Image, CoreGraphics, Foundation).
-
----
+None. Gouache ships first-party app code and Apple frameworks only. SVGKit is
+not linked into the app target, and no third-party analytics, ads, or crash
+reporting SDK is present at submission time.
 
 ## Required Reason API summary
 
-See `docs/solutions/2026-04-privacy-manifest-audit.md` for the full audit.
-Summary for the App Privacy form:
+| API category | Used via | Reason code |
+| --- | --- | --- |
+| UserDefaults | same-app settings such as onboarding, recent colors, and app preferences | CA92.1 |
 
-| API category                     | Used via                            | Reason code |
-|----------------------------------|-------------------------------------|-------------|
-| UserDefaults                     | `@AppStorage` (onboarding flag, recent colors) | CA92.1 |
-
-No other Required Reason APIs are in use today.
-
----
+No other Required Reason API categories are declared or expected for v1.
 
 ## Photo library access
 
-The app requests **write-only** access (`NSPhotoLibraryAddUsageDescription`)
-to save finished artwork. It does NOT read the user's existing photos today.
+The app requests write-only Photos access through
+`NSPhotoLibraryAddUsageDescription` so the user can save finished artwork to
+their Photos library.
 
-Phase C (photo-to-template) will add **read** access
-(`NSPhotoLibraryUsageDescription`). The purpose string is already in
-`Info.plist` per the A2 audit (shipped early to avoid a second review
-cycle). The privacy label answer remains "No data collected" because the
-photo is processed entirely on-device and no bytes are transmitted.
-
----
+Gouache v1 does not request read access to the user's photo library and does
+not include a photo-import feature. Do not add `NSPhotoLibraryUsageDescription`
+back until a user-facing import flow is implemented, tested, and listed in App
+Store metadata.
 
 ## Camera access
 
-Phase C adds camera capture. Same analysis: photo processed on-device, not
-transmitted. Privacy label stays "No data collected."
-`NSCameraUsageDescription` is already in `Info.plist`.
-
----
+Gouache v1 does not request camera access and does not include a camera feature.
+Do not add `NSCameraUsageDescription` back until a user-facing camera flow is
+implemented, tested, and listed in App Store metadata.
 
 ## Changes that would flip the "No data collected" answer
 
-Any of these would require updating this document AND the App Store listing:
+Any of these require updating this file, the privacy manifest, and App Store
+Connect before submission:
 
-1. Adding an analytics SDK (Mixpanel, Amplitude, Firebase Analytics, etc.)
-2. Adding a crash reporter that transmits stacks off-device (Crashlytics, Sentry)
-3. Adding remote config / feature flags that call a server with a device identifier
-4. Adding iCloud sync (would require justifying "user content" collection)
-5. Adding a CDN for ambient sounds that logs access with any device-identifying header
-
-If any of these land, update the privacy manifest, re-run the A2 audit, and
-update this document before the next submission.
+1. Adding analytics, ads, attribution, crash reporting, remote config, or any SDK that transmits data off-device.
+2. Adding accounts, sync, cloud storage, support forms, or contact collection.
+3. Adding iCloud or server sync for artwork or user templates.
+4. Adding user-facing network features that transmit artwork, photos, identifiers, or diagnostics.
+5. Adding photo import/camera features that transmit images off-device.

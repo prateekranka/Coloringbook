@@ -32,9 +32,9 @@ enum SableTab: String, CaseIterable, Identifiable {
     var systemImageName: String {
         switch self {
         case .home:
-            return "house.fill"
+            return "house"
         case .library:
-            return "rectangle.grid.2x2"
+            return "book.closed.fill"
         case .profile:
             return "person.crop.circle"
         }

@@ -6,7 +6,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 export PROJECT_ROOT
 DEVICES_JSON="$SCRIPT_DIR/devices.json"
 
-OUTPUT_BASE="${PROJECT_ROOT}/Screenshots"
+OUTPUT_BASE="${PROJECT_ROOT}/docs/app-store/screenshots/generated"
 SCHEME="ColorFlow"
 BUNDLE_ID="com.duckuwucky.sable"
 
@@ -17,14 +17,14 @@ Usage: capture.sh [--output-dir PATH] [--scheme NAME]
 Automated screenshot capture for Gouache App Store submission.
 
 Options:
-  --output-dir PATH    Output directory (default: ./Screenshots)
+  --output-dir PATH    Output directory (default: docs/app-store/screenshots/generated)
   --scheme NAME        Xcode scheme to build (default: ColorFlow)
   -h, --help          Show this help
 
 Requirements:
-  - Xcode 15.4+
+  - Xcode 16+
   - iOS 18.0+ Simulator SDK
-  - iPad Pro 12.9" and iPad 11" simulators
+  - iPad Pro 13-inch simulator, or an installed runtime that can create one
 USAGE
 }
 
@@ -66,7 +66,7 @@ mkdir -p "$OUTPUT_BASE"
 
 echo "📦 Building $SCHEME..."
 cd "$PROJECT_ROOT"
-./dev build >/dev/null 2>&1 || xcodebuild build -project ColorFlow.xcodeproj -scheme "$SCHEME" -sdk iphonesimulator -quiet
+./dev build >/dev/null
 
 echo "✅ Build complete"
 echo ""
@@ -120,13 +120,14 @@ for device in config['devices']:
                 '--orientation', orientation['simctlValue'],
                 '--test-method', screen['testMethod'],
                 '--output-dir', output_dir,
-                '--output-name', screen['name'] + '.png'
+                '--output-name', screen.get('filename', screen['name'] + '.png')
             ], capture_output=True, text=True)
             
             if result.returncode != 0:
                 print(f"  ⚠️  Failed: {result.stderr}", file=sys.stderr)
+                sys.exit(result.returncode)
             else:
-                print(f"  ✅ Saved to {output_dir}/{screen['name']}.png")
+                print(f"  ✅ Saved to {output_dir}/{screen.get('filename', screen['name'] + '.png')}")
 
 print("\n🎉 Screenshot capture complete!")
 print(f"Output directory: {output_base}")

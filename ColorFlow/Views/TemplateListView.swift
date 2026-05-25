@@ -25,31 +25,42 @@ struct TemplateListView: View {
     }
 
     var body: some View {
-        ZStack {
-            SableTheme.appBackground(for: colorScheme).ignoresSafeArea()
+        Group {
+            if viewModel.source.isReferenceLibrary {
+                LibraryReferenceView(
+                    templates: viewModel.filteredTemplates,
+                    isLoading: viewModel.isLoading,
+                    onSearch: { navigate(.search("")) },
+                    onSelectTemplate: openReferenceTemplate(_:)
+                )
+            } else {
+                ZStack {
+                    SableTheme.appBackground(for: colorScheme).ignoresSafeArea()
 
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: SableTheme.Spacing.xxxl) {
-                    header
-                    if viewModel.showsTemplateFilters {
-                        GouacheSearchBar(text: $viewModel.searchText, placeholder: "Search by artwork, subject, mood")
-                        filters
-                    }
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: SableTheme.Spacing.xxxl) {
+                            header
+                            if viewModel.showsTemplateFilters {
+                                GouacheSearchBar(text: $viewModel.searchText, placeholder: "Search by artwork, subject, mood")
+                                filters
+                            }
 
-                    if viewModel.isLoading {
-                        loading
-                    } else if viewModel.showsCollectionIndex {
-                        collectionGrid
-                    } else {
-                        if viewModel.showsExploreCollections {
-                            libraryCollectionsSection
+                            if viewModel.isLoading {
+                                loading
+                            } else if viewModel.showsCollectionIndex {
+                                collectionGrid
+                            } else {
+                                if viewModel.showsExploreCollections {
+                                    libraryCollectionsSection
+                                }
+                                templateGrid
+                            }
                         }
-                        templateGrid
+                        .padding(.horizontal, SableTheme.Spacing.pageInset)
+                        .padding(.top, SableTheme.Spacing.xxxl)
+                        .padding(.bottom, 132)
                     }
                 }
-                .padding(.horizontal, SableTheme.Spacing.pageInset)
-                .padding(.top, SableTheme.Spacing.xxxl)
-                .padding(.bottom, 132)
             }
         }
         .navigationTitle(viewModel.source.title)
@@ -178,6 +189,22 @@ struct TemplateListView: View {
 
     private var columns: [GridItem] {
         [GridItem(.adaptive(minimum: 220, maximum: 330), spacing: SableTheme.Spacing.xxl)]
+    }
+
+    private func openReferenceTemplate(_ template: Template) {
+        Task {
+            let route = await viewModel.routeForTemplate(template)
+            navigate(route)
+        }
+    }
+}
+
+private extension TemplateListViewModel.Source {
+    var isReferenceLibrary: Bool {
+        if case .explore = self {
+            return true
+        }
+        return false
     }
 }
 
@@ -325,12 +352,7 @@ private struct TemplateCard: View {
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    HStack(spacing: SableTheme.Spacing.xxs) {
-                        Text(template.category.rawValue.uppercased())
-                        DifficultyPill(difficulty: template.difficulty)
-                    }
-                    .font(SableTheme.Typography.labelTiny)
-                    .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
+                    DifficultyPill(difficulty: template.difficulty)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(SableTheme.Spacing.lg)

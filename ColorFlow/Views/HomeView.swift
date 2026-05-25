@@ -68,13 +68,6 @@ struct HomeView: View {
                             navigate: { navigate(.coloringPage($0)) }
                         )
 
-                        FeaturedCollectionsSection(
-                            collections: displayCollections,
-                            metrics: metrics,
-                            seeAll: openCollections,
-                            navigate: { navigate(.collection($0)) }
-                        )
-
                         MoodSection(metrics: metrics) { mood in
                             navigate(.mood(mood.routeMood))
                         }
@@ -133,15 +126,15 @@ private struct GouacheHomeMetrics {
     }
 
     var heroHeight: CGFloat {
-        isLandscape ? min(340, max(300, size.height * 0.32)) : min(430, max(388, size.height * 0.31))
+        isLandscape ? min(430, max(380, size.height * 0.42)) : min(420, max(360, size.height * 0.34))
     }
 
     var titleSize: CGFloat {
-        isLandscape ? 64 : 66
+        isLandscape ? 42 : 34
     }
 
     var titleTop: CGFloat {
-        isLandscape ? 108 : 132
+        isLandscape ? 72 : 82
     }
 
     var searchWidth: CGFloat {
@@ -149,7 +142,7 @@ private struct GouacheHomeMetrics {
     }
 
     var sectionSpacing: CGFloat {
-        isLandscape ? 19 : 22
+        isLandscape ? 18 : 22
     }
 
     var sectionHeaderSpacing: CGFloat {
@@ -255,21 +248,15 @@ private struct GouacheHero: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            GouacheHeroImage(isLandscape: metrics.isLandscape)
-                .frame(height: metrics.heroHeight)
-                .accessibilityHidden(true)
-
-            LinearGradient(
+            RadialGradient(
                 colors: [
-                    SableTheme.gouacheBackground(for: colorScheme),
-                    SableTheme.gouacheBackground(for: colorScheme).opacity(metrics.isLandscape ? 0.72 : 0.46),
+                    SableTheme.gouachePanel(for: colorScheme).opacity(colorScheme == .dark ? 0.20 : 0.34),
                     .clear
                 ],
-                startPoint: .leading,
-                endPoint: .trailing
+                center: UnitPoint(x: 0.58, y: 0.68),
+                startRadius: 0,
+                endRadius: metrics.contentWidth * 0.54
             )
-            .frame(width: metrics.isLandscape ? metrics.contentWidth * 0.42 : metrics.contentWidth * 0.56)
-            .frame(maxHeight: .infinity)
             .allowsHitTesting(false)
 
             GouacheTopBar(
@@ -281,24 +268,35 @@ private struct GouacheHero: View {
             )
                 .padding(.top, 12)
 
-            Text("Color slowly.\nMake it yours.")
+            Text("Color slowly, Make it yours")
                 .font(SableTheme.Typography.fraunces(metrics.titleSize, weight: .regular))
                 .foregroundStyle(heroTitleColor)
-                .lineSpacing(-5)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(width: metrics.isLandscape ? 500 : 480, alignment: .leading)
-                .offset(x: metrics.isLandscape ? 54 : 8, y: metrics.titleTop)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(width: metrics.isLandscape ? min(590, metrics.contentWidth * 0.58) : metrics.contentWidth * 0.72, alignment: .leading)
+                .offset(x: metrics.isLandscape ? 0 : 0, y: metrics.titleTop)
                 .shadow(
                     color: SableTheme.Shadow.heroTitle(for: colorScheme).color,
                     radius: SableTheme.Shadow.heroTitle(for: colorScheme).radius,
                     x: SableTheme.Shadow.heroTitle(for: colorScheme).x,
                     y: SableTheme.Shadow.heroTitle(for: colorScheme).y
                 )
+
+            Image(colorScheme == .dark ? "LibraryShelfDark" : "LibraryShelfLight")
+                .resizable()
+                .scaledToFit()
+                .frame(width: metrics.isLandscape ? metrics.contentWidth * 0.84 : metrics.contentWidth * 0.92)
+                .position(
+                    x: metrics.isLandscape ? metrics.contentWidth * 0.58 : metrics.contentWidth * 0.52,
+                    y: metrics.isLandscape ? metrics.heroHeight * 0.68 : metrics.heroHeight * 0.68
+                )
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.42 : 0.16), radius: 12, x: 0, y: 8)
+                .accessibilityHidden(true)
         }
         .frame(maxWidth: .infinity)
         .frame(height: metrics.heroHeight)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Gouache, Color slowly. Make it yours.")
+        .accessibilityLabel("Gouache, Color slowly, Make it yours.")
     }
 
     private var heroTitleColor: Color {

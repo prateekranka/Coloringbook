@@ -42,7 +42,7 @@ can reliably focus the full control even when the rendered icon is smaller.
 
 ### Dynamic Type
 
-The dark-mode pass already uses semantic fonts (`.title2`, `.subheadline`,
+The theme-aware pass already uses semantic fonts (`.title2`, `.subheadline`,
 `.caption`, `.headline`) throughout Home and Library. No hardcoded point
 sizes on body copy. Icon-only buttons keep fixed point sizes on purpose —
 SF Symbols don't need Dynamic Type.
@@ -61,12 +61,11 @@ category bar in Library.
 
 ## What this unit deliberately did not do
 
-- **No change to forced `.dark` preferredColorScheme.** The plan calls out
-  that the app locks dark mode; increased-contrast and light-theme support
-  is a future feature, not an A4 deliverable. iOS's "Increase Contrast"
-  accessibility setting still flows through to standard material and text
-  because `AppTheme.textPrimary = .white` picks up dynamic contrast
-  adjustments automatically.
+- **No separate theme-picker work in this unit.** System / Light / Dark
+  support now lives in `AppThemeStore` and `NavigationShell`; accessibility
+  changes should continue to respect all three appearances. iOS's "Increase
+  Contrast" accessibility setting still flows through to standard material
+  and text.
 - **No Reduce Motion pass.** CanvasView uses `withAnimation(...)` for the
   toolbar slide; Reduce Motion integration is deferred until we have a
   motion inventory across the app.

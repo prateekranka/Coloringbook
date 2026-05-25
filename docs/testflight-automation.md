@@ -64,7 +64,7 @@ The workflow also runs `./dev gen` and `./dev test` before archiving.
 
 ## Current Process Notes
 
-- The workflow uses the App Store Connect API key for automatic signing during `xcodebuild archive` and `xcodebuild -exportArchive`.
+- The workflow archives without code signing, then uses the App Store Connect API key during `xcodebuild -exportArchive` to create the signed IPA.
 - The Fastlane lane only uploads and distributes the exported IPA. Build, signing, export, tests, and changelog generation stay in GitHub Actions.
 - Automatic external distribution requires `TESTFLIGHT_GROUPS` to match group names in App Store Connect.
 - Local triggering requires a valid GitHub CLI login. If `gh auth status` reports an invalid token, run `gh auth login -h github.com`.

@@ -13,6 +13,9 @@ struct ProfileView: View {
     @AppStorage("gouache.displayName") private var displayName = "Prateek"
     @State private var selectedFilter: MyWorkFilter = .all
     @State private var resetPage: ColoringPage?
+    @State private var isSearchExpanded = false
+    @State private var searchText = ""
+    @FocusState private var isSearchFocused: Bool
     let focus: ProfileFocus?
     let navigate: (AppRoute) -> Void
 
@@ -33,7 +36,7 @@ struct ProfileView: View {
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
-                        profileTopBar(proxy: proxy)
+                        profileTopBar(proxy: proxy, metrics: metrics)
                         profileHero(metrics: metrics)
                         recentlyCompletedSection(metrics: metrics)
                         settingsPanel
@@ -45,7 +48,7 @@ struct ProfileView: View {
                     .padding(.top, metrics.topContentPadding)
                     .padding(.bottom, 110)
                 }
-                .background(SableTheme.appBackground(for: colorScheme).ignoresSafeArea())
+                .background(SableTheme.gouacheBackground(for: colorScheme).ignoresSafeArea())
                 .task {
                     await viewModel.load()
                     scrollToFocus(with: proxy)
@@ -84,28 +87,15 @@ struct ProfileView: View {
         }
     }
 
-    private func profileTopBar(proxy: ScrollViewProxy) -> some View {
+    private func profileTopBar(proxy: ScrollViewProxy, metrics: GouacheProfileMetrics) -> some View {
         HStack(alignment: .center) {
             Text("Gouache")
-                .font(SableTheme.Typography.fraunces(14, weight: .regular))
+                .font(SableTheme.Typography.fraunces(metrics.brandSize, weight: .regular))
                 .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
 
             Spacer()
 
-            Button {
-                navigate(.search(""))
-            } label: {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 18, weight: .regular))
-                    .frame(width: 42, height: 42)
-                    .background(controlFill, in: Circle())
-                    .overlay {
-                        Circle().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
-                    }
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
-            .accessibilityLabel("Search")
+            profileSearchControl(metrics: metrics)
 
             Button {
                 withAnimation(.snappy(duration: 0.28)) {
@@ -114,7 +104,7 @@ struct ProfileView: View {
             } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 18, weight: .regular))
-                    .frame(width: 42, height: 42)
+                    .frame(width: metrics.actionButtonSize, height: metrics.actionButtonSize)
                     .background(controlFill, in: Circle())
                     .overlay {
                         Circle().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
@@ -124,7 +114,52 @@ struct ProfileView: View {
             .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
             .accessibilityLabel("Settings")
         }
-        .frame(height: 44)
+        .frame(height: metrics.actionButtonSize)
+    }
+
+    private func profileSearchControl(metrics: GouacheProfileMetrics) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                withAnimation(SableTheme.Motion.searchExpand) {
+                    isSearchExpanded = true
+                }
+                isSearchFocused = true
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: metrics.actionIconSize, weight: .regular))
+                    .frame(width: isSearchExpanded ? 32 : metrics.actionButtonSize, height: isSearchExpanded ? 32 : metrics.actionButtonSize)
+            }
+            .buttonStyle(.plain)
+
+            if isSearchExpanded {
+                TextField("Search", text: $searchText)
+                    .font(.system(size: 13, weight: .semibold))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused($isSearchFocused)
+                    .submitLabel(.search)
+
+                Button {
+                    isSearchFocused = false
+                    withAnimation(SableTheme.Motion.searchExpand) {
+                        searchText = ""
+                        isSearchExpanded = false
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, isSearchExpanded ? 8 : 0)
+        .frame(width: isSearchExpanded ? metrics.searchExpandedWidth : metrics.actionButtonSize, height: metrics.actionButtonSize)
+        .background(controlFill, in: Capsule())
+        .overlay {
+            Capsule().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
+        }
+        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+        .accessibilityLabel("Search")
     }
 
     private func profileHero(metrics: GouacheProfileMetrics) -> some View {
@@ -138,7 +173,7 @@ struct ProfileView: View {
 
             if metrics.isLandscape {
                 HStack(alignment: .center, spacing: 20) {
-                    profileIdentity
+                    profileIdentity(metrics: metrics)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 18)
 
@@ -164,7 +199,7 @@ struct ProfileView: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: 16) {
-                    profileIdentity
+                    profileIdentity(metrics: metrics)
 
                     GouacheProfileArtworkImage()
                         .frame(maxWidth: .infinity)
@@ -182,6 +217,13 @@ struct ProfileView: View {
                 }
                 .padding(18)
             }
+
+            GouacheProfileBirdsImage()
+                .frame(width: metrics.birdsWidth, height: metrics.birdsHeight)
+                .opacity(metrics.birdsOpacity)
+                .blendMode(colorScheme == .dark ? .screen : .multiply)
+                .position(x: metrics.birdsCenterX, y: metrics.birdsCenterY)
+                .allowsHitTesting(false)
         }
         .frame(height: metrics.profileHeroHeight)
         .shadow(
@@ -193,10 +235,10 @@ struct ProfileView: View {
         .accessibilityElement(children: .contain)
     }
 
-    private var profileIdentity: some View {
+    private func profileIdentity(metrics: GouacheProfileMetrics) -> some View {
         HStack(spacing: 22) {
             GouacheProfileAvatarImage()
-                .frame(width: 118, height: 118)
+                .frame(width: metrics.avatarSize, height: metrics.avatarSize)
                 .clipShape(Circle())
                 .overlay {
                     Circle().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
@@ -204,13 +246,13 @@ struct ProfileView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(displayName.isEmpty ? "Prateek" : displayName)
-                    .font(SableTheme.Typography.fraunces(42, weight: .regular))
+                    .font(SableTheme.Typography.fraunces(metrics.profileNameSize, weight: .regular))
                     .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
 
                 Text("Color slowly. Make it yours.")
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.system(size: metrics.profileSubtitleSize, weight: .regular))
                     .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
             }
         }
@@ -254,11 +296,22 @@ struct ProfileView: View {
     private var recentlyCompletedPages: [ColoringPage] {
         let completed = viewModel.pages.filter { $0.progress >= 1 }
         let candidates = completed.isEmpty ? viewModel.pages : completed
+        let query = normalizedSearchQuery
+
         if !candidates.isEmpty {
-            return Array(candidates.prefix(5))
+            let visible = query.isEmpty ? candidates : candidates.filter { $0.title.localizedCaseInsensitiveContains(query) }
+            return Array(visible.prefix(5))
         }
 
-        return Template.loadAll().prefix(5).map {
+        let fallbackTemplates = query.isEmpty
+            ? Template.loadAll()
+            : Template.loadAll().filter { template in
+                template.name.localizedCaseInsensitiveContains(query)
+                    || template.difficulty.displayTitle.localizedCaseInsensitiveContains(query)
+                    || template.category.rawValue.localizedCaseInsensitiveContains(query)
+            }
+
+        return fallbackTemplates.prefix(5).map {
             ColoringPage(
                 id: $0.id,
                 templateId: $0.id,
@@ -393,14 +446,23 @@ struct ProfileView: View {
     }
 
     private var filteredPages: [ColoringPage] {
+        let filtered: [ColoringPage]
         switch selectedFilter {
         case .all:
-            return viewModel.pages
+            filtered = viewModel.pages
         case .incomplete:
-            return viewModel.pages.filter { $0.progress < 1 }
+            filtered = viewModel.pages.filter { $0.progress < 1 }
         case .complete:
-            return viewModel.pages.filter { $0.progress >= 1 }
+            filtered = viewModel.pages.filter { $0.progress >= 1 }
         }
+
+        let query = normalizedSearchQuery
+        guard !query.isEmpty else { return filtered }
+        return filtered.filter { $0.title.localizedCaseInsensitiveContains(query) }
+    }
+
+    private var normalizedSearchQuery: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var emptyWork: some View {
@@ -445,40 +507,100 @@ private struct GouacheProfileMetrics {
         size.width > size.height
     }
 
+    private var baseWidth: CGFloat {
+        isLandscape ? 1194 : 744
+    }
+
+    private var scale: CGFloat {
+        max(0.86, min(1.08, size.width / baseWidth))
+    }
+
+    private func scaled(_ value: CGFloat) -> CGFloat {
+        value * scale
+    }
+
     var horizontalInset: CGFloat {
-        isLandscape ? 42 : 30
+        scaled(isLandscape ? 42 : 30)
     }
 
     var topContentPadding: CGFloat {
-        isLandscape ? 18 : 20
+        scaled(isLandscape ? 18 : 20)
     }
 
     var sectionSpacing: CGFloat {
-        isLandscape ? 22 : 26
+        scaled(isLandscape ? 22 : 26)
+    }
+
+    var brandSize: CGFloat {
+        scaled(13)
+    }
+
+    var actionButtonSize: CGFloat {
+        scaled(42)
+    }
+
+    var actionIconSize: CGFloat {
+        scaled(18)
+    }
+
+    var searchExpandedWidth: CGFloat {
+        scaled(isLandscape ? 310 : 270)
     }
 
     var profileHeroHeight: CGFloat {
-        isLandscape ? 350 : 472
+        scaled(isLandscape ? 350 : 472)
+    }
+
+    var avatarSize: CGFloat {
+        scaled(isLandscape ? 118 : 96)
+    }
+
+    var profileNameSize: CGFloat {
+        scaled(isLandscape ? 42 : 32)
+    }
+
+    var profileSubtitleSize: CGFloat {
+        scaled(isLandscape ? 15 : 13)
     }
 
     var profileArtworkWidth: CGFloat {
-        min(max(size.width * 0.42, 420), 560)
+        scaled(isLandscape ? 560 : 648)
     }
 
     var profileArtworkHeight: CGFloat {
-        isLandscape ? 220 : 205
+        scaled(isLandscape ? 220 : 205)
+    }
+
+    var birdsWidth: CGFloat {
+        scaled(isLandscape ? 360 : 280)
+    }
+
+    var birdsHeight: CGFloat {
+        scaled(isLandscape ? 120 : 90)
+    }
+
+    var birdsOpacity: CGFloat {
+        isLandscape ? 0.64 : 0.58
+    }
+
+    var birdsCenterX: CGFloat {
+        scaled(isLandscape ? 924 : 469)
+    }
+
+    var birdsCenterY: CGFloat {
+        scaled(isLandscape ? 26 : 15)
     }
 
     var cardGap: CGFloat {
-        isLandscape ? 22 : 16
+        scaled(isLandscape ? 22 : 16)
     }
 
     var recentCardWidth: CGFloat {
-        isLandscape ? 248 : 206
+        scaled(isLandscape ? 248 : 206)
     }
 
     var recentImageHeight: CGFloat {
-        isLandscape ? 148 : 132
+        scaled(isLandscape ? 148 : 132)
     }
 }
 

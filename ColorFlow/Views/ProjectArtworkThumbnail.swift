@@ -4,6 +4,7 @@ import UIKit
 struct ProjectArtworkThumbnail: View {
     let page: ColoringPage
     let style: PlaceholderArtworkStyle
+    var contentMode: GouachePreviewContentMode = .fill
     @Environment(RenderTuningStore.self) private var renderTuning
     @State private var image: UIImage?
 
@@ -13,9 +14,7 @@ struct ProjectArtworkThumbnail: View {
                 PlaceholderArtwork(tint: page.thumbnailColor, seed: page.title, style: style)
 
                 if let image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
+                    renderedImage(image)
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .background(SableTheme.paper)
                 }
@@ -68,6 +67,20 @@ struct ProjectArtworkThumbnail: View {
             } else {
                 image = nil
             }
+        }
+    }
+
+    @ViewBuilder
+    private func renderedImage(_ image: UIImage) -> some View {
+        switch contentMode {
+        case .fit:
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+        case .fill:
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
         }
     }
 

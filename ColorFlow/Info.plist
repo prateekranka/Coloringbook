@@ -55,8 +55,8 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
-	<!-- ── Launch Screen (fixes "Launch screens will soon be required") ── -->
-	<!-- UILaunchScreen replaces LaunchScreen.storyboard for iOS 14+      -->
+	<!-- ── Launch Screen ──────────────────────────────────────────────── -->
+	<!-- UILaunchScreen replaces LaunchScreen.storyboard.                 -->
 	<!-- Matches app dark background so the SwiftUI splash never flashes white. -->
 	<key>UILaunchScreen</key>
 	<dict>

@@ -17,6 +17,8 @@ struct ColoringCanvasView: View {
     @State private var showSettingsSheet = false
     @State private var showColorPicker = false
     @State private var showPalettePicker = false
+    @State private var saveFeedbackID: UUID?
+    @State private var undoRedoFeedbackID: UUID?
     @State private var precisionSlidersEnabled = true
     @State private var eyedropperShortcutEnabled = true
     @State private var colorHistoryEnabled = true
@@ -126,9 +128,13 @@ struct ColoringCanvasView: View {
                                 viewModel.commitViewportChange()
                             },
                             onUndo: {
+                                guard viewModel.canUndo else { return }
+                                undoRedoFeedbackID = UUID()
                                 Task { await viewModel.undoLastFill() }
                             },
                             onRedo: {
+                                guard viewModel.canRedo else { return }
+                                undoRedoFeedbackID = UUID()
                                 Task { await viewModel.redoFill() }
                             },
                             onToggleFocus: {
@@ -206,11 +212,25 @@ struct ColoringCanvasView: View {
                             flushFreehandThenSave()
                             dismiss()
                         },
-                        onUndo: { Task { await viewModel.undoLastFill() } },
-                        onRedo: { Task { await viewModel.redoFill() } },
+                        onUndo: {
+                            guard viewModel.canUndo else { return }
+                            undoRedoFeedbackID = UUID()
+                            Task { await viewModel.undoLastFill() }
+                        },
+                        onRedo: {
+                            guard viewModel.canRedo else { return }
+                            undoRedoFeedbackID = UUID()
+                            Task { await viewModel.redoFill() }
+                        },
                         onSettings: { showSettingsSheet = true },
                         onShare: { presentShareSheet() },
-                        onSave: { Task { await viewModel.saveNowAfterPendingPigmentCommits() } },
+                        onSave: {
+                            guard viewModel.canSave else { return }
+                            Task {
+                                await viewModel.saveNowAfterPendingPigmentCommits()
+                                saveFeedbackID = UUID()
+                            }
+                        },
                         onResetView: resetViewport,
                         onFocus: {
                             withAnimation(.easeInOut(duration: 0.22)) {
@@ -246,6 +266,7 @@ struct ColoringCanvasView: View {
                         .foregroundStyle(SableTheme.primaryText(for: colorScheme))
                         .frame(width: 44, height: 44)
                         .background(SableTheme.canvasChrome(for: colorScheme), in: Circle())
+                        .glassEffect(.regular.interactive(), in: Circle())
                         .accessibilityIdentifier("canvas.showControls")
                     }
                     Spacer()
@@ -270,6 +291,8 @@ struct ColoringCanvasView: View {
         .sheet(item: $sharePayload) { payload in
             CanvasShareSheet(image: payload.image)
         }
+        .sensoryFeedback(.success, trigger: saveFeedbackID)
+        .sensoryFeedback(.selection, trigger: undoRedoFeedbackID)
         .task(id: renderTuning.canvasStrokeWidth) {
             await viewModel.updateCanvasStrokeWidth(renderTuning.canvasStrokeWidth)
         }
@@ -316,6 +339,7 @@ struct ColoringCanvasView: View {
                 .padding(.horizontal, 14)
                 .frame(height: 36)
                 .background(SableTheme.canvasChrome(for: colorScheme), in: Capsule())
+                .glassEffect(.regular.interactive(), in: Capsule())
                 .overlay {
                     Capsule().stroke(SableTheme.divider(for: colorScheme), lineWidth: 1)
                 }
@@ -1377,6 +1401,18 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         }
 
         private func handleViewportPanEnded(_ recognizer: UIPanGestureRecognizer) {
+            var nextViewport = activeViewport
+            let translation = recognizer.translation(in: recognizer.view)
+            let velocity = recognizer.velocity(in: recognizer.view)
+            nextViewport.settleOffset(
+                from: panStartOffset,
+                translation: CGSize(width: translation.x, height: translation.y),
+                velocity: CGSize(width: velocity.x, height: velocity.y),
+                canvasSize: parent.canvasSize,
+                viewportSize: parent.viewportSize
+            )
+            workingViewport = nextViewport
+            animateViewportChange(nextViewport)
             parent.onViewportCommitted()
             workingViewport = nil
         }
@@ -1434,6 +1470,18 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
                     sampleCount: recognizer.numberOfTouches,
                     detail: "scale=\(recognizer.scale)"
                 )
+                var nextViewport = activeViewport
+                nextViewport.settleScale(
+                    from: pinchStartScale,
+                    baseOffset: pinchStartOffset,
+                    magnification: recognizer.scale,
+                    velocity: recognizer.velocity,
+                    anchor: recognizer.location(in: recognizer.view),
+                    canvasSize: parent.canvasSize,
+                    viewportSize: parent.viewportSize
+                )
+                workingViewport = nextViewport
+                animateViewportChange(nextViewport)
                 parent.onViewportCommitted()
                 workingViewport = nil
                 resetInteractionMode()
@@ -1472,6 +1520,14 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
 
         private var activeViewport: CanvasViewport {
             workingViewport ?? parent.viewport
+        }
+
+        private func animateViewportChange(_ viewport: CanvasViewport) {
+            var transaction = Transaction(animation: .interactiveSpring(response: 0.34, dampingFraction: 0.86))
+            transaction.tracksVelocity = true
+            withTransaction(transaction) {
+                parent.onViewportChanged(viewport)
+            }
         }
 
         private func resetInteractionMode() {

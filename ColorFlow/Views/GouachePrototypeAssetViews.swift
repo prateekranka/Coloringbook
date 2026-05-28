@@ -109,3 +109,25 @@ struct GouacheProfileAvatarImage: View {
             ?? Bundle.main.resourceURL?.appendingPathComponent("ProfileArtwork/profile-avatar.jpg")
     }
 }
+
+struct GouacheProfileBirdsImage: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if let uiImage = UIImage(contentsOfFile: birdsURL?.path ?? "") {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+        } else {
+            EmptyView()
+        }
+    }
+
+    private var birdsURL: URL? {
+        let filename = colorScheme == .dark ? "birds-dark" : "birds-light"
+        return Bundle.main.url(forResource: filename, withExtension: "png", subdirectory: "ProfileArtwork")
+            ?? Bundle.main.resourceURL?.appendingPathComponent("ProfileArtwork/\(filename).png")
+            ?? Bundle.main.url(forResource: filename, withExtension: "jpg", subdirectory: "ProfileArtwork")
+            ?? Bundle.main.resourceURL?.appendingPathComponent("ProfileArtwork/\(filename).jpg")
+    }
+}

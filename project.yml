@@ -8,15 +8,15 @@ name: ColorFlow
 options:
   bundleIdPrefix: com.colorflow
   deploymentTarget:
-    iOS: "18.0"
-  xcodeVersion: "15.4"
+    iOS: "26.0"
+  xcodeVersion: "26.5"
   createIntermediateGroups: true   # mirrors folder structure in Xcode sidebar
 
 settings:
   base:
     SWIFT_VERSION: "5.9"
     TARGETED_DEVICE_FAMILY: "2"          # iPad only
-    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
     SUPPORTS_MACCATALYST: "NO"
     MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "2026051701"
@@ -26,7 +26,7 @@ targets:
   ColorFlow:
     type: application
     platform: iOS
-    deploymentTarget: "18.0"
+    deploymentTarget: "26.0"
 
     # ── Source files ─────────────────────────────────────────────────────────
     sources:
@@ -134,7 +134,7 @@ targets:
   ColorFlowTests:
     type: bundle.unit-test
     platform: iOS
-    deploymentTarget: "18.0"
+    deploymentTarget: "26.0"
     sources:
       - path: ColorFlowTests
     dependencies:
@@ -150,7 +150,7 @@ targets:
   ColorFlowUITests:
     type: bundle.ui-testing
     platform: iOS
-    deploymentTarget: "18.0"
+    deploymentTarget: "26.0"
     sources:
       - path: ColorFlowUITests
     dependencies:

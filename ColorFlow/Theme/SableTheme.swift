@@ -128,19 +128,6 @@ enum SableTheme {
         }
     }
 
-    // MARK: - Deprecated Font Alias (backwards compatibility)
-
-    @available(*, deprecated, renamed: "Typography")
-    enum Font {
-        static let brand = Typography.brand
-        static let hero = Typography.display
-        static let sectionTitle = Typography.sectionTitle
-        static let cardSerif = Typography.cardSerif
-        static let badge = Typography.badge
-        static let cardTitle = Typography.cardTitle
-        static let pill = Typography.pill
-    }
-
     // MARK: - Spacing Scale
 
     enum Spacing {
@@ -229,7 +216,7 @@ enum SableTheme {
         static let cardPress = Animation.spring(response: 0.25, dampingFraction: 0.88)
         static let cardLift = Animation.spring(response: 0.30, dampingFraction: 0.86)
 
-        static let searchExpand = Animation.spring(response: 0.34, dampingFraction: 0.86)
+        static let searchExpand = Animation.easeOut(duration: 0.16)
 
         static let panelToggle = Animation.spring(response: 0.24, dampingFraction: 0.86)
 

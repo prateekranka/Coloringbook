@@ -3,6 +3,10 @@ import CoreGraphics
 struct CanvasViewport: Equatable {
     static let minimumScale: CGFloat = 1
     static let maximumScale: CGFloat = 6
+    static let minimumMomentumVelocity: CGFloat = 80
+    static let maximumMomentumDistance: CGFloat = 420
+    static let panVelocityProjectionDuration: CGFloat = 0.22
+    static let zoomVelocityProjectionDuration: CGFloat = 0.10
 
     var scale: CGFloat = minimumScale
     var offset: CGSize = .zero
@@ -79,6 +83,77 @@ struct CanvasViewport: Equatable {
             height: baseOffset.height + translation.height
         )
         offset = clampedOffset(proposed, canvasSize: canvasSize, viewportSize: viewportSize)
+    }
+
+    func projectedOffset(
+        from baseOffset: CGSize,
+        translation: CGSize,
+        velocity: CGSize,
+        canvasSize: CGSize,
+        viewportSize: CGSize
+    ) -> CGSize {
+        let current = CGSize(
+            width: baseOffset.width + translation.width,
+            height: baseOffset.height + translation.height
+        )
+        let speed = hypot(velocity.width, velocity.height)
+        guard speed >= Self.minimumMomentumVelocity else {
+            return clampedOffset(current, canvasSize: canvasSize, viewportSize: viewportSize)
+        }
+
+        let projected = CGSize(
+            width: Self.clamp(
+                velocity.width * Self.panVelocityProjectionDuration,
+                lower: -Self.maximumMomentumDistance,
+                upper: Self.maximumMomentumDistance
+            ),
+            height: Self.clamp(
+                velocity.height * Self.panVelocityProjectionDuration,
+                lower: -Self.maximumMomentumDistance,
+                upper: Self.maximumMomentumDistance
+            )
+        )
+        return clampedOffset(
+            CGSize(width: current.width + projected.width, height: current.height + projected.height),
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+    }
+
+    mutating func settleOffset(
+        from baseOffset: CGSize,
+        translation: CGSize,
+        velocity: CGSize,
+        canvasSize: CGSize,
+        viewportSize: CGSize
+    ) {
+        offset = projectedOffset(
+            from: baseOffset,
+            translation: translation,
+            velocity: velocity,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+    }
+
+    mutating func settleScale(
+        from baseScale: CGFloat,
+        baseOffset: CGSize,
+        magnification: CGFloat,
+        velocity: CGFloat,
+        anchor: CGPoint,
+        canvasSize: CGSize,
+        viewportSize: CGSize
+    ) {
+        let projectedMagnification = magnification + velocity * Self.zoomVelocityProjectionDuration
+        updateScale(
+            from: baseScale,
+            baseOffset: baseOffset,
+            magnification: max(0.01, projectedMagnification),
+            anchor: anchor,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
     }
 
     mutating func clamp(canvasSize: CGSize, viewportSize: CGSize) {

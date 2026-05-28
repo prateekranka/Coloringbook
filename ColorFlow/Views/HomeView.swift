@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @MainActor
 struct HomeView: View {
@@ -58,7 +59,8 @@ struct HomeView: View {
                             isSearchExpanded: $isSearchExpanded,
                             searchText: $searchText,
                             openProfile: openProfile,
-                            submitSearch: submitSearch
+                            submitSearch: submitSearch,
+                            collapseSearch: collapseSearch
                         )
 
                         ContinueSection(
@@ -67,10 +69,12 @@ struct HomeView: View {
                             seeAll: openMyWork,
                             navigate: { navigate(.coloringPage($0)) }
                         )
+                        .simultaneousGesture(TapGesture().onEnded { _ in collapseSearch() })
 
                         MoodSection(metrics: metrics) { mood in
                             navigate(.mood(mood.routeMood))
                         }
+                        .simultaneousGesture(TapGesture().onEnded { _ in collapseSearch() })
 
                         RecentlyAddedSection(
                             pages: displayRecentlyAddedPages,
@@ -78,11 +82,14 @@ struct HomeView: View {
                             seeAll: openRecentlyAdded,
                             navigate: { navigate(.coloringPage($0)) }
                         )
+                        .simultaneousGesture(TapGesture().onEnded { _ in collapseSearch() })
                     }
                     .padding(.horizontal, metrics.horizontalInset)
                     .padding(.top, metrics.topContentPadding)
                     .padding(.bottom, metrics.bottomContentPadding)
                 }
+                .scrollDismissesKeyboard(.immediately)
+                .scrollEdgeEffectStyle(.soft, for: .bottom)
             }
         }
         .task {
@@ -108,6 +115,14 @@ struct HomeView: View {
         navigate(.search(query))
     }
 
+    private func collapseSearch() {
+        guard isSearchExpanded else { return }
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        withAnimation(SableTheme.Motion.searchExpand) {
+            isSearchExpanded = false
+        }
+    }
+
 }
 
 private struct GouacheHomeMetrics {
@@ -118,7 +133,7 @@ private struct GouacheHomeMetrics {
     }
 
     var horizontalInset: CGFloat {
-        isLandscape ? 44 : 44
+        isLandscape ? 58 : 30
     }
 
     var contentWidth: CGFloat {
@@ -126,15 +141,15 @@ private struct GouacheHomeMetrics {
     }
 
     var heroHeight: CGFloat {
-        isLandscape ? min(430, max(380, size.height * 0.42)) : min(420, max(360, size.height * 0.34))
+        isLandscape ? 470 : 325
     }
 
     var titleSize: CGFloat {
-        isLandscape ? 42 : 34
+        42
     }
 
     var titleTop: CGFloat {
-        isLandscape ? 72 : 82
+        isLandscape ? 54 : 40
     }
 
     var searchWidth: CGFloat {
@@ -142,7 +157,7 @@ private struct GouacheHomeMetrics {
     }
 
     var sectionSpacing: CGFloat {
-        isLandscape ? 18 : 22
+        isLandscape ? 44 : 34
     }
 
     var sectionHeaderSpacing: CGFloat {
@@ -162,7 +177,7 @@ private struct GouacheHomeMetrics {
     }
 
     var continueImageHeight: CGFloat {
-        isLandscape ? continueCardWidth * 0.54 : continueCardWidth * 0.72
+        isLandscape ? continueCardWidth * 0.62 : continueCardWidth * 0.78
     }
 
     var continueFooterHeight: CGFloat {
@@ -170,12 +185,12 @@ private struct GouacheHomeMetrics {
     }
 
     var moodCardWidth: CGFloat {
-        let visibleCount: CGFloat = isLandscape ? 4 : 3.28
+        let visibleCount: CGFloat = 4
         return (contentWidth - (cardGap * (visibleCount - 1))) / visibleCount
     }
 
     var moodCardHeight: CGFloat {
-        moodCardWidth
+        118
     }
 
     var collectionCardWidth: CGFloat {
@@ -188,19 +203,37 @@ private struct GouacheHomeMetrics {
     }
 
     var recentCardWidth: CGFloat {
-        isLandscape ? 146 : 152
+        let fullCards: CGFloat = isLandscape ? 5 : 4
+        let peekFraction: CGFloat = 0.36
+        return (contentWidth - (cardGap * fullCards)) / (fullCards + peekFraction)
     }
 
     var recentCardHeight: CGFloat {
-        isLandscape ? 112 : 128
+        recentCardWidth * 0.74
     }
 
     var bottomContentPadding: CGFloat {
-        122
+        132
     }
 
     var topContentPadding: CGFloat {
         isLandscape ? 10 : 14
+    }
+
+    var shelfArtworkWidth: CGFloat {
+        isLandscape ? min(940, contentWidth * 0.92) : min(640, contentWidth * 0.94)
+    }
+
+    var shelfArtworkCenterX: CGFloat {
+        isLandscape ? contentWidth * 0.49 : contentWidth * 0.50
+    }
+
+    var shelfArtworkCenterY: CGFloat {
+        isLandscape ? heroHeight * 0.62 : heroHeight * 0.60
+    }
+
+    var shelfArtworkYOffsetLight: CGFloat {
+        isLandscape ? -45 : -9
     }
 }
 
@@ -245,6 +278,7 @@ private struct GouacheHero: View {
     @Binding var searchText: String
     let openProfile: () -> Void
     let submitSearch: () -> Void
+    let collapseSearch: () -> Void
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -281,17 +315,20 @@ private struct GouacheHero: View {
                     x: SableTheme.Shadow.heroTitle(for: colorScheme).x,
                     y: SableTheme.Shadow.heroTitle(for: colorScheme).y
                 )
+                .onTapGesture(perform: collapseSearch)
 
             Image(colorScheme == .dark ? "LibraryShelfDark" : "LibraryShelfLight")
                 .resizable()
                 .scaledToFit()
-                .frame(width: metrics.isLandscape ? metrics.contentWidth * 0.84 : metrics.contentWidth * 0.92)
+                .frame(width: metrics.shelfArtworkWidth)
                 .position(
-                    x: metrics.isLandscape ? metrics.contentWidth * 0.58 : metrics.contentWidth * 0.52,
-                    y: metrics.isLandscape ? metrics.heroHeight * 0.68 : metrics.heroHeight * 0.68
+                    x: metrics.shelfArtworkCenterX,
+                    y: metrics.shelfArtworkCenterY
                 )
+                .offset(y: colorScheme == .light ? metrics.shelfArtworkYOffsetLight : 0)
                 .shadow(color: .black.opacity(colorScheme == .dark ? 0.42 : 0.16), radius: 12, x: 0, y: 8)
                 .accessibilityHidden(true)
+                .onTapGesture(perform: collapseSearch)
         }
         .frame(maxWidth: .infinity)
         .frame(height: metrics.heroHeight)
@@ -764,10 +801,9 @@ private struct ContinueCard: View {
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 0) {
-                HomeArtworkImage(assetName: page.homeArtworkAssetName) {
-                    ProjectArtworkThumbnail(page: page, style: .wide)
-                }
+                ProjectArtworkThumbnail(page: page, style: .wide, contentMode: .fit)
                     .frame(width: width, height: imageHeight)
+                    .background(SableTheme.paper)
                     .clipped()
 
                 VStack(alignment: .leading, spacing: 9) {
@@ -825,7 +861,7 @@ private struct MoodSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: metrics.sectionHeaderSpacing) {
-            HomeSectionHeader(title: "Browse by Mood")
+            HomeSectionHeader(title: "Color by Mood")
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: metrics.cardGap) {
@@ -834,7 +870,7 @@ private struct MoodSection: View {
                             mood: mood,
                             width: metrics.moodCardWidth,
                             height: metrics.moodCardHeight,
-                            showsTitle: metrics.isLandscape || index < 3
+                            showsTitle: true
                         ) {
                             navigate(mood)
                         }
@@ -857,42 +893,24 @@ private struct MoodCard: View {
     var body: some View {
         Button(action: onTap) {
             ZStack(alignment: .bottomLeading) {
-                Image(mood.homeMoodAssetName)
-                    .resizable()
-                    .scaledToFill()
+                cardFill
 
-                LinearGradient(
-                    colors: [.clear, Color.black.opacity(mood.title == "Bold" ? 0.34 : 0.24)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                RoundedRectangle(cornerRadius: 999, style: .continuous)
+                    .fill(mood.tint.opacity(colorScheme == .dark ? 0.42 : 0.46))
+                    .frame(width: width * 0.76, height: height * 0.54)
+                    .offset(x: width * 0.08, y: -height * 0.18)
+                    .blur(radius: 1)
 
                 if showsTitle {
-                    VStack {
-                        Spacer(minLength: 0)
-
-                        HStack {
-                            Text(mood.title)
-                                .font(SableTheme.Typography.fraunces(width < 190 ? 19 : 23, weight: .regular))
-                                .foregroundStyle(SableTheme.heroTitleDark)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                                .padding(.leading, 18)
-                                .padding(.trailing, 12)
-                                .padding(.vertical, 7)
-                                .background(Color.black.opacity(0.42), in: Capsule())
-                                .shadow(color: .black.opacity(0.34), radius: 4)
-
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, SableTheme.Spacing.xl)
-                        .padding(.bottom, 10)
-                    }
-                    .frame(width: width, height: height, alignment: .bottomLeading)
+                    Text(mood.title)
+                        .font(SableTheme.Typography.fraunces(width < 190 ? 18 : 20, weight: .semibold))
+                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+                        .lineLimit(1)
+                        .padding(.leading, 5)
+                        .padding(.bottom, 12)
                 }
             }
             .frame(width: width, height: height)
-            .clipped()
             .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCard, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCard, style: .continuous)
@@ -908,6 +926,10 @@ private struct MoodCard: View {
         .buttonStyle(.plain)
         .accessibilityLabel(mood.title)
         .accessibilityIdentifier("home.mood.\(mood.title.normalizedIdentifier)")
+    }
+
+    private var cardFill: Color {
+        colorScheme == .dark ? SableTheme.gouachePanel(for: colorScheme).opacity(0.72) : Color(hex: "#FBF2E7").opacity(0.92)
     }
 }
 
@@ -1263,8 +1285,25 @@ private struct RecentlyAddedCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            HomeArtworkImage(assetName: page.homeArtworkAssetName) {
-                ProjectArtworkThumbnail(page: page, style: .compact)
+            VStack(alignment: .leading, spacing: 0) {
+                RecentlyAddedArtwork(page: page)
+                    .frame(width: width, height: height * 0.66)
+                    .clipped()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(page.title)
+                        .font(SableTheme.Typography.fraunces(14, weight: .semibold))
+                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    ProgressTrack(progress: page.progress)
+                        .frame(width: 60)
+                }
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: height * 0.34)
+                .background(colorScheme == .dark ? SableTheme.cardFooterDark : SableTheme.cardFooterLight)
             }
                 .frame(width: width, height: height)
                 .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card, style: .continuous))
@@ -1282,6 +1321,18 @@ private struct RecentlyAddedCard: View {
         .buttonStyle(.plain)
         .accessibilityLabel(page.title)
         .accessibilityIdentifier("home.recent.\(page.title.normalizedIdentifier)")
+    }
+}
+
+private struct RecentlyAddedArtwork: View {
+    let page: ColoringPage
+
+    var body: some View {
+        if let template = page.homeTemplate {
+            GouacheTemplatePreviewImage(template: template, contentMode: .fit)
+        } else {
+            ProjectArtworkThumbnail(page: page, style: .compact, contentMode: .fit)
+        }
     }
 }
 
@@ -1309,6 +1360,10 @@ private struct HomeArtworkImage<Fallback: View>: View {
         }
         .clipped()
     }
+}
+
+private enum HomeTemplateCache {
+    static let templatesByID = Dictionary(uniqueKeysWithValues: Template.loadAll().map { ($0.id, $0) })
 }
 
 private struct HomeSectionHeader: View {
@@ -1738,6 +1793,11 @@ private struct GouacheResolvedPalette {
 }
 
 private extension ColoringPage {
+    var homeTemplate: Template? {
+        guard let templateId else { return nil }
+        return HomeTemplateCache.templatesByID[templateId]
+    }
+
     var homeArtworkAssetName: String? {
         switch title {
         case "Wildflowers":

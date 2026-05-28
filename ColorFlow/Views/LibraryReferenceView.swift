@@ -3,6 +3,9 @@ import SwiftUI
 struct LibraryReferenceView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var selectedFilter: LibraryReferenceFilter = .all
+    @State private var isSearchExpanded = false
+    @State private var searchText = ""
+    @FocusState private var isSearchFocused: Bool
 
     let templates: [Template]
     let isLoading: Bool
@@ -17,15 +20,139 @@ struct LibraryReferenceView: View {
                 pageBackground.ignoresSafeArea()
 
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        hero(metrics: metrics)
-                        templatesSection(metrics: metrics)
+                    ZStack(alignment: .topLeading) {
+                        libraryBackground(metrics: metrics)
+
+                        header(metrics: metrics)
+                            .offset(x: metrics.titleX, y: metrics.titleY)
+
+                        HStack(spacing: 12) {
+                            ForEach(LibraryReferenceFilter.allCases) { filter in
+                                filterButton(filter)
+                            }
+                        }
+                        .offset(x: metrics.filtersX, y: metrics.filtersY)
+
+                        searchControl(metrics: metrics)
+                            .offset(x: metrics.searchX(isExpanded: isSearchExpanded), y: metrics.searchY)
+
+                        sectionHeader(metrics: metrics)
+                            .offset(x: metrics.sectionX, y: metrics.sectionY)
+
+                        if isLoading && templates.isEmpty {
+                            ProgressView()
+                                .tint(SableTheme.progressPink)
+                                .frame(width: metrics.gridWidth, height: 260)
+                                .offset(x: metrics.gridX, y: metrics.gridY)
+                        } else {
+                            LibraryReferenceMasonryGrid(
+                                templates: displayedTemplates,
+                                columnCount: metrics.columnCount,
+                                gridGap: metrics.gridGap,
+                                onTap: onSelectTemplate
+                            )
+                            .frame(width: metrics.gridWidth)
+                            .offset(x: metrics.gridX, y: metrics.gridY)
+                        }
                     }
-                    .padding(.bottom, metrics.bottomPadding)
+                    .frame(width: proxy.size.width, height: metrics.contentHeight)
                 }
+                .scrollDismissesKeyboard(.immediately)
             }
         }
         .accessibilityIdentifier("library.reference")
+    }
+
+    private func libraryBackground(metrics: LibraryReferenceMetrics) -> some View {
+        Image(colorScheme == .dark ? "LibraryHeroBackgroundDark" : "LibraryHeroBackgroundLight")
+            .resizable()
+            .scaledToFit()
+            .frame(width: metrics.size.width, height: metrics.backgroundFrameHeight, alignment: .top)
+            .opacity(0.96)
+            .overlay {
+                LinearGradient(
+                    colors: [
+                        pageBackground.opacity(0.58),
+                        .clear,
+                        .clear,
+                        pageBackground.opacity(0.82)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .offset(x: 0, y: metrics.backgroundY)
+            .allowsHitTesting(false)
+    }
+
+    private func header(metrics: LibraryReferenceMetrics) -> some View {
+        VStack(alignment: .leading, spacing: metrics.headerSpacing) {
+            Text("Gouache")
+                .font(SableTheme.Typography.fraunces(metrics.brandSize, weight: .regular))
+                .foregroundStyle(primaryText)
+
+            Text("Library")
+                .font(SableTheme.Typography.fraunces(metrics.titleSize, weight: .regular))
+                .foregroundStyle(primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.76)
+        }
+    }
+
+    private func sectionHeader(metrics: LibraryReferenceMetrics) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("All Templates")
+                .font(SableTheme.Typography.fraunces(metrics.sectionTitleSize, weight: .regular))
+                .foregroundStyle(primaryText)
+
+            Text("Explore templates from our collection.")
+                .font(.system(size: metrics.subtitleSize, weight: .regular))
+                .foregroundStyle(secondaryText)
+        }
+    }
+
+    private func searchControl(metrics: LibraryReferenceMetrics) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                withAnimation(SableTheme.Motion.searchExpand) {
+                    isSearchExpanded = true
+                }
+                isSearchFocused = true
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: metrics.searchIconSize, weight: .regular))
+                    .foregroundStyle(primaryText)
+                    .frame(width: isSearchExpanded ? 34 : metrics.searchButtonSize, height: isSearchExpanded ? 34 : metrics.searchButtonSize)
+            }
+            .buttonStyle(.plain)
+
+            if isSearchExpanded {
+                TextField("Search", text: $searchText)
+                    .font(.system(size: 13, weight: .semibold))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused($isSearchFocused)
+                    .submitLabel(.search)
+
+                Button {
+                    withAnimation(SableTheme.Motion.searchExpand) {
+                        searchText = ""
+                        isSearchExpanded = false
+                    }
+                    isSearchFocused = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, isSearchExpanded ? 8 : 0)
+        .frame(width: isSearchExpanded ? metrics.searchExpandedWidth : metrics.searchButtonSize, height: metrics.searchButtonSize)
+        .background(searchFill, in: Capsule())
+        .overlay {
+            Capsule().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
+        }
     }
 
     private func hero(metrics: LibraryReferenceMetrics) -> some View {
@@ -145,9 +272,19 @@ struct LibraryReferenceView: View {
     }
 
     private var displayedTemplates: [Template] {
+        let base: [Template]
         switch selectedFilter {
         case .all, .sketchbooks:
-            return templates
+            base = templates
+        }
+
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return base }
+        return base.filter {
+            $0.name.localizedCaseInsensitiveContains(query)
+                || $0.category.rawValue.localizedCaseInsensitiveContains(query)
+                || $0.difficulty.displayTitle.localizedCaseInsensitiveContains(query)
+                || $0.svgFilename.localizedCaseInsensitiveContains(query)
         }
     }
 
@@ -319,60 +456,133 @@ private struct LibraryReferenceMetrics {
         size.width > size.height
     }
 
+    private var baseWidth: CGFloat {
+        isLandscape ? 1194 : 744
+    }
+
+    private var scale: CGFloat {
+        max(0.86, min(1.08, size.width / baseWidth))
+    }
+
+    private func scaled(_ value: CGFloat) -> CGFloat {
+        value * scale
+    }
+
     var horizontalInset: CGFloat {
-        isLandscape ? 58 : 30
+        scaled(isLandscape ? 58 : 30)
     }
 
     var topInset: CGFloat {
-        isLandscape ? 24 : 20
+        scaled(isLandscape ? 30 : 28)
     }
 
     var heroHeight: CGFloat {
-        isLandscape ? min(max(size.height * 0.46, 300), 360) : min(max(size.height * 0.33, 270), 330)
+        backgroundFrameHeight
+    }
+
+    var titleX: CGFloat {
+        scaled(isLandscape ? 58 : 30)
+    }
+
+    var titleY: CGFloat {
+        scaled(isLandscape ? 30 : 28)
+    }
+
+    var filtersX: CGFloat {
+        scaled(isLandscape ? 61 : 29)
+    }
+
+    var filtersY: CGFloat {
+        scaled(isLandscape ? 255 : 259)
+    }
+
+    var searchY: CGFloat {
+        scaled(isLandscape ? 30 : 34)
+    }
+
+    func searchX(isExpanded: Bool) -> CGFloat {
+        let width = isExpanded ? searchExpandedWidth : searchButtonSize
+        return size.width - horizontalInset - width
+    }
+
+    var sectionX: CGFloat {
+        scaled(isLandscape ? 58 : 30)
+    }
+
+    var sectionY: CGFloat {
+        scaled(isLandscape ? 294 : 292)
+    }
+
+    var gridX: CGFloat {
+        scaled(isLandscape ? 58 : 30)
+    }
+
+    var gridY: CGFloat {
+        scaled(isLandscape ? 354 : 358)
+    }
+
+    var gridWidth: CGFloat {
+        min(size.width - gridX * 2, scaled(isLandscape ? 1080 : 684))
+    }
+
+    var backgroundFrameHeight: CGFloat {
+        scaled(isLandscape ? 620 : 480)
+    }
+
+    var backgroundY: CGFloat {
+        scaled(isLandscape ? -258 : -110)
+    }
+
+    var contentHeight: CGFloat {
+        scaled(isLandscape ? 2209 : 4630)
     }
 
     var brandSize: CGFloat {
-        isLandscape ? 14 : 12
+        scaled(13)
     }
 
     var titleSize: CGFloat {
-        isLandscape ? 40 : 34
+        scaled(42)
     }
 
     var sectionTitleSize: CGFloat {
-        isLandscape ? 24 : 20
+        scaled(23)
     }
 
     var subtitleSize: CGFloat {
-        isLandscape ? 13 : 11
+        scaled(12)
     }
 
     var searchButtonSize: CGFloat {
-        isLandscape ? 48 : 38
+        scaled(42)
     }
 
     var searchIconSize: CGFloat {
-        isLandscape ? 20 : 16
+        scaled(17)
+    }
+
+    var searchExpandedWidth: CGFloat {
+        scaled(isLandscape ? 310 : 270)
     }
 
     var headerSpacing: CGFloat {
-        isLandscape ? 16 : 12
+        scaled(10)
     }
 
     var gridGap: CGFloat {
-        isLandscape ? 22 : 12
+        scaled(22)
     }
 
     var sectionGap: CGFloat {
-        isLandscape ? 18 : 12
+        scaled(18)
     }
 
     var sectionTopOffset: CGFloat {
-        isLandscape ? -20 : -6
+        0
     }
 
     var bottomPadding: CGFloat {
-        isLandscape ? 28 : 24
+        scaled(132)
     }
 
     var columnCount: Int {

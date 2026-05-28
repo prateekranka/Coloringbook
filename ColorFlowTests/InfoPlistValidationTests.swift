@@ -12,7 +12,7 @@
 //   ColorFlowTests:
 //     type: bundle.unit-test
 //     platform: iOS
-//     deploymentTarget: "17.0"
+//     deploymentTarget: "26.0"
 //     sources:
 //       - path: ColorFlowTests
 //     dependencies:
@@ -44,7 +44,7 @@ final class InfoPlistValidationTests: XCTestCase {
     func test_launchScreen_isDeclared() {
         XCTAssertNotNil(
             infoPlist["UILaunchScreen"],
-            "UILaunchScreen is required on iOS 14+ (replaces LaunchScreen.storyboard). Missing this key causes App Store rejection."
+            "UILaunchScreen must be declared. Missing this key causes App Store rejection."
         )
     }
 
@@ -106,7 +106,7 @@ final class InfoPlistValidationTests: XCTestCase {
     func test_launchStoryboard_isAbsent() {
         XCTAssertNil(
             infoPlist["UILaunchStoryboardName"],
-            "UILaunchStoryboardName is superseded by UILaunchScreen on iOS 14+. Having both causes undefined behaviour."
+            "UILaunchStoryboardName is superseded by UILaunchScreen. Having both causes undefined behaviour."
         )
     }
 }

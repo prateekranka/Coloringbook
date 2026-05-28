@@ -42,6 +42,48 @@ final class CanvasViewportTests: XCTestCase {
         XCTAssertEqual(viewport.offset.height, -200)
     }
 
+    func test_projectedOffset_clampsMomentumToVisibleCanvasOverflow() {
+        var viewport = CanvasViewport()
+        viewport.updateScale(
+            from: 1,
+            magnification: 2,
+            canvasSize: CGSize(width: 400, height: 300),
+            viewportSize: CGSize(width: 300, height: 200)
+        )
+
+        viewport.settleOffset(
+            from: .zero,
+            translation: CGSize(width: 40, height: -30),
+            velocity: CGSize(width: 2_000, height: -2_000),
+            canvasSize: CGSize(width: 400, height: 300),
+            viewportSize: CGSize(width: 300, height: 200)
+        )
+
+        XCTAssertEqual(viewport.offset.width, 250)
+        XCTAssertEqual(viewport.offset.height, -200)
+    }
+
+    func test_projectedOffset_ignoresLowVelocityDrift() {
+        var viewport = CanvasViewport()
+        viewport.updateScale(
+            from: 1,
+            magnification: 2,
+            canvasSize: CGSize(width: 400, height: 300),
+            viewportSize: CGSize(width: 300, height: 200)
+        )
+
+        viewport.settleOffset(
+            from: .zero,
+            translation: CGSize(width: 40, height: -30),
+            velocity: CGSize(width: 20, height: 10),
+            canvasSize: CGSize(width: 400, height: 300),
+            viewportSize: CGSize(width: 300, height: 200)
+        )
+
+        XCTAssertEqual(viewport.offset.width, 40)
+        XCTAssertEqual(viewport.offset.height, -30)
+    }
+
     func test_updateScale_anchorsDocumentPointUnderPinchLocation() {
         var viewport = CanvasViewport()
         let canvasSize = CGSize(width: 400, height: 400)
@@ -74,6 +116,47 @@ final class CanvasViewportTests: XCTestCase {
             viewportSize: viewportSize
         )
 
+        XCTAssertEqual(documentPointAfter.x, documentPointBefore.x, accuracy: 0.01)
+        XCTAssertEqual(documentPointAfter.y, documentPointBefore.y, accuracy: 0.01)
+    }
+
+    func test_settleScale_usesVelocityAndPreservesAnchorPoint() {
+        var viewport = CanvasViewport()
+        let canvasSize = CGSize(width: 400, height: 400)
+        let viewportSize = CGSize(width: 300, height: 300)
+        let anchor = CGPoint(x: 185, y: 158)
+
+        viewport.updateScale(
+            from: 1,
+            baseOffset: .zero,
+            magnification: 1.6,
+            anchor: anchor,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+        let documentPointBefore = viewport.canvasPoint(
+            forViewportPoint: anchor,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+
+        viewport.settleScale(
+            from: viewport.scale,
+            baseOffset: viewport.offset,
+            magnification: 1,
+            velocity: 2.5,
+            anchor: anchor,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+        let documentPointAfter = viewport.canvasPoint(
+            forViewportPoint: anchor,
+            canvasSize: canvasSize,
+            viewportSize: viewportSize
+        )
+
+        XCTAssertGreaterThan(viewport.scale, 1.6)
+        XCTAssertLessThanOrEqual(viewport.scale, CanvasViewport.maximumScale)
         XCTAssertEqual(documentPointAfter.x, documentPointBefore.x, accuracy: 0.01)
         XCTAssertEqual(documentPointAfter.y, documentPointBefore.y, accuracy: 0.01)
     }

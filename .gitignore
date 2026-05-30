@@ -16,6 +16,7 @@ DerivedData/
 # Local agent / editor state
 .claire/
 .claude/
+.agent/
 
 # Template pipeline working directory (rasters, intermediate SVGs, etc.)
 pipeline_work/
@@ -31,6 +32,14 @@ Scripts/testing/.screenshots/
 # Local diagnostic captures
 artifacts/canvas-diagnostics/
 artifacts/pencil-hid/
+
+# Release cleanup: local/private/generated preservation candidates
+Scripts/coredevice_tailnet_bridge.sh
+docs/app-store/screenshots/generated/
+gouache-smooth-deepseekv4pro/
+
+# Local-only internal dev tooling
+Tools/library-ui-tuner/
 
 .lazyweb
 .opencode/skills

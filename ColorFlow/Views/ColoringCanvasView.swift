@@ -200,58 +200,83 @@ struct ColoringCanvasView: View {
             }
 
             if !isUIHidden {
-                VStack(spacing: 0) {
-                    CanvasShellHeader(
-                        title: viewModel.title,
-                        canUndo: viewModel.canUndo,
-                        canRedo: viewModel.canRedo,
-                        canSave: viewModel.canSave,
-                        hasArtwork: viewModel.hasArtwork,
-                        saveLabel: viewModel.saveState.label,
-                        onBack: {
-                            flushFreehandThenSave()
-                            dismiss()
-                        },
-                        onUndo: {
-                            guard viewModel.canUndo else { return }
-                            undoRedoFeedbackID = UUID()
-                            Task { await viewModel.undoLastFill() }
-                        },
-                        onRedo: {
-                            guard viewModel.canRedo else { return }
-                            undoRedoFeedbackID = UUID()
-                            Task { await viewModel.redoFill() }
-                        },
-                        onSettings: { showSettingsSheet = true },
-                        onShare: { presentShareSheet() },
-                        onSave: {
-                            guard viewModel.canSave else { return }
-                            Task {
-                                await viewModel.saveNowAfterPendingPigmentCommits()
-                                saveFeedbackID = UUID()
-                            }
-                        },
-                        onResetView: resetViewport,
-                        onFocus: {
-                            withAnimation(.easeInOut(duration: 0.22)) {
-                                isUIHidden = true
-                            }
-                        },
-                        onClear: { showClearArtworkConfirmation = true }
-                    )
+                ZStack(alignment: .bottomLeading) {
+                    VStack(spacing: 0) {
+                        CanvasShellHeader(
+                            title: viewModel.title,
+                            canUndo: viewModel.canUndo,
+                            canRedo: viewModel.canRedo,
+                            canSave: viewModel.canSave,
+                            hasArtwork: viewModel.hasArtwork,
+                            saveLabel: viewModel.saveState.label,
+                            onBack: {
+                                flushFreehandThenSave()
+                                dismiss()
+                            },
+                            onUndo: {
+                                guard viewModel.canUndo else { return }
+                                undoRedoFeedbackID = UUID()
+                                Task { await viewModel.undoLastFill() }
+                            },
+                            onRedo: {
+                                guard viewModel.canRedo else { return }
+                                undoRedoFeedbackID = UUID()
+                                Task { await viewModel.redoFill() }
+                            },
+                            onSettings: { showSettingsSheet = true },
+                            onShare: { presentShareSheet() },
+                            onSave: {
+                                guard viewModel.canSave else { return }
+                                Task {
+                                    await viewModel.saveNowAfterPendingPigmentCommits()
+                                    saveFeedbackID = UUID()
+                                }
+                            },
+                            onResetView: resetViewport,
+                            onFocus: {
+                                withAnimation(.easeInOut(duration: 0.22)) {
+                                    isUIHidden = true
+                                }
+                            },
+                            onClear: { showClearArtworkConfirmation = true }
+                        )
 
-                    Spacer()
+                        Spacer()
 
-                    MinimalCanvasDock(
-                        viewModel: viewModel,
-                        showColorPicker: $showColorPicker,
-                        showPalettePicker: $showPalettePicker,
-                        showSettingsSheet: $showSettingsSheet
+                        CanvasScreenshotToolbar(
+                            viewModel: viewModel,
+                            showColorPicker: $showColorPicker,
+                            showPalettePicker: $showPalettePicker,
+                            showSettingsSheet: $showSettingsSheet,
+                            onUndo: {
+                                guard viewModel.canUndo else { return }
+                                undoRedoFeedbackID = UUID()
+                                Task { await viewModel.undoLastFill() }
+                            },
+                            onRedo: {
+                                guard viewModel.canRedo else { return }
+                                undoRedoFeedbackID = UUID()
+                                Task { await viewModel.redoFill() }
+                            }
+                        )
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.top, 14)
+                    .padding(.bottom, 18)
+
+                    CanvasColorHistoryRail(
+                        recentColorHexes: viewModel.recentColorHexes,
+                        selectedColorHex: viewModel.selectedColorHex,
+                        onSelectColor: { hex in
+                            viewModel.selectColor(hex: hex)
+                        },
+                        onOpenColorPicker: {
+                            showColorPicker = true
+                        }
                     )
+                    .padding(.leading, 6)
+                    .padding(.bottom, 120)
                 }
-                .padding(.horizontal, 22)
-                .padding(.top, 14)
-                .padding(.bottom, 18)
             } else {
                 VStack {
                     HStack {
@@ -2509,7 +2534,7 @@ private struct CanvasRenderTuningSlider: View {
 }
 #endif
 
-private struct ToolIconView: View {
+struct ToolIconView: View {
     let tool: ToolType
     let color: Color
     let size: CGFloat
@@ -2529,7 +2554,7 @@ private struct ToolIconView: View {
     }
 }
 
-private struct SprayToolIcon: View {
+struct SprayToolIcon: View {
     let color: Color
 
     var body: some View {

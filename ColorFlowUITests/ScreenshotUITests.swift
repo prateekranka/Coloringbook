@@ -28,12 +28,9 @@ final class ScreenshotUITests: XCTestCase {
     }
 
     func test_captureCanvas() throws {
+        app.launchArguments += ["-gouacheOpenTemplate", "wildflowers"]
         launchForScreenshot()
 
-        XCTAssertTrue(app.buttons["home.collection.fresh-botanicals"].waitForExistence(timeout: 5))
-        app.buttons["home.collection.fresh-botanicals"].tap()
-        XCTAssertTrue(app.staticTexts["Fresh Botanicals"].waitForExistence(timeout: 5))
-        tapTemplate(slug: "wildflowers")
         let canvas = app.descendants(matching: .any)["canvas.surface"]
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
         selectCanvasTool("canvas.tool.fill-bucket")
@@ -218,9 +215,16 @@ final class ScreenshotUITests: XCTestCase {
 
     private func selectCanvasTool(_ identifier: String) {
         app.buttons["canvas.tools"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["canvas.settings.sheet"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons[identifier].waitForExistence(timeout: 2))
-        app.buttons[identifier].tap()
+        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 4))
+        let toolButton = app.buttons[identifier]
+        if !toolButton.waitForExistence(timeout: 1) {
+            for _ in 0..<4 where !toolButton.exists {
+                app.swipeUp()
+                _ = toolButton.waitForExistence(timeout: 0.5)
+            }
+        }
+        XCTAssertTrue(toolButton.exists)
+        toolButton.tap()
         app.buttons["Done"].tap()
         XCTAssertTrue(app.buttons["canvas.tools"].waitForExistence(timeout: 2))
     }

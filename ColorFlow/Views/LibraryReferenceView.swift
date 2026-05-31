@@ -55,7 +55,7 @@ struct LibraryReferenceView: View {
                             .offset(x: metrics.gridX, y: metrics.gridY)
                         }
                     }
-                    .frame(width: proxy.size.width, height: metrics.contentHeight)
+                    .frame(width: proxy.size.width, height: metrics.contentHeight, alignment: .topLeading)
                 }
                 .scrollDismissesKeyboard(.immediately)
             }
@@ -81,7 +81,7 @@ struct LibraryReferenceView: View {
                     endPoint: .bottom
                 )
             }
-            .offset(x: 0, y: metrics.backgroundY)
+            .offset(x: 0, y: metrics.backgroundY(for: colorScheme))
             .allowsHitTesting(false)
     }
 
@@ -97,6 +97,7 @@ struct LibraryReferenceView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.76)
         }
+        .shadow(color: metrics.headerShadowColor(for: colorScheme), radius: metrics.headerShadowRadius, x: 0, y: 1)
     }
 
     private func sectionHeader(metrics: LibraryReferenceMetrics) -> some View {
@@ -485,7 +486,7 @@ private struct LibraryReferenceMetrics {
     }
 
     var titleY: CGFloat {
-        scaled(isLandscape ? 30 : 28)
+        scaled(isLandscape ? 30 : 32)
     }
 
     var filtersX: CGFloat {
@@ -529,8 +530,11 @@ private struct LibraryReferenceMetrics {
         scaled(isLandscape ? 620 : 480)
     }
 
-    var backgroundY: CGFloat {
-        scaled(isLandscape ? -258 : -110)
+    func backgroundY(for colorScheme: ColorScheme) -> CGFloat {
+        guard !isLandscape else { return scaled(-258) }
+
+        let cropAdjustment: CGFloat = colorScheme == .dark ? -8 : -4
+        return scaled(-116 + cropAdjustment)
     }
 
     var contentHeight: CGFloat {
@@ -538,11 +542,11 @@ private struct LibraryReferenceMetrics {
     }
 
     var brandSize: CGFloat {
-        scaled(13)
+        scaled(isLandscape ? 13 : 14)
     }
 
     var titleSize: CGFloat {
-        scaled(42)
+        scaled(isLandscape ? 42 : 43)
     }
 
     var sectionTitleSize: CGFloat {
@@ -566,7 +570,16 @@ private struct LibraryReferenceMetrics {
     }
 
     var headerSpacing: CGFloat {
-        scaled(10)
+        scaled(isLandscape ? 10 : 9)
+    }
+
+    func headerShadowColor(for colorScheme: ColorScheme) -> Color {
+        guard !isLandscape else { return .clear }
+        return colorScheme == .dark ? Color.black.opacity(0.36) : Color.white.opacity(0.42)
+    }
+
+    var headerShadowRadius: CGFloat {
+        isLandscape ? 0 : scaled(3)
     }
 
     var gridGap: CGFloat {

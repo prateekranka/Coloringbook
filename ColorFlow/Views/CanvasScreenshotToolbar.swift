@@ -309,30 +309,15 @@ struct CanvasColorHistoryRail: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
+        VStack(spacing: 11) {
             diamondMarker
-
-            Spacer()
-                .frame(height: 24)
 
             recentSwatches
 
-            Spacer()
-
             pickerButton
-
-            Spacer()
-                .frame(height: 16)
-
-            verticalLabel
-
-            Spacer()
-                .frame(height: 20)
         }
         .frame(width: 38)
-        .padding(.vertical, 16)
+        .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(railBackground)
@@ -391,13 +376,5 @@ struct CanvasColorHistoryRail: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Open color picker")
-    }
-
-    private var verticalLabel: some View {
-        Text("COLOR HISTORY")
-            .font(.system(size: 7, weight: .bold))
-            .foregroundStyle(Color.white.opacity(0.28))
-            .rotationEffect(.degrees(-90))
-            .fixedSize()
     }
 }

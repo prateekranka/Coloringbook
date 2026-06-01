@@ -81,5 +81,16 @@ echo "Triggered ${WORKFLOW} on ${BRANCH}."
 
 if (( WATCH )); then
   sleep 5
-  gh run watch --workflow "${WORKFLOW}" --exit-status
+  RUN_ID="$(gh run list \
+    --workflow "${WORKFLOW}" \
+    --branch "${BRANCH}" \
+    --event workflow_dispatch \
+    --limit 1 \
+    --json databaseId \
+    --jq '.[0].databaseId')"
+  if [[ -z "${RUN_ID}" || "${RUN_ID}" == "null" ]]; then
+    echo "Could not find the dispatched ${WORKFLOW} run for ${BRANCH}." >&2
+    exit 1
+  fi
+  gh run watch "${RUN_ID}" --exit-status
 fi

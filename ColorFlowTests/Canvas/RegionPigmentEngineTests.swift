@@ -178,10 +178,9 @@ final class RegionPigmentEngineTests: XCTestCase {
         XCTAssertGreaterThan(export.alpha(at: CGPoint(x: region.bounds.minX, y: region.bounds.minY)), 240)
     }
 
-    func test_watercolorMarkerAndPencilStayInsideFirstTouchedRegion() throws {
+    func test_watercolorMarkerAndCrayonStayInsideFirstTouchedRegion() throws {
         try assertCleanStrokeContained(tool: .watercolor)
         try assertCleanStrokeContained(tool: .marker)
-        try assertCleanStrokeContained(tool: .coloredPencil)
         try assertCleanStrokeContained(tool: .crayon)
     }
 
@@ -289,11 +288,6 @@ final class RegionPigmentEngineTests: XCTestCase {
         XCTAssertLessThan(linePixel.r, 20)
         XCTAssertLessThan(linePixel.g, 20)
         XCTAssertLessThan(linePixel.b, 20)
-    }
-
-    func test_sprayToolHasCustomIdentifierAndLabel() {
-        XCTAssertEqual(ToolType.sprayPaint.accessibilityIdentifier, "canvas.tool.spray")
-        XCTAssertEqual(ToolType.sprayPaint.accessibilityLabel, "Spray")
     }
 
     func test_paletteAndToolPickerChangeInstantly() throws {

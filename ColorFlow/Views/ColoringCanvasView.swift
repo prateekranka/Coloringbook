@@ -16,9 +16,12 @@ struct ColoringCanvasView: View {
     @State private var fingerPaints = false
     @State private var showSettingsSheet = false
     @State private var showColorPicker = false
-    @State private var showPalettePicker = false
+    @State private var showColorTray = false
+    @State private var isEyedropperActive = false
     @State private var saveFeedbackID: UUID?
     @State private var undoRedoFeedbackID: UUID?
+    @State private var zoomFeedbackID: UUID?
+    @State private var selectedDockToolID = CanvasToolDockItem.defaultID
     @State private var precisionSlidersEnabled = true
     @State private var eyedropperShortcutEnabled = true
     @State private var colorHistoryEnabled = true
@@ -28,7 +31,6 @@ struct ColoringCanvasView: View {
     @State private var colorBlindMode = false
     @State private var sharePayload: CanvasSharePayload?
     @State private var freehandFlushRequestID = 0
-    @AppStorage("gouache.canvasGestureTipDismissed") private var gestureTipDismissed = false
     #if DEBUG && SHOW_RENDER_METRICS
     @State private var showRenderTuning = false
     #endif
@@ -57,7 +59,8 @@ struct ColoringCanvasView: View {
 
     var body: some View {
         ZStack {
-            SableTheme.canvasBackground(for: colorScheme).ignoresSafeArea()
+            CanvasPaperBackground()
+                .ignoresSafeArea()
 
             switch viewModel.state {
             case .idle, .loading:
@@ -108,12 +111,13 @@ struct ColoringCanvasView: View {
                         .offset(viewModel.viewport.offset)
                         .allowsHitTesting(viewModel.coloringMode == .free && viewModel.selectedTool != .fillBucket)
 
-                    if viewModel.coloringMode == .clean || viewModel.selectedTool == .fillBucket {
+                    if viewModel.coloringMode == .clean || viewModel.selectedTool == .fillBucket || isEyedropperActive {
                         CanvasInteractionOverlay(
                             selectedTool: viewModel.selectedTool,
                             colorHex: viewModel.selectedTool == .eraser ? "#000000" : viewModel.selectedColorHex,
                             toolSettings: viewModel.selectedToolSettings,
                             fingerPaints: fingerPaints,
+                            isEyedropperActive: isEyedropperActive,
                             liveStrokeSeed: viewModel.liveStrokeSeed,
                             fillLayerImage: viewModel.fillLayerImage,
                             lineArtImage: viewModel.lineArtImage,
@@ -146,6 +150,9 @@ struct ColoringCanvasView: View {
                             onFill: { point in
                                 handleFill(atCanvasPoint: point, canvasSize: canvasSize)
                             },
+                            onEyedropper: { point in
+                                handleEyedropper(atCanvasPoint: point, canvasSize: canvasSize)
+                            },
                             onStrokeBegan: { samples in
                                 handleStrokeBegan(samples: samples, canvasSize: canvasSize)
                             },
@@ -166,12 +173,6 @@ struct ColoringCanvasView: View {
                             }
                         )
                         .frame(width: availableSize.width, height: availableSize.height)
-                    }
-
-                    if !gestureTipDismissed && !isUIHidden {
-                        gestureTip
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                            .padding(.top, 74)
                     }
 
                     #if DEBUG
@@ -199,84 +200,68 @@ struct ColoringCanvasView: View {
                 .accessibilityIdentifier(A11y.Canvas.surface)
             }
 
+            if let zoomFeedbackID {
+                CanvasZoomHint(scale: viewModel.viewport.scale)
+                    .id(zoomFeedbackID)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .offset(y: -120)
+                    .allowsHitTesting(false)
+            }
+
             if !isUIHidden {
-                ZStack(alignment: .bottomLeading) {
-                    VStack(spacing: 0) {
-                        CanvasShellHeader(
-                            title: viewModel.title,
-                            canUndo: viewModel.canUndo,
-                            canRedo: viewModel.canRedo,
-                            canSave: viewModel.canSave,
-                            hasArtwork: viewModel.hasArtwork,
-                            saveLabel: viewModel.saveState.label,
-                            onBack: {
-                                flushFreehandThenSave()
-                                dismiss()
-                            },
-                            onUndo: {
-                                guard viewModel.canUndo else { return }
-                                undoRedoFeedbackID = UUID()
-                                Task { await viewModel.undoLastFill() }
-                            },
-                            onRedo: {
-                                guard viewModel.canRedo else { return }
-                                undoRedoFeedbackID = UUID()
-                                Task { await viewModel.redoFill() }
-                            },
-                            onSettings: { showSettingsSheet = true },
-                            onShare: { presentShareSheet() },
-                            onSave: {
-                                guard viewModel.canSave else { return }
-                                Task {
-                                    await viewModel.saveNowAfterPendingPigmentCommits()
-                                    saveFeedbackID = UUID()
-                                }
-                            },
-                            onResetView: resetViewport,
-                            onFocus: {
-                                withAnimation(.easeInOut(duration: 0.22)) {
-                                    isUIHidden = true
-                                }
-                            },
-                            onClear: { showClearArtworkConfirmation = true }
-                        )
-
-                        Spacer()
-
-                        CanvasScreenshotToolbar(
-                            viewModel: viewModel,
-                            showColorPicker: $showColorPicker,
-                            showPalettePicker: $showPalettePicker,
-                            showSettingsSheet: $showSettingsSheet,
-                            onUndo: {
-                                guard viewModel.canUndo else { return }
-                                undoRedoFeedbackID = UUID()
-                                Task { await viewModel.undoLastFill() }
-                            },
-                            onRedo: {
-                                guard viewModel.canRedo else { return }
-                                undoRedoFeedbackID = UUID()
-                                Task { await viewModel.redoFill() }
-                            }
-                        )
-                    }
-                    .padding(.horizontal, 22)
-                    .padding(.top, 14)
-                    .padding(.bottom, 18)
-
-                    CanvasColorHistoryRail(
-                        recentColorHexes: viewModel.recentColorHexes,
-                        selectedColorHex: viewModel.selectedColorHex,
-                        onSelectColor: { hex in
-                            viewModel.selectColor(hex: hex)
-                        },
-                        onOpenColorPicker: {
-                            showColorPicker = true
+                CanvasChromeLayer(
+                    viewModel: viewModel,
+                    selectedDockToolID: $selectedDockToolID,
+                    showColorTray: $showColorTray,
+                    showColorPicker: $showColorPicker,
+                    isDimmed: zoomFeedbackID != nil,
+                    onBack: {
+                        flushFreehandThenSave()
+                        dismiss()
+                    },
+                    onUndo: {
+                        guard viewModel.canUndo else { return }
+                        undoRedoFeedbackID = UUID()
+                        Task { await viewModel.undoLastFill() }
+                    },
+                    onRedo: {
+                        guard viewModel.canRedo else { return }
+                        undoRedoFeedbackID = UUID()
+                        Task { await viewModel.redoFill() }
+                    },
+                    onLayers: {
+                        showSettingsSheet = true
+                    },
+                    onSettings: {
+                        showSettingsSheet = true
+                    },
+                    onShare: {
+                        presentShareSheet()
+                    },
+                    onSave: {
+                        guard viewModel.canSave else { return }
+                        Task {
+                            await viewModel.saveNowAfterPendingPigmentCommits()
+                            saveFeedbackID = UUID()
                         }
-                    )
-                    .padding(.leading, 6)
-                    .padding(.bottom, 120)
-                }
+                    },
+                    onResetView: resetViewport,
+                    onFocus: {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            isUIHidden = true
+                        }
+                    },
+                    onClear: {
+                        showClearArtworkConfirmation = true
+                    },
+                    onEyedropper: {
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            showColorTray = false
+                            isEyedropperActive = true
+                        }
+                    }
+                )
             } else {
                 VStack {
                     HStack {
@@ -291,7 +276,9 @@ struct ColoringCanvasView: View {
                         .foregroundStyle(SableTheme.primaryText(for: colorScheme))
                         .frame(width: 44, height: 44)
                         .background(SableTheme.canvasChrome(for: colorScheme), in: Circle())
-                        .glassEffect(.regular.interactive(), in: Circle())
+                        .overlay {
+                            Circle().stroke(CanvasVisualSystem.hairline(for: colorScheme), lineWidth: 0.8)
+                        }
                         .accessibilityIdentifier("canvas.showControls")
                     }
                     Spacer()
@@ -320,6 +307,15 @@ struct ColoringCanvasView: View {
         .sensoryFeedback(.selection, trigger: undoRedoFeedbackID)
         .task(id: renderTuning.canvasStrokeWidth) {
             await viewModel.updateCanvasStrokeWidth(renderTuning.canvasStrokeWidth)
+        }
+        .onChange(of: viewModel.viewport.scale) { oldValue, newValue in
+            guard abs(newValue - oldValue) > 0.015 else { return }
+            showZoomFeedback()
+        }
+        .onChange(of: viewModel.selectedTool) { _, tool in
+            if CanvasToolDockItem.item(id: selectedDockToolID)?.tool != tool {
+                selectedDockToolID = CanvasToolDockItem.primaryID(for: tool)
+            }
         }
     }
 
@@ -351,27 +347,6 @@ struct ColoringCanvasView: View {
         .accessibilityIdentifier("canvas.render.tuning.button")
     }
     #endif
-
-    private var gestureTip: some View {
-        Button {
-            withAnimation(.easeOut(duration: 0.18)) {
-                gestureTipDismissed = true
-            }
-        } label: {
-            Text("Two-finger tap to undo • Pinch to zoom • Tap color to change")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(SableTheme.primaryText(for: colorScheme))
-                .padding(.horizontal, 14)
-                .frame(height: 36)
-                .background(SableTheme.canvasChrome(for: colorScheme), in: Capsule())
-                .glassEffect(.regular.interactive(), in: Capsule())
-                .overlay {
-                    Capsule().stroke(SableTheme.divider(for: colorScheme), lineWidth: 1)
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("canvas.gestureTip")
-    }
 
     private func canvasArtwork(canvasSize: CGSize) -> some View {
         ZStack {
@@ -430,12 +405,12 @@ struct ColoringCanvasView: View {
             }
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
-        .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: SableTheme.Radius.card)
-                .stroke(SableTheme.divider(for: colorScheme), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(CanvasVisualSystem.hairline(for: colorScheme), lineWidth: 0.8)
         }
-        .shadow(color: SableTheme.shadow(for: colorScheme), radius: 18, x: 0, y: 10)
+        .shadow(color: CanvasVisualSystem.shadow(for: colorScheme).opacity(colorScheme == .dark ? 0.9 : 0.62), radius: 24, x: 0, y: 12)
     }
 
     private var fillFeedback: some View {
@@ -498,11 +473,13 @@ struct ColoringCanvasView: View {
     }
 
     private func fittedCanvasSize(in availableSize: CGSize) -> CGSize {
-        let inset: CGFloat = 58
+        let isLandscape = availableSize.width > availableSize.height
+        let horizontalInset: CGFloat = isLandscape ? 118 : 78
+        let verticalReserve: CGFloat = isLandscape ? 232 : 312
         let documentSize = viewModel.canvasDocumentSize
         let maxSize = CGSize(
-            width: max(1, availableSize.width - inset * 2),
-            height: max(1, availableSize.height - inset * 2)
+            width: max(1, availableSize.width - horizontalInset * 2),
+            height: max(1, availableSize.height - verticalReserve)
         )
         let scale = min(
             maxSize.width / max(documentSize.width, 1),
@@ -529,6 +506,16 @@ struct ColoringCanvasView: View {
         }
     }
 
+    private func handleEyedropper(atCanvasPoint point: CGPoint, canvasSize: CGSize) {
+        let didSample = viewModel.sampleColor(atCanvasPoint: point, canvasSize: canvasSize)
+        withAnimation(.easeOut(duration: 0.14)) {
+            isEyedropperActive = false
+        }
+        if didSample {
+            HapticService.shared.impact(.light)
+        }
+    }
+
     private func handleStrokeBegan(samples: [StrokeSample], canvasSize: CGSize) -> Bool {
         guard viewModel.selectedTool != .fillBucket else { return false }
         return viewModel.beginLiveStroke(samples: samples, canvasSize: canvasSize)
@@ -549,6 +536,24 @@ struct ColoringCanvasView: View {
         viewport.reset()
         viewModel.updateViewport(viewport)
         viewModel.commitViewportChange()
+    }
+
+    private func showZoomFeedback() {
+        let token = UUID()
+        withAnimation(.easeOut(duration: 0.16)) {
+            zoomFeedbackID = token
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 1_100_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                if zoomFeedbackID == token {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        zoomFeedbackID = nil
+                    }
+                }
+            }
+        }
     }
 
     private func flushFreehandThenSave() {
@@ -917,9 +922,9 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
         let width = max(1, settings.size)
         let inkType: PKInkingTool.InkType
         switch selectedTool {
-        case .marker, .watercolor, .sprayPaint:
+        case .marker, .watercolor:
             inkType = .marker
-        case .crayon, .coloredPencil:
+        case .crayon:
             inkType = .pencil
         case .eraser, .fillBucket:
             inkType = .pen
@@ -1115,6 +1120,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
     var colorHex: String
     var toolSettings: ToolSettings
     var fingerPaints: Bool
+    var isEyedropperActive: Bool
     var liveStrokeSeed: UInt64?
     var fillLayerImage: UIImage?
     var lineArtImage: UIImage?
@@ -1129,6 +1135,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
     var onToggleFocus: () -> Void
     var onFit: () -> Void
     var onFill: (CGPoint) -> Void
+    var onEyedropper: (CGPoint) -> Void
     var onStrokeBegan: ([StrokeSample]) -> Bool
     var onStrokeChanged: ([StrokeSample]) -> Bool
     var onStrokeEnded: ([StrokeSample]) -> Bool
@@ -1254,8 +1261,13 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
                 input: .direct,
                 viewportPoint: viewportPoint,
                 canvasPoint: canvasPoint,
-                detail: parent.selectedTool == .fillBucket ? "fill tap" : "tap ignored for tool=\(parent.selectedTool.rawValue)"
+                detail: parent.isEyedropperActive ? "eyedropper tap" : (parent.selectedTool == .fillBucket ? "fill tap" : "tap ignored for tool=\(parent.selectedTool.rawValue)")
             )
+            if parent.isEyedropperActive,
+               let canvasPoint {
+                parent.onEyedropper(canvasPoint)
+                return
+            }
             guard parent.selectedTool == .fillBucket,
                   let canvasPoint else {
                 return
@@ -1889,8 +1901,6 @@ private struct LiveStrokePreviewConfiguration {
 
     var minimumSampleDistance: CGFloat {
         switch tool {
-        case .coloredPencil:
-            return max(1.2, viewportStrokeSize * 0.06)
         case .crayon:
             return max(1.8, viewportStrokeSize * 0.08)
         case .watercolor:
@@ -1899,7 +1909,7 @@ private struct LiveStrokePreviewConfiguration {
             return max(2.0, viewportStrokeSize * 0.075)
         case .eraser:
             return max(2.3, viewportStrokeSize * 0.08)
-        case .sprayPaint, .fillBucket:
+        case .fillBucket:
             return max(1.8, viewportStrokeSize * 0.07)
         }
     }
@@ -2538,76 +2548,309 @@ struct ToolIconView: View {
     let tool: ToolType
     let color: Color
     let size: CGFloat
+    var pigment: Color? = nil
 
     var body: some View {
-        Group {
-            if tool == .sprayPaint {
-                SprayToolIcon(color: color)
-                    .frame(width: size, height: size)
-            } else {
-                Image(systemName: tool.systemImageName)
-                    .font(.system(size: size * 0.9, weight: .black))
-                    .foregroundStyle(color)
-            }
+        if tool == .crayon {
+            CrayonToolVectorIcon(
+                pigment: pigment ?? color,
+                linework: color,
+                isSelected: true
+            )
+            .frame(width: size * 1.28, height: size * 1.48)
+            .accessibilityHidden(true)
+        } else {
+            Image(systemName: tool.systemImageName)
+                .font(.system(size: size * 0.9, weight: .black))
+                .foregroundStyle(color)
+                .accessibilityHidden(true)
         }
-        .accessibilityHidden(true)
     }
 }
 
-struct SprayToolIcon: View {
-    let color: Color
+private enum CanvasVisualSystem {
+    static func background(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#101211") : Color(hex: "#F3EBDD")
+    }
+
+    static func paper(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#171815") : Color(hex: "#FFF8EA")
+    }
+
+    static func paperSecondary(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#20211D") : Color(hex: "#F7EEDF")
+    }
+
+    static func ink(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#EEE1CF") : Color(hex: "#292620")
+    }
+
+    static func mutedInk(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(hex: "#B8AC9B") : Color(hex: "#746B60")
+    }
+
+    static func hairline(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.105)
+    }
+
+    static func shadow(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.black.opacity(0.52) : Color.black.opacity(0.15)
+    }
+
+    static let pigmentCoral = Color(hex: "#C95F62")
+    static let pigmentClay = Color(hex: "#B5825B")
+    static let pigmentOchre = Color(hex: "#E3AC58")
+    static let pigmentMoss = Color(hex: "#8D9270")
+    static let pigmentLeaf = Color(hex: "#59624C")
+    static let pigmentMauve = Color(hex: "#A67387")
+    static let pigmentSlate = Color(hex: "#82A0A6")
+}
+
+private struct CanvasPaperBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Canvas { context, size in
+            context.fill(
+                Path(CGRect(origin: .zero, size: size)),
+                with: .color(CanvasVisualSystem.background(for: colorScheme))
+            )
+
+            let fiberColor = colorScheme == .dark ? Color(hex: "#E5D8C4") : Color(hex: "#7D6957")
+            for index in 0..<130 {
+                let x = CGFloat(hash(index, salt: 11)) * size.width
+                let y = CGFloat(hash(index, salt: 29)) * size.height
+                let length = CGFloat(10 + hash(index, salt: 47) * 46)
+                let angle = CGFloat(hash(index, salt: 71) * .pi)
+                var path = Path()
+                path.move(to: CGPoint(x: x, y: y))
+                path.addLine(to: CGPoint(x: x + cos(angle) * length, y: y + sin(angle) * length * 0.24))
+                context.stroke(
+                    path,
+                    with: .color(fiberColor.opacity(colorScheme == .dark ? 0.035 : 0.048)),
+                    lineWidth: 0.45
+                )
+            }
+
+            for index in 0..<76 {
+                let x = CGFloat(hash(index, salt: 101)) * size.width
+                let y = CGFloat(hash(index, salt: 137)) * size.height
+                let side = CGFloat(0.7 + hash(index, salt: 173) * 1.4)
+                let rect = CGRect(x: x, y: y, width: side, height: side)
+                context.fill(
+                    Path(ellipseIn: rect),
+                    with: .color(fiberColor.opacity(colorScheme == .dark ? 0.032 : 0.055))
+                )
+            }
+        }
+    }
+
+    private func hash(_ value: Int, salt: Int) -> Double {
+        let raw = sin(Double(value * 37 + salt * 19)) * 43758.5453
+        return raw - floor(raw)
+    }
+}
+
+private struct CanvasChromeLayer: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let viewModel: ColoringSessionViewModel
+    @Binding var selectedDockToolID: String
+    @Binding var showColorTray: Bool
+    @Binding var showColorPicker: Bool
+    let isDimmed: Bool
+    let onBack: () -> Void
+    let onUndo: () -> Void
+    let onRedo: () -> Void
+    let onLayers: () -> Void
+    let onSettings: () -> Void
+    let onShare: () -> Void
+    let onSave: () -> Void
+    let onResetView: () -> Void
+    let onFocus: () -> Void
+    let onClear: () -> Void
+    let onEyedropper: () -> Void
 
     var body: some View {
         GeometryReader { proxy in
-            let side = min(proxy.size.width, proxy.size.height)
-            let lineWidth = max(1.6, side * 0.08)
+            let metrics = CanvasChromeMetrics(size: proxy.size)
 
             ZStack {
-                RoundedRectangle(cornerRadius: side * 0.12)
-                    .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineJoin: .round))
-                    .frame(width: side * 0.36, height: side * 0.52)
-                    .rotationEffect(.degrees(-16))
-                    .offset(x: -side * 0.12, y: side * 0.08)
+                VStack(spacing: 0) {
+                    CanvasTopBar(
+                        title: viewModel.title,
+                        progress: viewModel.progress,
+                        canUndo: viewModel.canUndo,
+                        canRedo: viewModel.canRedo,
+                        canSave: viewModel.canSave,
+                        hasArtwork: viewModel.hasArtwork,
+                        saveLabel: viewModel.saveState.label,
+                        onBack: onBack,
+                        onUndo: onUndo,
+                        onRedo: onRedo,
+                        onLayers: onLayers,
+                        onSettings: onSettings,
+                        onShare: onShare,
+                        onSave: onSave,
+                        onResetView: onResetView,
+                        onFocus: onFocus,
+                        onClear: onClear
+                    )
+                    .frame(maxWidth: metrics.topBarWidth)
+                    .padding(.top, metrics.topPadding)
+                    .padding(.horizontal, metrics.horizontalPadding)
 
-                Path { path in
-                    path.move(to: CGPoint(x: side * 0.46, y: side * 0.31))
-                    path.addLine(to: CGPoint(x: side * 0.63, y: side * 0.25))
-                    path.addLine(to: CGPoint(x: side * 0.66, y: side * 0.33))
-                }
-                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+                    Spacer(minLength: 0)
 
-                ForEach(0..<5, id: \.self) { index in
-                    Circle()
-                        .fill(color)
-                        .frame(width: dotSize(side, index: index), height: dotSize(side, index: index))
-                        .position(dotPosition(side, index: index))
+                    VStack(spacing: 8) {
+                        CleanFreeControl(
+                            selection: Binding(
+                                get: { viewModel.coloringMode },
+                                set: { viewModel.selectColoringMode($0) }
+                            )
+                        )
+                        .frame(maxWidth: metrics.dockWidth, alignment: .leading)
+                        .padding(.leading, 10)
+
+                        CanvasToolDock(
+                            selectedDockToolID: $selectedDockToolID,
+                            selectedColorHex: viewModel.selectedColorHex,
+                            isColorTrayOpen: showColorTray,
+                            onToolSelected: { item in
+                                selectedDockToolID = item.id
+                                viewModel.selectTool(item.tool)
+                            },
+                            onPigmentTapped: {
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                                    showColorTray.toggle()
+                                }
+                            }
+                        )
+                        .frame(width: metrics.dockWidth, height: metrics.dockHeight)
+                    }
+                    .padding(.horizontal, metrics.horizontalPadding)
+                    .padding(.bottom, metrics.bottomPadding)
                 }
+
+                CanvasAdjustmentSlider(
+                    size: Binding(
+                        get: { viewModel.selectedToolSettings.size },
+                        set: { viewModel.updateSelectedToolSize($0) }
+                    ),
+                    opacity: Binding(
+                        get: { CGFloat(viewModel.selectedToolSettings.opacity) },
+                        set: { viewModel.updateSelectedToolOpacity(Double($0)) }
+                    ),
+                    supportsSize: viewModel.selectedTool.supportsSizeControl,
+                    supportsOpacity: viewModel.selectedTool.supportsOpacityControl
+                )
+                .frame(width: 62, height: 248)
+                .position(x: proxy.size.width - metrics.sliderTrailing, y: proxy.size.height * metrics.sliderYFactor)
+
+                if showColorTray {
+                    ColorTray(
+                        paletteTitle: "Botanical Set",
+                        selectedColorHex: viewModel.selectedColorHex,
+                        recentColorHexes: viewModel.recentColorHexes,
+                        suggestedSwatches: viewModel.selectedSwatches,
+                        onSelectColor: { hex in
+                            viewModel.selectColor(hex: hex)
+                        },
+                        onEyedropper: onEyedropper,
+                        onMoreColors: {
+                            showColorPicker = true
+                        },
+                        onClose: {
+                            withAnimation(.easeOut(duration: 0.18)) {
+                                showColorTray = false
+                            }
+                        }
+                    )
+                    .frame(width: metrics.trayWidth, height: metrics.trayHeight)
+                    .position(
+                        x: proxy.size.width - metrics.trayTrailing - metrics.trayWidth / 2,
+                        y: proxy.size.height - metrics.bottomPadding - metrics.dockHeight - metrics.trayHeight / 2 - metrics.trayVerticalGap
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
+                }
+
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .position(
+                        x: proxy.size.width - metrics.trayTrailing,
+                        y: proxy.size.height - metrics.bottomPadding - metrics.dockHeight - 12
+                    )
+                    .popover(isPresented: $showColorPicker, arrowEdge: .bottom) {
+                        BottomColorWheelView(viewModel: viewModel)
+                            .presentationCompactAdaptation(.popover)
+                    }
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
+            .opacity(isDimmed ? 0.58 : 1)
+            .animation(.easeOut(duration: 0.18), value: isDimmed)
         }
-        .aspectRatio(1, contentMode: .fit)
-    }
-
-    private func dotSize(_ side: CGFloat, index: Int) -> CGFloat {
-        let scales: [CGFloat] = [0.10, 0.075, 0.085, 0.06, 0.07]
-        return side * scales[index]
-    }
-
-    private func dotPosition(_ side: CGFloat, index: Int) -> CGPoint {
-        let points: [CGPoint] = [
-            CGPoint(x: side * 0.78, y: side * 0.18),
-            CGPoint(x: side * 0.90, y: side * 0.30),
-            CGPoint(x: side * 0.76, y: side * 0.43),
-            CGPoint(x: side * 0.95, y: side * 0.48),
-            CGPoint(x: side * 0.66, y: side * 0.20)
-        ]
-        return points[index]
+        .ignoresSafeArea(edges: .bottom)
     }
 }
 
-private struct CanvasShellHeader: View {
+private struct CanvasChromeMetrics {
+    let size: CGSize
+
+    var isLandscape: Bool {
+        size.width > size.height
+    }
+
+    var horizontalPadding: CGFloat {
+        isLandscape ? 32 : 28
+    }
+
+    var topPadding: CGFloat {
+        isLandscape ? 12 : 18
+    }
+
+    var bottomPadding: CGFloat {
+        isLandscape ? 18 : 24
+    }
+
+    var topBarWidth: CGFloat {
+        min(size.width - horizontalPadding * 2, isLandscape ? 820 : 760)
+    }
+
+    var dockWidth: CGFloat {
+        min(size.width - horizontalPadding * 2, isLandscape ? 580 : 610)
+    }
+
+    var dockHeight: CGFloat {
+        isLandscape ? 82 : 92
+    }
+
+    var sliderTrailing: CGFloat {
+        isLandscape ? 60 : 50
+    }
+
+    var sliderYFactor: CGFloat {
+        isLandscape ? 0.48 : 0.50
+    }
+
+    var trayWidth: CGFloat {
+        min(size.width - horizontalPadding * 2, isLandscape ? 460 : 500)
+    }
+
+    var trayHeight: CGFloat {
+        isLandscape ? 248 : 286
+    }
+
+    var trayTrailing: CGFloat {
+        max(horizontalPadding, (size.width - dockWidth) / 2)
+    }
+
+    var trayVerticalGap: CGFloat {
+        isLandscape ? 20 : 52
+    }
+}
+
+private struct CanvasTopBar: View {
     @Environment(\.colorScheme) private var colorScheme
     let title: String
+    let progress: Double
     let canUndo: Bool
     let canRedo: Bool
     let canSave: Bool
@@ -2616,6 +2859,7 @@ private struct CanvasShellHeader: View {
     let onBack: () -> Void
     let onUndo: () -> Void
     let onRedo: () -> Void
+    let onLayers: () -> Void
     let onSettings: () -> Void
     let onShare: () -> Void
     let onSave: () -> Void
@@ -2624,129 +2868,1069 @@ private struct CanvasShellHeader: View {
     let onClear: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Button("Back", systemImage: "chevron.left", action: onBack)
-                .labelStyle(.iconOnly)
+        HStack(spacing: 10) {
+            CanvasIconButton(systemName: "chevron.left", label: "Back", action: onBack)
                 .accessibilityIdentifier("canvas.back")
 
-            Text(title)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(SableTheme.secondaryText(for: colorScheme))
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-                .frame(maxWidth: .infinity)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
 
-            Menu {
-                Button("Save", systemImage: "square.and.arrow.down", action: onSave)
-                    .disabled(!canSave)
-                Button("Share", systemImage: "square.and.arrow.up", action: onShare)
-                Button("Fit Artwork", systemImage: "arrow.up.left.and.down.right.magnifyingglass", action: onResetView)
-                Button("Focus Mode", systemImage: "eye.slash", action: onFocus)
-                Button("Undo", systemImage: "arrow.uturn.backward", action: onUndo)
-                    .disabled(!canUndo)
-                Button("Redo", systemImage: "arrow.uturn.forward", action: onRedo)
-                    .disabled(!canRedo)
-                Button("Palette & Tools", systemImage: "paintpalette", action: onSettings)
-                Button("Clear Artwork", systemImage: "trash", role: .destructive, action: onClear)
-                    .disabled(!hasArtwork)
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 18, weight: .bold))
-                    .frame(width: 44, height: 44)
+                HStack(spacing: 7) {
+                    Text("\(Int((progress * 100).rounded()))% colored")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
+                        .monospacedDigit()
+
+                    ProgressLine(progress: progress)
+                        .frame(width: 48, height: 3)
+                }
             }
-            .accessibilityLabel("Canvas options")
-            .accessibilityIdentifier("canvas.more")
+            .frame(width: 168, alignment: .leading)
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "ellipsis")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme).opacity(0.78))
+                .frame(width: 54, height: 34)
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 7) {
+                CanvasIconButton(systemName: "arrow.uturn.backward", label: "Undo", isEnabled: canUndo, action: onUndo)
+                    .accessibilityIdentifier(A11y.Canvas.undo)
+                CanvasIconButton(systemName: "arrow.uturn.forward", label: "Redo", isEnabled: canRedo, action: onRedo)
+                    .accessibilityIdentifier(A11y.Canvas.redo)
+                CanvasIconButton(systemName: "square.stack.3d.up", label: "Layers", action: onLayers)
+                    .accessibilityIdentifier("canvas.layers")
+
+                Menu {
+                    Button("Save", systemImage: "square.and.arrow.down", action: onSave)
+                        .disabled(!canSave)
+                    Button("Share", systemImage: "square.and.arrow.up", action: onShare)
+                    Button("Fit Artwork", systemImage: "arrow.up.left.and.down.right.magnifyingglass", action: onResetView)
+                    Button("Focus Mode", systemImage: "eye.slash", action: onFocus)
+                    Button("Palette & Tools", systemImage: "paintpalette", action: onSettings)
+                    Button("Clear Artwork", systemImage: "trash", role: .destructive, action: onClear)
+                        .disabled(!hasArtwork)
+                    Text(saveLabel)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
+                        .frame(width: 34, height: 34)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Canvas options")
+                .accessibilityIdentifier("canvas.more")
+            }
         }
-        .font(.system(size: 17, weight: .bold))
-        .foregroundStyle(SableTheme.primaryText(for: colorScheme))
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 10)
         .frame(height: 52)
-        .background(SableTheme.canvasChrome(for: colorScheme), in: Capsule())
+        .background(
+            Capsule(style: .continuous)
+                .fill(CanvasVisualSystem.paper(for: colorScheme).opacity(colorScheme == .dark ? 0.94 : 0.88))
+        )
         .overlay {
-            Capsule().stroke(SableTheme.divider(for: colorScheme), lineWidth: 1)
+            Capsule(style: .continuous)
+                .stroke(CanvasVisualSystem.hairline(for: colorScheme), lineWidth: 0.8)
         }
-        .shadow(color: SableTheme.shadow(for: colorScheme), radius: 12, y: 5)
+        .shadow(color: CanvasVisualSystem.shadow(for: colorScheme), radius: 14, x: 0, y: 6)
     }
 }
 
-private struct MinimalCanvasDock: View {
+private struct CanvasIconButton: View {
     @Environment(\.colorScheme) private var colorScheme
-    let viewModel: ColoringSessionViewModel
-    @Binding var showColorPicker: Bool
-    @Binding var showPalettePicker: Bool
-    @Binding var showSettingsSheet: Bool
+    let systemName: String
+    let label: String
+    var isEnabled = true
+    let action: () -> Void
 
     var body: some View {
-        HStack(spacing: 14) {
-            Button {
-                showColorPicker.toggle()
-            } label: {
-                HStack(spacing: 10) {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(isEnabled ? CanvasVisualSystem.ink(for: colorScheme) : CanvasVisualSystem.mutedInk(for: colorScheme).opacity(0.34))
+                .frame(width: 34, height: 34)
+                .background(
                     Circle()
-                        .fill(Color(hex: viewModel.selectedColorHex))
-                        .frame(width: 30, height: 30)
-                        .overlay(Circle().stroke(SableTheme.divider(for: colorScheme), lineWidth: 1))
-
-                    recentColors
+                        .fill(CanvasVisualSystem.paperSecondary(for: colorScheme).opacity(colorScheme == .dark ? 0.62 : 0.52))
+                )
+                .overlay {
+                    Circle()
+                        .stroke(CanvasVisualSystem.hairline(for: colorScheme).opacity(0.75), lineWidth: 0.7)
                 }
-            }
-            .buttonStyle(.plain)
-            .popover(isPresented: $showColorPicker, arrowEdge: .bottom) {
-                BottomColorWheelView(viewModel: viewModel)
-                    .presentationCompactAdaptation(.popover)
-            }
-            .accessibilityLabel("Change color")
-            .accessibilityIdentifier("canvas.color.compact")
-
-            Button("Palette", systemImage: "paintpalette.fill") {
-                showPalettePicker.toggle()
-            }
-            .labelStyle(.iconOnly)
-            .font(.system(size: 17, weight: .bold))
-            .popover(isPresented: $showPalettePicker, arrowEdge: .bottom) {
-                PalettePickerPopover(viewModel: viewModel)
-                    .presentationCompactAdaptation(.popover)
-            }
-            .accessibilityIdentifier("canvas.palette.popover")
-
-            Picker("Coloring mode", selection: Binding(
-                get: { viewModel.coloringMode },
-                set: { viewModel.selectColoringMode($0) }
-            )) {
-                Text("Clean").tag(CanvasColoringMode.clean)
-                Text("Free").tag(CanvasColoringMode.free)
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 138)
-            .accessibilityIdentifier("canvas.cleanFreeToggle")
-
-            Button("Tools", systemImage: "slider.horizontal.3") {
-                showSettingsSheet = true
-            }
-            .labelStyle(.iconOnly)
-            .font(.system(size: 17, weight: .bold))
-            .accessibilityIdentifier("canvas.tools")
+                .contentShape(Circle())
         }
-        .tint(SableTheme.progressPink)
-        .foregroundStyle(SableTheme.primaryText(for: colorScheme))
-        .padding(.horizontal, 14)
-        .frame(height: 58)
-        .background(SableTheme.canvasChrome(for: colorScheme), in: Capsule())
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel(label)
+    }
+}
+
+private struct ProgressLine: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let progress: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            Capsule()
+                .fill(CanvasVisualSystem.hairline(for: colorScheme).opacity(0.72))
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(CanvasVisualSystem.pigmentCoral.opacity(colorScheme == .dark ? 0.84 : 0.68))
+                        .frame(width: max(3, proxy.size.width * min(max(progress, 0), 1)))
+                }
+        }
+    }
+}
+
+private struct CleanFreeControl: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Binding var selection: CanvasColoringMode
+
+    var body: some View {
+        HStack(spacing: 2) {
+            segment(.clean)
+            segment(.free)
+        }
+        .padding(3)
+        .frame(width: 110, height: 28)
+        .background(
+            Capsule(style: .continuous)
+                .fill(CanvasVisualSystem.paper(for: colorScheme).opacity(colorScheme == .dark ? 0.90 : 0.86))
+        )
         .overlay {
-            Capsule().stroke(SableTheme.divider(for: colorScheme), lineWidth: 1)
+            Capsule(style: .continuous)
+                .stroke(CanvasVisualSystem.hairline(for: colorScheme), lineWidth: 0.7)
         }
-        .shadow(color: SableTheme.shadow(for: colorScheme), radius: 14, y: 7)
+        .shadow(color: CanvasVisualSystem.shadow(for: colorScheme).opacity(0.55), radius: 9, x: 0, y: 4)
+        .accessibilityIdentifier("canvas.cleanFreeToggle")
     }
 
-    private var recentColors: some View {
-        HStack(spacing: -3) {
-            ForEach(Array(viewModel.recentColorHexes.prefix(5)), id: \.self) { hex in
-                Circle()
-                    .fill(Color(hex: hex))
-                    .frame(width: 22, height: 22)
-                    .overlay(Circle().stroke(SableTheme.canvasChrome(for: colorScheme), lineWidth: 1))
+    private func segment(_ mode: CanvasColoringMode) -> some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.16)) {
+                selection = mode
+            }
+        } label: {
+            Text(mode.rawValue)
+                .font(.system(size: 10, weight: selection == mode ? .semibold : .medium))
+                .foregroundStyle(selection == mode ? CanvasVisualSystem.ink(for: colorScheme) : CanvasVisualSystem.mutedInk(for: colorScheme))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(selection == mode ? CanvasVisualSystem.paperSecondary(for: colorScheme).opacity(colorScheme == .dark ? 0.88 : 0.96) : .clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(mode.rawValue)
+    }
+}
+
+private struct CanvasToolDock: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Binding var selectedDockToolID: String
+    let selectedColorHex: String
+    let isColorTrayOpen: Bool
+    let onToolSelected: (CanvasToolDockItem) -> Void
+    let onPigmentTapped: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(CanvasToolDockItem.items) { item in
+                CanvasToolButton(
+                    item: item,
+                    isSelected: selectedDockToolID == item.id,
+                    selectedColorHex: selectedColorHex,
+                    action: { onToolSelected(item) }
+                )
+            }
+
+            Rectangle()
+                .fill(CanvasVisualSystem.hairline(for: colorScheme).opacity(0.64))
+                .frame(width: 1, height: 56)
+                .padding(.leading, 2)
+
+            PigmentWellButton(
+                selectedColorHex: selectedColorHex,
+                isOpen: isColorTrayOpen,
+                action: onPigmentTapped
+            )
+            .padding(.leading, 2)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(CanvasVisualSystem.paper(for: colorScheme).opacity(colorScheme == .dark ? 0.94 : 0.91))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(CanvasVisualSystem.hairline(for: colorScheme), lineWidth: 0.85)
+        }
+        .shadow(color: CanvasVisualSystem.shadow(for: colorScheme), radius: 20, x: 0, y: 9)
+    }
+}
+
+private struct CanvasToolDockItem: Identifiable, Equatable {
+    enum Glyph {
+        case crayon
+        case watercolor
+        case marker
+        case eraser
+        case fill
+    }
+
+    let id: String
+    let title: String
+    let tool: ToolType
+    let glyph: Glyph
+
+    static let defaultID = "watercolor"
+
+    static let items: [CanvasToolDockItem] = [
+        CanvasToolDockItem(id: "crayon", title: "Crayon", tool: .crayon, glyph: .crayon),
+        CanvasToolDockItem(id: "watercolor", title: "Watercolor", tool: .watercolor, glyph: .watercolor),
+        CanvasToolDockItem(id: "marker", title: "Marker", tool: .marker, glyph: .marker),
+        CanvasToolDockItem(id: "eraser", title: "Eraser", tool: .eraser, glyph: .eraser),
+        CanvasToolDockItem(id: "fill", title: "Fill", tool: .fillBucket, glyph: .fill)
+    ]
+
+    static func item(id: String) -> CanvasToolDockItem? {
+        items.first { $0.id == id }
+    }
+
+    static func primaryID(for tool: ToolType) -> String {
+        switch tool {
+        case .crayon:
+            return "crayon"
+        case .watercolor:
+            return "watercolor"
+        case .marker:
+            return "marker"
+        case .eraser:
+            return "eraser"
+        case .fillBucket:
+            return "fill"
+        }
+    }
+}
+
+private struct CanvasToolButton: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let item: CanvasToolDockItem
+    let isSelected: Bool
+    let selectedColorHex: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(isSelected ? CanvasVisualSystem.paperSecondary(for: colorScheme).opacity(colorScheme == .dark ? 0.92 : 0.98) : .clear)
+                        .frame(width: 48, height: 48)
+                        .shadow(color: isSelected ? CanvasVisualSystem.shadow(for: colorScheme).opacity(0.32) : .clear, radius: 7, x: 0, y: 3)
+
+                    CanvasToolGlyph(
+                        glyph: item.glyph,
+                        pigment: Color(hex: selectedColorHex),
+                        isSelected: isSelected
+                    )
+                    .frame(width: 34, height: 42)
+                }
+
+                Text(item.title)
+                    .font(.system(size: 9, weight: isSelected ? .semibold : .medium))
+                    .foregroundStyle(isSelected ? CanvasVisualSystem.ink(for: colorScheme) : CanvasVisualSystem.mutedInk(for: colorScheme))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.68)
+                    .frame(width: 58)
+            }
+            .frame(width: 62, height: 72)
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(item.title)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityIdentifier(item.tool.accessibilityIdentifier)
+    }
+}
+
+private struct CrayonToolVectorIcon: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let pigment: Color
+    let linework: Color?
+    let isSelected: Bool
+
+    var body: some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width
+            let h = proxy.size.height
+            let ink = linework ?? (colorScheme == .dark ? Color(hex: "#E9DCC9") : Color(hex: "#28241E"))
+            let wrapper = colorScheme == .dark ? Color(hex: "#D9C7AD") : Color(hex: "#EFE0C3")
+            let wrapperShade = colorScheme == .dark ? Color(hex: "#8D7B66") : Color(hex: "#B8A384")
+            let wax = pigment.opacity(colorScheme == .dark ? 0.82 : 0.88)
+            let darkWax = colorScheme == .dark ? Color(hex: "#373832") : Color(hex: "#343029")
+            let wrapperFold = colorScheme == .dark ? Color(hex: "#6F675C") : Color(hex: "#8D806D")
+            let highlight = Color.white.opacity(colorScheme == .dark ? 0.16 : 0.26)
+            let lowlight = Color.black.opacity(colorScheme == .dark ? 0.30 : 0.16)
+
+            ZStack {
+                if isSelected {
+                    Ellipse()
+                        .fill(lowlight.opacity(0.26))
+                        .frame(width: w * 0.38, height: h * 0.050)
+                        .blur(radius: max(0.5, w * 0.018))
+                        .offset(x: w * 0.015, y: h * 0.435)
+
+                    Group {
+                        RoundedRectangle(cornerRadius: w * 0.025, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        darkWax.opacity(colorScheme == .dark ? 0.82 : 0.92),
+                                        darkWax.opacity(colorScheme == .dark ? 0.54 : 0.68),
+                                        darkWax.opacity(colorScheme == .dark ? 0.84 : 0.94)
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: w * 0.285, height: h * 0.18)
+                            .offset(y: h * 0.350)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: w * 0.025, style: .continuous)
+                                    .stroke(ink.opacity(colorScheme == .dark ? 0.34 : 0.28), lineWidth: max(0.55, w * 0.015))
+                                    .frame(width: w * 0.285, height: h * 0.18)
+                                    .offset(y: h * 0.350)
+                            }
+
+                        RoundedRectangle(cornerRadius: w * 0.020, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        wrapperShade.opacity(colorScheme == .dark ? 0.58 : 0.46),
+                                        wrapper,
+                                        wrapper.opacity(0.98),
+                                        wrapperShade.opacity(colorScheme == .dark ? 0.46 : 0.34)
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: w * 0.390, height: h * 0.49)
+                            .offset(y: h * 0.105)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: w * 0.020, style: .continuous)
+                                    .stroke(ink.opacity(colorScheme == .dark ? 0.42 : 0.32), lineWidth: max(0.56, w * 0.015))
+                                    .frame(width: w * 0.390, height: h * 0.49)
+                                    .offset(y: h * 0.105)
+                            }
+
+                        CrayonPaperLines(lineColor: ink.opacity(colorScheme == .dark ? 0.22 : 0.17))
+                            .frame(width: w * 0.31, height: h * 0.36)
+                            .offset(y: h * 0.10)
+
+                        RoundedRectangle(cornerRadius: w * 0.012, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        wax.opacity(0.58),
+                                        wax,
+                                        wax.opacity(0.50)
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: w * 0.410, height: h * 0.045)
+                            .offset(y: -h * 0.035)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: w * 0.012, style: .continuous)
+                                    .stroke(ink.opacity(0.22), lineWidth: max(0.40, w * 0.011))
+                                    .frame(width: w * 0.410, height: h * 0.045)
+                                    .offset(y: -h * 0.035)
+                            }
+
+                        RoundedRectangle(cornerRadius: w * 0.018, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        wrapperFold.opacity(0.74),
+                                        wrapperFold.opacity(0.34),
+                                        wrapperFold.opacity(0.66)
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: w * 0.325, height: h * 0.085)
+                            .offset(y: -h * 0.165)
+
+                        CrayonTipShape()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        wax.opacity(0.54),
+                                        wax,
+                                        wax.opacity(0.44)
+                                    ],
+                                    startPoint: .topTrailing,
+                                    endPoint: .bottomLeading
+                                )
+                            )
+                            .frame(width: w * 0.365, height: h * 0.215)
+                            .offset(y: -h * 0.335)
+                            .overlay {
+                                CrayonTipShape()
+                                    .stroke(ink.opacity(colorScheme == .dark ? 0.38 : 0.30), lineWidth: max(0.55, w * 0.014))
+                                    .frame(width: w * 0.365, height: h * 0.215)
+                                    .offset(y: -h * 0.335)
+                            }
+
+                        CrayonWaxRidges(lineColor: highlight.opacity(0.62), shadowColor: ink.opacity(0.16))
+                            .frame(width: w * 0.365, height: h * 0.215)
+                            .clipShape(CrayonTipShape())
+                            .offset(y: -h * 0.335)
+
+                        Capsule()
+                            .fill(highlight.opacity(0.50))
+                            .frame(width: w * 0.024, height: h * 0.62)
+                            .offset(x: -w * 0.095, y: h * 0.055)
+                    }
+                    .rotationEffect(.degrees(-0.5), anchor: .center)
+                } else {
+                    CrayonOutlineGlyph(lineColor: ink.opacity(colorScheme == .dark ? 0.58 : 0.48))
+                        .frame(width: w, height: h)
+                }
+            }
+            .frame(width: w, height: h)
+        }
+    }
+}
+
+private struct CrayonOutlineGlyph: View {
+    let lineColor: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width
+            let h = proxy.size.height
+            let stroke = max(0.85, w * 0.030)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: w * 0.025, style: .continuous)
+                    .stroke(lineColor, lineWidth: stroke)
+                    .frame(width: w * 0.285, height: h * 0.18)
+                    .offset(y: h * 0.350)
+
+                RoundedRectangle(cornerRadius: w * 0.020, style: .continuous)
+                    .stroke(lineColor.opacity(0.90), lineWidth: stroke)
+                    .frame(width: w * 0.390, height: h * 0.49)
+                    .offset(y: h * 0.105)
+
+                RoundedRectangle(cornerRadius: w * 0.012, style: .continuous)
+                    .stroke(lineColor.opacity(0.76), lineWidth: stroke * 0.72)
+                    .frame(width: w * 0.410, height: h * 0.045)
+                    .offset(y: -h * 0.035)
+
+                RoundedRectangle(cornerRadius: w * 0.018, style: .continuous)
+                    .stroke(lineColor.opacity(0.78), lineWidth: stroke * 0.82)
+                    .frame(width: w * 0.325, height: h * 0.085)
+                    .offset(y: -h * 0.165)
+
+                CrayonTipShape()
+                    .stroke(lineColor, lineWidth: stroke)
+                    .frame(width: w * 0.365, height: h * 0.215)
+                    .offset(y: -h * 0.335)
+
+                CrayonWaxRidges(lineColor: lineColor.opacity(0.34), shadowColor: lineColor.opacity(0.24))
+                    .frame(width: w * 0.365, height: h * 0.215)
+                    .clipShape(CrayonTipShape())
+                    .offset(y: -h * 0.335)
+            }
+            .rotationEffect(.degrees(-0.5), anchor: .center)
+        }
+    }
+}
+
+private struct CrayonTipShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let point = CGPoint(x: rect.midX, y: rect.minY)
+        let rightBase = CGPoint(x: rect.minX + rect.width * 0.70, y: rect.maxY)
+        let leftBase = CGPoint(x: rect.minX + rect.width * 0.30, y: rect.maxY)
+
+        path.move(to: point)
+        path.addLine(to: rightBase)
+        path.addLine(to: leftBase)
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct CrayonWaxRidges: View {
+    let lineColor: Color
+    let shadowColor: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width
+            let h = proxy.size.height
+
+            ZStack {
+                ForEach(0..<2, id: \.self) { index in
+                    Path { path in
+                        let t = CGFloat(index)
+                        path.move(to: CGPoint(x: w * (0.36 + t * 0.10), y: h * (0.44 + t * 0.16)))
+                        path.addLine(
+                            to: CGPoint(x: w * (0.58 + t * 0.030), y: h * (0.37 + t * 0.15))
+                        )
+                    }
+                    .stroke(index.isMultiple(of: 2) ? lineColor : shadowColor, lineWidth: max(0.35, w * 0.012))
+                }
             }
         }
+    }
+}
+
+private struct CrayonPaperLines: View {
+    let lineColor: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width
+            let h = proxy.size.height
+
+            ZStack {
+                Path { path in
+                    path.move(to: CGPoint(x: w * 0.28, y: h * 0.25))
+                    path.addLine(to: CGPoint(x: w * 0.72, y: h * 0.21))
+                    path.move(to: CGPoint(x: w * 0.26, y: h * 0.70))
+                    path.addLine(to: CGPoint(x: w * 0.74, y: h * 0.66))
+                }
+                .stroke(lineColor, lineWidth: max(0.35, w * 0.012))
+
+                ForEach(0..<2, id: \.self) { index in
+                    Capsule()
+                        .fill(lineColor.opacity(index.isMultiple(of: 2) ? 0.36 : 0.24))
+                        .frame(width: max(0.3, w * 0.011), height: h * 0.44)
+                        .offset(x: w * (-0.10 + CGFloat(index) * 0.20), y: h * 0.04)
+                }
+            }
+        }
+    }
+}
+
+private struct CanvasToolGlyph: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let glyph: CanvasToolDockItem.Glyph
+    let pigment: Color
+    let isSelected: Bool
+
+    var body: some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width
+            let h = proxy.size.height
+            let ink = colorScheme == .dark ? Color(hex: "#D8CAB8") : Color(hex: "#25231E")
+            let metal = colorScheme == .dark ? Color(hex: "#998F80") : Color(hex: "#C8BBA9")
+            let paper = CanvasVisualSystem.paperSecondary(for: colorScheme)
+            let accent = pigment
+
+            ZStack {
+                if isSelected {
+                    switch glyph {
+                    case .crayon:
+                        CrayonToolVectorIcon(
+                            pigment: pigment,
+                            linework: ink,
+                            isSelected: true
+                        )
+                        .frame(width: w, height: h)
+
+                    case .watercolor:
+                        WatercolorBrushToolIcon(
+                            selectedColor: pigment,
+                            isSelected: true
+                        )
+                        .frame(width: w, height: h)
+
+                    case .marker:
+                        RoundedRectangle(cornerRadius: w * 0.10)
+                            .fill(ink)
+                            .frame(width: w * 0.28, height: h * 0.72)
+                            .offset(y: h * 0.10)
+                        Path { path in
+                            path.move(to: CGPoint(x: w * 0.41, y: h * 0.05))
+                            path.addLine(to: CGPoint(x: w * 0.59, y: h * 0.05))
+                            path.addLine(to: CGPoint(x: w * 0.55, y: h * 0.23))
+                            path.addLine(to: CGPoint(x: w * 0.45, y: h * 0.23))
+                            path.closeSubpath()
+                        }
+                        .fill(metal)
+                        Capsule()
+                            .fill(accent.opacity(0.78))
+                            .frame(width: w * 0.25, height: h * 0.08)
+                            .offset(y: h * 0.26)
+
+                    case .eraser:
+                        RoundedRectangle(cornerRadius: w * 0.13, style: .continuous)
+                            .fill(paper.opacity(colorScheme == .dark ? 0.68 : 0.86))
+                            .frame(width: w * 0.38, height: h * 0.58)
+                            .rotationEffect(.degrees(4))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: w * 0.13, style: .continuous)
+                                    .stroke(metal.opacity(0.72), lineWidth: 1)
+                                    .frame(width: w * 0.38, height: h * 0.58)
+                                    .rotationEffect(.degrees(4))
+                            }
+
+                    case .fill:
+                        RoundedRectangle(cornerRadius: w * 0.08)
+                            .fill(ink)
+                            .frame(width: w * 0.36, height: h * 0.52)
+                            .rotationEffect(.degrees(-7))
+                            .offset(y: h * 0.12)
+                        Path { path in
+                            path.move(to: CGPoint(x: w * 0.64, y: h * 0.22))
+                            path.addCurve(to: CGPoint(x: w * 0.76, y: h * 0.45), control1: CGPoint(x: w * 0.72, y: h * 0.31), control2: CGPoint(x: w * 0.78, y: h * 0.37))
+                            path.addCurve(to: CGPoint(x: w * 0.63, y: h * 0.55), control1: CGPoint(x: w * 0.76, y: h * 0.52), control2: CGPoint(x: w * 0.70, y: h * 0.58))
+                            path.closeSubpath()
+                        }
+                        .fill(accent.opacity(0.76))
+                    }
+                } else {
+                    CanvasToolOutlineGlyph(
+                        glyph: glyph,
+                        lineColor: CanvasVisualSystem.mutedInk(for: colorScheme).opacity(colorScheme == .dark ? 0.54 : 0.46)
+                    )
+                    .frame(width: w, height: h)
+                }
+            }
+            .frame(width: w, height: h)
+        }
+    }
+}
+
+private struct CanvasToolOutlineGlyph: View {
+    let glyph: CanvasToolDockItem.Glyph
+    let lineColor: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width
+            let h = proxy.size.height
+            let stroke = max(1, min(w, h) * 0.042)
+
+            ZStack {
+                switch glyph {
+                case .crayon:
+                    CrayonOutlineGlyph(lineColor: lineColor)
+                        .frame(width: w, height: h)
+
+                case .watercolor:
+                    WatercolorBrushToolIcon(
+                        selectedColor: .clear,
+                        isSelected: false
+                    )
+                    .frame(width: w, height: h)
+
+                case .marker:
+                    RoundedRectangle(cornerRadius: w * 0.10)
+                        .stroke(lineColor, lineWidth: stroke)
+                        .frame(width: w * 0.28, height: h * 0.72)
+                        .offset(y: h * 0.10)
+                    Path { path in
+                        path.move(to: CGPoint(x: w * 0.41, y: h * 0.05))
+                        path.addLine(to: CGPoint(x: w * 0.59, y: h * 0.05))
+                        path.addLine(to: CGPoint(x: w * 0.55, y: h * 0.23))
+                        path.addLine(to: CGPoint(x: w * 0.45, y: h * 0.23))
+                        path.closeSubpath()
+                    }
+                    .stroke(lineColor, lineWidth: stroke)
+                    Capsule()
+                        .stroke(lineColor.opacity(0.70), lineWidth: stroke * 0.78)
+                        .frame(width: w * 0.25, height: h * 0.08)
+                        .offset(y: h * 0.26)
+
+                case .eraser:
+                    RoundedRectangle(cornerRadius: w * 0.13, style: .continuous)
+                        .stroke(lineColor, lineWidth: stroke)
+                        .frame(width: w * 0.38, height: h * 0.58)
+                        .rotationEffect(.degrees(4))
+                    Path { path in
+                        path.move(to: CGPoint(x: w * 0.37, y: h * 0.31))
+                        path.addLine(to: CGPoint(x: w * 0.63, y: h * 0.31))
+                    }
+                    .stroke(lineColor.opacity(0.62), lineWidth: stroke * 0.72)
+                    .rotationEffect(.degrees(4))
+
+                case .fill:
+                    RoundedRectangle(cornerRadius: w * 0.08)
+                        .stroke(lineColor, lineWidth: stroke)
+                        .frame(width: w * 0.36, height: h * 0.52)
+                        .rotationEffect(.degrees(-7))
+                        .offset(y: h * 0.12)
+                    Path { path in
+                        path.move(to: CGPoint(x: w * 0.64, y: h * 0.22))
+                        path.addCurve(to: CGPoint(x: w * 0.76, y: h * 0.45), control1: CGPoint(x: w * 0.72, y: h * 0.31), control2: CGPoint(x: w * 0.78, y: h * 0.37))
+                        path.addCurve(to: CGPoint(x: w * 0.63, y: h * 0.55), control1: CGPoint(x: w * 0.76, y: h * 0.52), control2: CGPoint(x: w * 0.70, y: h * 0.58))
+                        path.closeSubpath()
+                    }
+                    .stroke(lineColor, lineWidth: stroke)
+                }
+            }
+            .frame(width: w, height: h)
+        }
+    }
+}
+
+private struct PigmentWellButton: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let selectedColorHex: String
+    let isOpen: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: isOpen ? "chevron.down" : "chevron.up")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
+
+                ZStack {
+                    Circle()
+                        .fill(CanvasVisualSystem.paperSecondary(for: colorScheme))
+                        .frame(width: 54, height: 54)
+                        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.40 : 0.16), radius: 7, x: 0, y: 4)
+
+                    Circle()
+                        .stroke(CanvasVisualSystem.hairline(for: colorScheme), lineWidth: 1.2)
+                        .frame(width: 54, height: 54)
+
+                    Circle()
+                        .fill(Color(hex: selectedColorHex))
+                        .frame(width: 42, height: 42)
+                        .overlay {
+                            Circle()
+                                .stroke(Color.white.opacity(colorScheme == .dark ? 0.14 : 0.42), lineWidth: 1.4)
+                        }
+                        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.34 : 0.12), radius: 4, x: 0, y: 2)
+                }
+            }
+            .frame(width: 64, height: 74)
+            .contentShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open pigment palette")
+        .accessibilityIdentifier("canvas.pigmentWell")
+    }
+}
+
+private struct ColorTray: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let paletteTitle: String
+    let selectedColorHex: String
+    let recentColorHexes: [String]
+    let suggestedSwatches: [ColorSwatch]
+    let onSelectColor: (String) -> Void
+    let onEyedropper: () -> Void
+    let onMoreColors: () -> Void
+    let onClose: () -> Void
+
+    private let fallbackColors = [
+        "#C95F62", "#D47C3D", "#E3AC58", "#A4A070", "#59624C",
+        "#A67387", "#8C7699", "#82A0A6", "#C7B99F", "#E8DDC7"
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Spacer(minLength: 0)
+                Text(paletteTitle)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
+                Spacer(minLength: 0)
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
+                        .frame(width: 26, height: 26)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close palette")
+            }
+            .frame(height: 38)
+
+            Rectangle()
+                .fill(CanvasVisualSystem.hairline(for: colorScheme))
+                .frame(height: 0.7)
+
+            HStack(spacing: 18) {
+                VStack(spacing: 9) {
+                    Text("Current Color")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
+                    PigmentSwatch(hex: selectedColorHex, size: 70, isSelected: true, action: {})
+                    Text(colorName)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
+                        .lineLimit(1)
+                }
+                .frame(width: 116)
+
+                Rectangle()
+                    .fill(CanvasVisualSystem.hairline(for: colorScheme))
+                    .frame(width: 0.7)
+                    .padding(.vertical, 12)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    swatchSection(title: "Recent Colors", colors: recentColors)
+                    swatchSection(title: "Suggested Palette", colors: suggestedColors)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+
+            Rectangle()
+                .fill(CanvasVisualSystem.hairline(for: colorScheme))
+                .frame(height: 0.7)
+
+            HStack(spacing: 14) {
+                Button(action: onEyedropper) {
+                    Label("Eyedropper", systemImage: "eyedropper")
+                }
+                .accessibilityIdentifier("canvas.eyedropper")
+
+                Spacer(minLength: 0)
+
+                Button(action: onMoreColors) {
+                    Label("More Colors", systemImage: "paintpalette")
+                }
+                .accessibilityIdentifier("canvas.moreColors")
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
+            .buttonStyle(.plain)
+            .padding(.horizontal, 22)
+            .frame(height: 42)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(CanvasVisualSystem.paper(for: colorScheme).opacity(colorScheme == .dark ? 0.98 : 0.96))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(CanvasVisualSystem.hairline(for: colorScheme), lineWidth: 0.8)
+        }
+        .shadow(color: CanvasVisualSystem.shadow(for: colorScheme), radius: 22, x: 0, y: 12)
+        .accessibilityIdentifier("canvas.colorTray")
+    }
+
+    private var recentColors: [String] {
+        let colors = recentColorHexes + fallbackColors
+        return Array(colors.prefix(10))
+    }
+
+    private var suggestedColors: [String] {
+        let colors = suggestedSwatches.map(\.hex) + fallbackColors
+        return Array(colors.prefix(9))
+    }
+
+    private var colorName: String {
+        suggestedSwatches.first { $0.hex.caseInsensitiveCompare(selectedColorHex) == .orderedSame }?.name ?? "Pigment"
+    }
+
+    private func swatchSection(title: String, colors: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
+
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(24), spacing: 10), count: 5), alignment: .leading, spacing: 10) {
+                ForEach(colors, id: \.self) { hex in
+                    PigmentSwatch(hex: hex, size: 22, isSelected: selectedColorHex.caseInsensitiveCompare(hex) == .orderedSame) {
+                        onSelectColor(hex)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct PigmentSwatch: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let hex: String
+    let size: CGFloat
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Circle()
+                .fill(Color(hex: hex))
+                .frame(width: size, height: size)
+                .overlay {
+                    Circle()
+                        .stroke(
+                            isSelected ? CanvasVisualSystem.ink(for: colorScheme).opacity(0.58) : CanvasVisualSystem.hairline(for: colorScheme),
+                            lineWidth: isSelected ? 1.4 : 0.75
+                        )
+                }
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.25 : 0.10), radius: size > 40 ? 5 : 2, x: 0, y: 1.5)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Color \(hex)")
+        .accessibilityIdentifier(A11y.Canvas.color(hex))
+    }
+}
+
+private struct CanvasAdjustmentSlider: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Binding var size: CGFloat
+    @Binding var opacity: CGFloat
+    let supportsSize: Bool
+    let supportsOpacity: Bool
+
+    var body: some View {
+        VStack(spacing: 8) {
+            CanvasVerticalGauge(
+                title: "Size",
+                valueText: "\(Int(size.rounded()))",
+                range: ToolSettings.sizeRange,
+                value: $size,
+                isEnabled: supportsSize
+            )
+            Rectangle()
+                .fill(CanvasVisualSystem.hairline(for: colorScheme).opacity(0.54))
+                .frame(height: 0.7)
+                .padding(.horizontal, 10)
+            CanvasVerticalGauge(
+                title: "Opacity",
+                valueText: "\(Int((opacity * 100).rounded()))%",
+                range: ToolSettings.opacityRangeCGFloat,
+                value: $opacity,
+                isEnabled: supportsOpacity
+            )
+        }
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(CanvasVisualSystem.paper(for: colorScheme).opacity(colorScheme == .dark ? 0.90 : 0.82))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(CanvasVisualSystem.hairline(for: colorScheme), lineWidth: 0.75)
+        }
+        .shadow(color: CanvasVisualSystem.shadow(for: colorScheme).opacity(0.72), radius: 15, x: 0, y: 7)
+        .accessibilityIdentifier("canvas.adjustmentSliders")
+    }
+}
+
+private struct CanvasVerticalGauge: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let title: String
+    let valueText: String
+    let range: ClosedRange<CGFloat>
+    @Binding var value: CGFloat
+    let isEnabled: Bool
+
+    var body: some View {
+        VStack(spacing: 5) {
+            Text(valueText)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme).opacity(isEnabled ? 1 : 0.42))
+                .monospacedDigit()
+            Text(title)
+                .font(.system(size: 8, weight: .medium))
+                .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme).opacity(isEnabled ? 1 : 0.42))
+
+            GeometryReader { proxy in
+                let railHeight = proxy.size.height - 14
+                let normalized = normalizedValue
+
+                ZStack {
+                    Capsule()
+                        .fill(CanvasVisualSystem.hairline(for: colorScheme).opacity(0.62))
+                        .frame(width: 3, height: railHeight)
+
+                    Capsule()
+                        .fill(CanvasVisualSystem.pigmentClay.opacity(isEnabled ? 0.42 : 0.18))
+                        .frame(width: 3, height: railHeight * normalized)
+                        .offset(y: railHeight * (1 - normalized) / 2)
+
+                    Circle()
+                        .fill(CanvasVisualSystem.paperSecondary(for: colorScheme))
+                        .frame(width: 21, height: 21)
+                        .overlay {
+                            Circle().stroke(CanvasVisualSystem.hairline(for: colorScheme), lineWidth: 0.8)
+                        }
+                        .shadow(color: CanvasVisualSystem.shadow(for: colorScheme).opacity(0.45), radius: 4, x: 0, y: 2)
+                        .offset(y: railHeight * (0.5 - normalized))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { gesture in
+                            guard isEnabled else { return }
+                            let clampedY = min(max(gesture.location.y, 7), proxy.size.height - 7)
+                            let next = 1 - ((clampedY - 7) / max(railHeight, 1))
+                            value = range.lowerBound + next * (range.upperBound - range.lowerBound)
+                        }
+                )
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .opacity(isEnabled ? 1 : 0.58)
+    }
+
+    private var normalizedValue: CGFloat {
+        guard range.upperBound > range.lowerBound else { return 0 }
+        return min(max((value - range.lowerBound) / (range.upperBound - range.lowerBound), 0), 1)
+    }
+}
+
+private struct CanvasZoomHint: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let scale: CGFloat
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Text("\(Int((scale * 100).rounded()))%")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(CanvasVisualSystem.paper(for: colorScheme))
+                .monospacedDigit()
+                .padding(.horizontal, 11)
+                .frame(height: 24)
+                .background(Color(hex: "#22201C").opacity(colorScheme == .dark ? 0.86 : 0.76), in: Capsule())
+
+            Text("Pinch to zoom. Double tap to fit.")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(CanvasVisualSystem.paper(for: colorScheme))
+                .padding(.horizontal, 13)
+                .frame(height: 28)
+                .background(Color(hex: "#22201C").opacity(colorScheme == .dark ? 0.82 : 0.68), in: Capsule())
+        }
+        .shadow(color: Color.black.opacity(0.22), radius: 9, x: 0, y: 4)
+        .accessibilityIdentifier("canvas.zoomHint")
+    }
+}
+
+private extension ToolSettings {
+    static var opacityRangeCGFloat: ClosedRange<CGFloat> {
+        CGFloat(opacityRange.lowerBound)...CGFloat(opacityRange.upperBound)
     }
 }
 
@@ -2782,43 +3966,6 @@ private struct BottomColorWheelView: View {
     }
 }
 
-private struct PalettePickerPopover: View {
-    @Environment(\.colorScheme) private var colorScheme
-    let viewModel: ColoringSessionViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(viewModel.palettes) { palette in
-                Button {
-                    viewModel.selectPalette(palette)
-                    if let first = palette.swatches.first {
-                        viewModel.selectColor(hex: first.hex)
-                    }
-                } label: {
-                    HStack(spacing: 10) {
-                        Text(palette.name)
-                            .font(.system(size: 14, weight: .black))
-                            .foregroundStyle(SableTheme.primaryText(for: colorScheme))
-                            .frame(width: 120, alignment: .leading)
-                        HStack(spacing: -4) {
-                            ForEach(palette.swatches.prefix(5)) { swatch in
-                                Circle()
-                                    .fill(Color(hex: swatch.hex))
-                                    .frame(width: 22, height: 22)
-                                    .overlay(Circle().stroke(Color.white, lineWidth: 1))
-                            }
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier(A11y.Canvas.palette(palette.name))
-            }
-        }
-        .padding(16)
-        .background(SableTheme.canvasChrome(for: colorScheme))
-    }
-}
-
 private struct CanvasSettingsSheet: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -2834,7 +3981,7 @@ private struct CanvasSettingsSheet: View {
         NavigationStack {
             List {
                 Section("Tools") {
-                    ForEach(ToolType.allCases) { tool in
+                    ForEach(ToolType.canvasTools) { tool in
                         Button {
                             viewModel.selectTool(tool)
                         } label: {
@@ -2842,7 +3989,8 @@ private struct CanvasSettingsSheet: View {
                                 ToolIconView(
                                     tool: tool,
                                     color: viewModel.selectedTool == tool ? SableTheme.selectedText(for: colorScheme) : SableTheme.primaryText(for: colorScheme),
-                                    size: 20
+                                    size: 20,
+                                    pigment: Color(hex: viewModel.selectedColorHex)
                                 )
                                 .frame(width: 36, height: 36)
                                 .background(

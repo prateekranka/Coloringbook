@@ -33,19 +33,19 @@ final class DailyDoodlerTests: XCTestCase {
             try harness.tap(id: "library.category.All")
             
             let tree = try harness.describeUI()
-            if tree.contains("library.template.") {
-                let firstTemplate = extractFirstMatch(from: tree, prefix: "library.template.")
+            if tree.contains("library.reference.template.") {
+                let firstTemplate = extractFirstMatch(from: tree, prefix: "library.reference.template.")
                 if let templateId = firstTemplate {
                     try harness.tap(id: templateId)
                     
-                    try harness.tap(id: "canvas.tool.fill")
-                    try harness.tap(id: "canvas.colorWell")
+                    try harness.tap(id: "canvas.tool.fill-bucket")
+                    try harness.tap(id: "canvas.pigmentWell")
                     
                     let pickerTree = try harness.describeUI()
-                    if pickerTree.contains("picker.recent.0") {
-                        try harness.tap(id: "picker.recent.0")
+                    if let swatchID = extractFirstMatch(from: pickerTree, prefix: "canvas.color.") {
+                        try harness.tap(id: swatchID)
                     }
-                    try harness.tap(id: "picker.close")
+                    try harness.tap(label: "Close palette")
                     
                     try harness.tap(id: "canvas.back")
                 }

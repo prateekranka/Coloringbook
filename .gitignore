@@ -31,6 +31,7 @@ Scripts/testing/.screenshots/
 
 # Local diagnostic captures
 artifacts/canvas-diagnostics/
+artifacts/canvas-redesign/
 artifacts/pencil-hid/
 
 # Release cleanup: local/private/generated preservation candidates

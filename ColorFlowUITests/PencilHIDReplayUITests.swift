@@ -102,7 +102,6 @@ final class PencilHIDReplayUITests: XCTestCase {
     private var cleanStrokeTools: [String] {
         [
             "canvas.tool.crayon",
-            "canvas.tool.colored-pencil",
             "canvas.tool.watercolor",
             "canvas.tool.marker"
         ]
@@ -188,23 +187,22 @@ final class PencilHIDReplayUITests: XCTestCase {
     }
 
     private func selectTool(_ identifier: String) {
-        app.buttons["canvas.tools"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["canvas.settings.sheet"].waitForExistence(timeout: 2), "Tool sheet did not appear.")
         let button = app.buttons[identifier]
         XCTAssertTrue(button.waitForExistence(timeout: 2), "Tool button \(identifier) did not appear.")
         button.tap()
-        app.buttons["Done"].tap()
-        XCTAssertTrue(app.buttons["canvas.tools"].waitForExistence(timeout: 2), "Tool sheet did not close.")
         Thread.sleep(forTimeInterval: 0.25)
     }
 
     private func chooseColor(identifier: String) {
-        app.buttons["canvas.color.compact"].tap()
+        app.buttons["canvas.pigmentWell"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["canvas.colorTray"].waitForExistence(timeout: 2), "Color tray did not appear.")
         let colorButton = app.buttons[identifier]
         XCTAssertTrue(colorButton.waitForExistence(timeout: 2), "Color button \(identifier) did not appear.")
         colorButton.tap()
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.22)).tap()
-        XCTAssertTrue(app.buttons["canvas.tools"].waitForExistence(timeout: 2), "Color picker did not close.")
+        if app.buttons["Close palette"].waitForExistence(timeout: 1) {
+            app.buttons["Close palette"].tap()
+        }
+        XCTAssertTrue(app.buttons["canvas.pigmentWell"].waitForExistence(timeout: 2), "Pigment well did not appear.")
         Thread.sleep(forTimeInterval: 0.3)
     }
 

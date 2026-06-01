@@ -38,12 +38,10 @@ enum PigmentStrokeRenderer {
             return WatercolorBrushRenderer()
         case .marker:
             return MarkerBrushRenderer()
-        case .coloredPencil, .crayon:
+        case .crayon:
             return PencilBrushRenderer()
         case .eraser:
             return EraserBrushRenderer()
-        case .sprayPaint:
-            return SprayBrushRenderer()
         case .fillBucket:
             return MarkerBrushRenderer()
         }
@@ -51,11 +49,11 @@ enum PigmentStrokeRenderer {
 
     private static func dirtyMargin(for stroke: PigmentStroke) -> CGFloat {
         switch stroke.tool {
-        case .watercolor, .sprayPaint:
+        case .watercolor:
             return CGFloat(stroke.size) * 2.2
         case .marker, .eraser:
             return CGFloat(stroke.size) * 1.6
-        case .coloredPencil, .crayon:
+        case .crayon:
             return CGFloat(stroke.size) * 1.8
         case .fillBucket:
             return CGFloat(stroke.size) * 1.6
@@ -120,40 +118,6 @@ private struct PencilBrushRenderer: BrushRenderer {
             context.setLineWidth(baseSize * CGFloat(0.72 + rng.nextUnit() * 0.28))
             context.setStrokeColor(color.withAlphaComponent(CGFloat(stroke.opacity) * CGFloat(0.18 + rng.nextUnit() * 0.1)).cgColor)
             strokeOffsetPath(points, offset: baseSize * CGFloat(rng.nextUnit() * 0.16 - 0.08), in: context)
-        }
-    }
-}
-
-// MARK: - Spray
-
-private struct SprayBrushRenderer: BrushRenderer {
-    func renderStroke(_ stroke: PigmentStroke, in context: CGContext) {
-        let points = stroke.cgPoints
-        var rng = PigmentSeededRandom(seed: stroke.seed)
-        let color = UIColor(hex: stroke.colorHex)
-        let radius = CGFloat(stroke.size) / 2
-
-        context.setBlendMode(.normal)
-        stamp(points: points, spacing: max(1.5, CGFloat(stroke.size) * 0.06)) { center in
-            let dotCount = 8 + Int(rng.nextUnit() * 8)
-            for _ in 0..<dotCount {
-                let distance = radius * CGFloat(pow(rng.nextUnit(), 0.7))
-                let angle = CGFloat(rng.nextUnit() * 2 * .pi)
-                let dotSize = CGFloat(1.5 + rng.nextUnit() * 2)
-                let alpha = CGFloat(stroke.opacity) * CGFloat(0.5 + rng.nextUnit() * 0.5)
-                let dotCenter = CGPoint(
-                    x: center.x + distance * cos(angle),
-                    y: center.y + distance * sin(angle)
-                )
-                let rect = CGRect(
-                    x: dotCenter.x - dotSize / 2,
-                    y: dotCenter.y - dotSize / 2,
-                    width: dotSize,
-                    height: dotSize
-                )
-                context.setFillColor(color.withAlphaComponent(alpha).cgColor)
-                context.fillEllipse(in: rect)
-            }
         }
     }
 }

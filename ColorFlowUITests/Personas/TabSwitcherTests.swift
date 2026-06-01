@@ -35,12 +35,12 @@ final class TabSwitcherTests: XCTestCase {
             
             if i % 2 == 0 {
                 let tree = try harness.describeUI()
-                if tree.contains("library.template.") {
-                    let firstTemplate = extractFirstMatch(from: tree, prefix: "library.template.")
+                if tree.contains("library.reference.template.") {
+                    let firstTemplate = extractFirstMatch(from: tree, prefix: "library.reference.template.")
                     if let templateId = firstTemplate {
                         try harness.tap(id: templateId)
-                        try harness.tap(id: "canvas.colorWell")
-                        try harness.tap(id: "picker.close")
+                        try harness.tap(id: "canvas.pigmentWell")
+                        try harness.tap(label: "Close palette")
                         try harness.tap(id: "canvas.back")
                     }
                 }

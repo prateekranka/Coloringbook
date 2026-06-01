@@ -27,7 +27,7 @@ final class DeepColoristTests: XCTestCase {
     
     @MainActor
     func test_longPencilSession() throws {
-        try harness.tap(id: "canvas.tool.pencil")
+        try harness.tap(id: "canvas.tool.crayon")
         
         let _ = try harness.describeUI()
         let steps: [PersonaHarness.BatchStep] = (0..<50).map { _ in
@@ -58,7 +58,7 @@ final class DeepColoristTests: XCTestCase {
         let eraseLatency = try harness.measureBatch(eraseSteps, name: "deep colorist erase burst", testCase: self)
         XCTAssertLessThan(eraseLatency, 8, "Axe-driven erase burst should stay responsive enough for persona coverage.")
         
-        try harness.tap(id: "canvas.tool.pencil")
+        try harness.tap(id: "canvas.tool.crayon")
         let moreSteps: [PersonaHarness.BatchStep] = (0..<20).map { _ in
             let startX = Double.random(in: 100...700)
             let startY = Double.random(in: 100...700)

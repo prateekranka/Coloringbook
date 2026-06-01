@@ -47,27 +47,23 @@ enum TemplateMood: String, CaseIterable, Identifiable, Codable {
 
 enum ToolType: String, CaseIterable, Identifiable, Codable {
     case crayon = "Crayon"
-    case coloredPencil = "Colored Pencil"
     case watercolor = "Watercolor"
     case marker = "Marker"
-    case sprayPaint = "Spray Paint"
     case eraser = "Eraser"
     case fillBucket = "Fill Bucket"
 
     var id: Self { self }
 
+    static let canvasTools: [ToolType] = [.crayon, .watercolor, .marker, .eraser, .fillBucket]
+
     var systemImageName: String {
         switch self {
         case .crayon:
             return "scribble.variable"
-        case .coloredPencil:
-            return "pencil"
         case .watercolor:
             return "paintbrush"
         case .marker:
             return "highlighter"
-        case .sprayPaint:
-            return "paintbrush.pointed"
         case .eraser:
             return "eraser"
         case .fillBucket:
@@ -79,14 +75,10 @@ enum ToolType: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .crayon:
             return ToolSettings(tool: self, size: 18, opacity: 0.78, textureAmount: 0.62)
-        case .coloredPencil:
-            return ToolSettings(tool: self, size: 7, opacity: 0.86, textureAmount: 0.45)
         case .watercolor:
             return ToolSettings(tool: self, size: 28, opacity: 0.38, textureAmount: 0.72)
         case .marker:
             return ToolSettings(tool: self, size: 20, opacity: 0.68, textureAmount: 0.18)
-        case .sprayPaint:
-            return ToolSettings(tool: self, size: 34, opacity: 0.36, textureAmount: 0.86)
         case .eraser:
             return ToolSettings(tool: self, size: 30, opacity: 1, textureAmount: 0)
         case .fillBucket:
@@ -100,7 +92,7 @@ enum ToolType: String, CaseIterable, Identifiable, Codable {
 
     var supportsOpacityControl: Bool {
         switch self {
-        case .crayon, .coloredPencil, .watercolor, .marker, .sprayPaint:
+        case .crayon, .watercolor, .marker:
             return true
         case .eraser, .fillBucket:
             return false
@@ -109,20 +101,15 @@ enum ToolType: String, CaseIterable, Identifiable, Codable {
 
     var accessibilityLabel: String {
         switch self {
-        case .sprayPaint:
-            return "Spray"
+        case .fillBucket:
+            return "Fill"
         default:
             return rawValue
         }
     }
 
     var accessibilityIdentifier: String {
-        switch self {
-        case .sprayPaint:
-            return "canvas.tool.spray"
-        default:
-            return "canvas.tool.\(rawValue.normalizedIdentifier)"
-        }
+        "canvas.tool.\(rawValue.normalizedIdentifier)"
     }
 }
 
@@ -158,7 +145,7 @@ struct CanvasState: Codable, Equatable {
     var zoomScale: Double = 1
     var offsetX: Double = 0
     var offsetY: Double = 0
-    var selectedTool: ToolType = .crayon
+    var selectedTool: ToolType = .watercolor
     var coloringMode: CanvasColoringMode = .clean
 }
 

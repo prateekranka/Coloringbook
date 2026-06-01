@@ -185,3 +185,100 @@ jobs:
 
       - name: Upload and distribute with Fastlane
         run: bundle exec fastlane ios testflight
+
+      - name: Expire previous TestFlight builds
+        run: |
+          bundle exec ruby <<'RUBY'
+          require "base64"
+          require "json"
+          require "net/http"
+          require "openssl"
+          require "time"
+          require "uri"
+          require "jwt"
+
+          bundle_id = "com.duckuwucky.sable"
+          key = OpenSSL::PKey::EC.new(Base64.decode64(ENV.fetch("ASC_KEY_P8_BASE64")))
+          token = JWT.encode(
+            { iss: ENV.fetch("ASC_ISSUER_ID"), iat: Time.now.to_i - 60, exp: Time.now.to_i + 900, aud: "appstoreconnect-v1" },
+            key,
+            "ES256",
+            kid: ENV.fetch("ASC_KEY_ID"),
+            typ: "JWT"
+          )
+
+          def request(uri, token, method: Net::HTTP::Get, body: nil)
+            http = Net::HTTP.new(uri.host, uri.port)
+            http.use_ssl = true
+            req = method.new(uri)
+            req["Authorization"] = "Bearer #{token}"
+            req["Content-Type"] = "application/json"
+            req.body = body.to_json if body
+            http.request(req)
+          end
+
+          def get_json(uri, token)
+            response = request(uri, token)
+            abort "GET #{uri} failed: #{response.code} #{response.body}" unless response.is_a?(Net::HTTPSuccess)
+            JSON.parse(response.body)
+          end
+
+          def get_all(uri, token)
+            records = []
+            loop do
+              payload = get_json(uri, token)
+              records.concat(payload.fetch("data", []))
+              next_url = payload.fetch("links", {})["next"]
+              break unless next_url
+              uri = URI(next_url)
+            end
+            records
+          end
+
+          apps_uri = URI("https://api.appstoreconnect.apple.com/v1/apps")
+          apps_uri.query = URI.encode_www_form(
+            "filter[bundleId]" => bundle_id,
+            "fields[apps]" => "name,bundleId",
+            "limit" => "1"
+          )
+          app = get_json(apps_uri, token).fetch("data", []).first
+          abort "No App Store Connect app found for #{bundle_id}." unless app
+
+          builds_uri = URI("https://api.appstoreconnect.apple.com/v1/apps/#{app.fetch("id")}/builds")
+          builds_uri.query = URI.encode_www_form(
+            "fields[builds]" => "version,uploadedDate,expired,processingState",
+            "limit" => "200"
+          )
+          builds = get_all(builds_uri, token)
+          abort "No builds found for #{bundle_id}." if builds.empty?
+
+          latest = builds.max_by { |build| Time.parse(build.fetch("attributes").fetch("uploadedDate")) }
+          latest_attrs = latest.fetch("attributes")
+          puts "Keeping latest build #{latest_attrs.fetch("version")} uploaded #{latest_attrs.fetch("uploadedDate")} (#{latest.fetch("id")})."
+
+          expirable = builds.reject do |build|
+            attrs = build.fetch("attributes")
+            build.fetch("id") == latest.fetch("id") ||
+              attrs.fetch("expired", false) ||
+              attrs.fetch("processingState", nil) != "VALID"
+          end
+
+          expirable.each do |build|
+            attrs = build.fetch("attributes")
+            uri = URI("https://api.appstoreconnect.apple.com/v1/builds/#{build.fetch("id")}")
+            body = {
+              data: {
+                type: "builds",
+                id: build.fetch("id"),
+                attributes: {
+                  expired: true
+                }
+              }
+            }
+            response = request(uri, token, method: Net::HTTP::Patch, body: body)
+            abort "Expiring build #{attrs.fetch("version")} failed: #{response.code} #{response.body}" unless response.is_a?(Net::HTTPSuccess)
+            puts "Expired build #{attrs.fetch("version")} uploaded #{attrs.fetch("uploadedDate")} (#{build.fetch("id")})."
+          end
+
+          puts "Expired #{expirable.length} previous TestFlight build(s)."
+          RUBY

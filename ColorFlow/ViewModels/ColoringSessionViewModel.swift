@@ -52,8 +52,8 @@ final class ColoringSessionViewModel {
     var freehandExternalRevision = 0
     var selectedColorHex = SableTheme.progressPinkHex
     var selectedPaletteID = ColoringSessionViewModel.essentialsPalette.id
-    var selectedTool: ToolType = .crayon
-    var selectedToolSettings = ToolType.crayon.defaultSettings
+    var selectedTool: ToolType = .watercolor
+    var selectedToolSettings = ToolType.watercolor.defaultSettings
     var coloringMode: CanvasColoringMode = .clean
     var recentColorHexes: [String] = [SableTheme.progressPinkHex]
     var canvasDocumentSize = CGSize(width: 800, height: 800)
@@ -382,7 +382,8 @@ final class ColoringSessionViewModel {
             selectedTool = paintState.canvasState.selectedTool
             selectedToolSettings = toolSettingsCache[selectedTool] ?? selectedTool.defaultSettings
             coloringMode = paintState.canvasState.coloringMode
-            viewport = CanvasViewport(canvasState: paintState.canvasState)
+            // Viewport is transient: every canvas entry starts fit-to-screen.
+            viewport = CanvasViewport()
             lastSavedRegionFills = paintState.regionFills
             lastSavedStrokeActions = paintState.strokeActions
             clearUndoHistory()
@@ -473,6 +474,42 @@ final class ColoringSessionViewModel {
 
         HapticService.shared.impact(.light)
         canvasDiagnostics.record(.fill, "fill committed region=\(region.id) color=\(selectedColorHex)")
+        return true
+    }
+
+    @discardableResult
+    func sampleColor(atCanvasPoint point: CGPoint, canvasSize: CGSize) -> Bool {
+        guard let geometry,
+              let pigmentImage = pigmentEngine?.image else {
+            canvasDiagnostics.record(.warning, "eyedropper ignored: pigment layer unavailable")
+            return false
+        }
+
+        let canvasToDocument = TemplateRenderer.documentToViewTransform(
+            viewBox: geometry.viewBox,
+            viewSize: canvasSize
+        ).inverted()
+        let documentToBitmap = TemplateRenderer.documentToViewTransform(
+            viewBox: geometry.viewBox,
+            viewSize: pigmentImage.size
+        )
+        let bitmapPoint = point
+            .applying(canvasToDocument)
+            .applying(documentToBitmap)
+
+        guard let rgba = pigmentImage.rgbaPixel(at: bitmapPoint),
+              rgba.a > 8 else {
+            canvasDiagnostics.record(.warning, "eyedropper ignored: no pigment at canvas=\(debugPoint(point))")
+            return false
+        }
+
+        let alpha = CGFloat(rgba.a) / 255
+        let red = UInt8(Int(min(255, max(0, (CGFloat(rgba.r) / alpha).rounded()))))
+        let green = UInt8(Int(min(255, max(0, (CGFloat(rgba.g) / alpha).rounded()))))
+        let blue = UInt8(Int(min(255, max(0, (CGFloat(rgba.b) / alpha).rounded()))))
+        let sampledHex = String(format: "#%02X%02X%02X", red, green, blue)
+        selectColor(hex: sampledHex)
+        canvasDiagnostics.record(.lifecycle, "eyedropper sampled \(sampledHex)")
         return true
     }
 
@@ -944,14 +981,6 @@ final class ColoringSessionViewModel {
         size: CGFloat
     ) -> CommitSampleSimplificationProfile {
         switch tool {
-        case .coloredPencil:
-            return CommitSampleSimplificationProfile(
-                minimumDistance: max(1.0, size * 0.06),
-                cornerMinimumLeg: max(1.4, size * 0.08),
-                cornerCosineThreshold: 0.9,
-                rdpTolerance: max(0.55, size * 0.035),
-                maximumSamples: 900
-            )
         case .crayon:
             return CommitSampleSimplificationProfile(
                 minimumDistance: max(1.8, size * 0.08),
@@ -984,7 +1013,7 @@ final class ColoringSessionViewModel {
                 rdpTolerance: max(1.1, size * 0.05),
                 maximumSamples: 550
             )
-        case .sprayPaint, .fillBucket:
+        case .fillBucket:
             return CommitSampleSimplificationProfile(
                 minimumDistance: max(1.8, size * 0.07),
                 cornerMinimumLeg: max(2.0, size * 0.09),
@@ -1910,6 +1939,35 @@ private struct CanvasStrokeHasher {
     private mutating func combine(_ byte: UInt8) {
         value ^= UInt64(byte)
         value &*= 0x100000001b3
+    }
+}
+
+private extension UIImage {
+    func rgbaPixel(at point: CGPoint) -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8)? {
+        guard point.x >= 0,
+              point.y >= 0,
+              point.x < size.width,
+              point.y < size.height,
+              let cgImage else {
+            return nil
+        }
+
+        let x = min(max(Int(point.x), 0), cgImage.width - 1)
+        let y = min(max(Int(point.y), 0), cgImage.height - 1)
+        var pixel = [UInt8](repeating: 0, count: 4)
+        guard let context = CGContext(
+            data: &pixel,
+            width: 1,
+            height: 1,
+            bitsPerComponent: 8,
+            bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return nil
+        }
+        context.draw(cgImage, in: CGRect(x: -x, y: y - cgImage.height + 1, width: cgImage.width, height: cgImage.height))
+        return (pixel[0], pixel[1], pixel[2], pixel[3])
     }
 }
 

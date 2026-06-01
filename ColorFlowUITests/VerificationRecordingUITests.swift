@@ -66,8 +66,10 @@ final class VerificationRecordingUITests: XCTestCase {
         XCTAssertTrue(app.buttons["canvas.showControls"].waitForExistence(timeout: 2))
         rapidCleanStrokes(on: canvas)
         app.buttons["canvas.showControls"].tap()
-        XCTAssertTrue(app.buttons["canvas.tools"].waitForExistence(timeout: 2))
-        app.buttons["canvas.tools"].tap()
+        XCTAssertTrue(app.buttons["canvas.more"].waitForExistence(timeout: 2))
+        app.buttons["canvas.more"].tap()
+        XCTAssertTrue(app.buttons["Palette & Tools"].waitForExistence(timeout: 2))
+        app.buttons["Palette & Tools"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["canvas.settings.sheet"].waitForExistence(timeout: 2))
         Thread.sleep(forTimeInterval: 0.8)
     }
@@ -83,8 +85,8 @@ final class VerificationRecordingUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.5)
         app.swipeDown()
         Thread.sleep(forTimeInterval: 0.5)
-        if app.buttons["home.collection.fresh-botanicals"].waitForExistence(timeout: 1) {
-            app.buttons["home.collection.fresh-botanicals"].swipeLeft()
+        if app.buttons["home.recent.florist-window"].waitForExistence(timeout: 1) {
+            app.buttons["home.recent.florist-window"].swipeLeft()
         }
         app.swipeUp()
         Thread.sleep(forTimeInterval: 4.8)
@@ -178,20 +180,28 @@ final class VerificationRecordingUITests: XCTestCase {
             XCTAssertTrue(app.staticTexts["Library"].waitForExistence(timeout: 5))
         }
 
-        let button = app.buttons["template.\(slug)"]
-        if tapIfVisible(button) { return }
+        if tapTemplateIfVisible(slug: slug) { return }
 
         for _ in 0..<8 {
             app.swipeUp()
-            if tapIfVisible(button) { return }
+            if tapTemplateIfVisible(slug: slug) { return }
         }
 
         for _ in 0..<8 {
             app.swipeDown()
-            if tapIfVisible(button) { return }
+            if tapTemplateIfVisible(slug: slug) { return }
         }
 
         XCTFail("Could not open template.\(slug)")
+    }
+
+    private func tapTemplateIfVisible(slug: String) -> Bool {
+        for identifier in ["template.\(slug)", "library.reference.template.\(slug)"] {
+            if tapIfVisible(app.buttons[identifier]) {
+                return true
+            }
+        }
+        return false
     }
 
     private func tapIfVisible(_ element: XCUIElement) -> Bool {
@@ -226,21 +236,20 @@ final class VerificationRecordingUITests: XCTestCase {
     }
 
     private func selectTool(_ identifier: String) {
-        app.buttons["canvas.tools"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["canvas.settings.sheet"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons[identifier].waitForExistence(timeout: 2))
         app.buttons[identifier].tap()
-        app.buttons["Done"].tap()
-        XCTAssertTrue(app.buttons["canvas.tools"].waitForExistence(timeout: 2))
     }
 
     private func chooseColor(identifier: String) {
-        app.buttons["canvas.color.compact"].tap()
+        app.buttons["canvas.pigmentWell"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["canvas.colorTray"].waitForExistence(timeout: 2))
         let colorButton = app.buttons[identifier]
         XCTAssertTrue(colorButton.waitForExistence(timeout: 2))
         colorButton.tap()
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.22)).tap()
-        XCTAssertTrue(app.buttons["canvas.tools"].waitForExistence(timeout: 2))
+        if app.buttons["Close palette"].waitForExistence(timeout: 1) {
+            app.buttons["Close palette"].tap()
+        }
+        XCTAssertTrue(app.buttons["canvas.pigmentWell"].waitForExistence(timeout: 2))
         Thread.sleep(forTimeInterval: 0.4)
     }
 

@@ -175,6 +175,72 @@ final class ColoringFlowTests: XCTestCase {
         XCTAssertNotNil(reopenedSession.fillLayerImage)
     }
 
+    func test_coloringSession_eyedropperSamplesCommittedPigmentColor() async throws {
+        let template = try CanvasTestFixture.makeTemplate()
+        let geometry = try CanvasTestFixture.makeGeometry()
+        let project = Project(template: template)
+        let viewModel = ColoringSessionViewModel(
+            project: project,
+            template: template,
+            storageService: storage
+        )
+        await viewModel.load()
+
+        let documentPoint = try XCTUnwrap(CanvasTestFixture.representativeFillPoint(in: geometry))
+        viewModel.selectColor(hex: "#2BBCB3")
+        let didFill = await viewModel.fill(atDocumentPoint: documentPoint)
+        XCTAssertTrue(didFill)
+
+        viewModel.selectColor(hex: "#D4213D")
+        let canvasSize = CGSize(width: 600, height: 600)
+        let canvasPoint = documentPoint.applying(
+            TemplateRenderer.documentToViewTransform(
+                viewBox: geometry.viewBox,
+                viewSize: canvasSize
+            )
+        )
+
+        XCTAssertTrue(viewModel.sampleColor(atCanvasPoint: canvasPoint, canvasSize: canvasSize))
+        XCTAssertEqual(viewModel.selectedColorHex, "#2BBCB3")
+        XCTAssertEqual(viewModel.recentColorHexes.first, "#2BBCB3")
+    }
+
+    func test_coloringSession_reopeningProjectStartsViewportFitToScreen() async throws {
+        let template = try CanvasTestFixture.makeTemplate()
+        var project = Project(template: template)
+        storage.save(project: &project, drawing: PKDrawing(), fillLayer: nil, templateImage: nil)
+        projectsToDelete.append(project)
+
+        let firstSession = ColoringSessionViewModel(
+            project: project,
+            template: template,
+            storageService: storage
+        )
+        await firstSession.load()
+
+        var zoomedViewport = CanvasViewport()
+        zoomedViewport.updateScale(
+            from: 1,
+            magnification: 2.4,
+            canvasSize: CGSize(width: 600, height: 600),
+            viewportSize: CGSize(width: 500, height: 500)
+        )
+        firstSession.updateViewport(zoomedViewport)
+        firstSession.save()
+
+        let savedProject = try XCTUnwrap(storage.loadProject(id: project.id))
+        XCTAssertGreaterThan(storage.loadPaintState(for: savedProject).canvasState.zoomScale, 1)
+
+        let reopenedSession = ColoringSessionViewModel(
+            project: savedProject,
+            template: template,
+            storageService: storage
+        )
+        await reopenedSession.load()
+
+        XCTAssertTrue(reopenedSession.viewport.isIdentity)
+    }
+
     func test_coloringSession_undoRedoRestoresTapFillsAndDirtyState() async throws {
         let template = try CanvasTestFixture.makeTemplate()
         var project = Project(template: template)
@@ -338,8 +404,14 @@ final class ColoringFlowTests: XCTestCase {
         XCTAssertNotNil(object["points"])
     }
 
+    func test_currentCanvasToolPass_exposesFiveVisibleTools() {
+        XCTAssertEqual(ToolType.canvasTools, [.crayon, .watercolor, .marker, .eraser, .fillBucket])
+        XCTAssertEqual(ToolType.allCases, ToolType.canvasTools)
+        XCTAssertEqual(ToolType.fillBucket.accessibilityLabel, "Fill")
+    }
+
     func test_brushRenderers_allToolsProduceDifferentOutput() {
-        let tools: [ToolType] = [.crayon, .coloredPencil, .watercolor, .marker, .sprayPaint, .eraser]
+        let tools: [ToolType] = [.crayon, .watercolor, .marker, .eraser]
         var images: [(ToolType, Data)] = []
 
         for tool in tools {
@@ -365,7 +437,7 @@ final class ColoringFlowTests: XCTestCase {
 
     func test_brushRenderers_texturedBrushReplayIsDeterministic() {
         let stroke = makeStroke(
-            tool: .sprayPaint,
+            tool: .watercolor,
             colorHex: "#2BBCB3",
             size: 24,
             opacity: 0.7
@@ -500,30 +572,6 @@ final class ColoringFlowTests: XCTestCase {
         XCTAssertFalse(centerAlphas.isEmpty, "Should have sampled center pixels")
         let differs = zip(centerAlphas, edgeAlphas).contains { abs($0 - $1) > 0.01 }
         XCTAssertTrue(differs, "Edge pixels should differ from center pixels due to crayon jitter")
-    }
-
-    func test_sprayPaintRendering_producesNonContinuousOutput() {
-        let stroke = makeStroke(tool: .sprayPaint, size: 20)
-        let image = renderStroke(stroke, size: CGSize(width: 200, height: 200))
-
-        var hasColored = false
-        var hasTransparent = false
-
-        for y in 70..<130 {
-            for x in 0..<190 {
-                guard let pixel = readPixel(in: image, at: CGPoint(x: x, y: y)) else { continue }
-                if pixel.a > 0 {
-                    hasColored = true
-                } else {
-                    hasTransparent = true
-                }
-                if hasColored && hasTransparent { break }
-            }
-            if hasColored && hasTransparent { break }
-        }
-
-        XCTAssertTrue(hasColored, "Spray paint should produce colored pixels")
-        XCTAssertTrue(hasTransparent, "Spray paint should produce transparent gaps (non-continuous)")
     }
 
     func test_watercolorRendering_hasFadingEdges() {
@@ -872,7 +920,6 @@ final class ColoringFlowTests: XCTestCase {
     func test_cleanRapidScribbleSamplesAreSimplifiedBeforeCommit() async throws {
         let expectedMaximumSamples: [ToolType: Int] = [
             .crayon: 800,
-            .coloredPencil: 900,
             .watercolor: 650,
             .marker: 700,
             .eraser: 550
@@ -1016,7 +1063,7 @@ final class ColoringFlowTests: XCTestCase {
         XCTAssertNotEqual(compactDigest, rawDigest)
     }
 
-    func test_rapidThreeStrokeRegression_cleanAndFreeModes() async throws {
+    func test_fastColoringStrokesCommitForCurrentToolsInCleanAndFreeModes() async throws {
         for mode in [CanvasColoringMode.clean, .free] {
             for tool in pigmentStrokeTools {
                 try await assertRapidThreeStrokeSequence(mode: mode, tool: tool)
@@ -1306,7 +1353,7 @@ final class ColoringFlowTests: XCTestCase {
     }
 
     private var pigmentStrokeTools: [ToolType] {
-        [.crayon, .coloredPencil, .watercolor, .marker, .eraser]
+        [.crayon, .watercolor, .marker, .eraser]
     }
 
     private func assertRapidThreeStrokeSequence(mode: CanvasColoringMode, tool: ToolType) async throws {

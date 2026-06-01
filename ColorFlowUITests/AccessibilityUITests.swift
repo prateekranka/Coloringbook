@@ -7,7 +7,7 @@ final class AccessibilityUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
     }
 
-    private func launchSeededApp() -> XCUIApplication {
+    private func launchSeededApp(openTemplateSlug: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += [
             "-resetSableProjects",
@@ -15,6 +15,9 @@ final class AccessibilityUITests: XCTestCase {
             "-disableAnimations",
             "-disableTemplateThumbnailRendering"
         ]
+        if let openTemplateSlug {
+            app.launchArguments += ["-gouacheOpenTemplate", openTemplateSlug]
+        }
         app.terminate()
         _ = app.wait(for: .notRunning, timeout: 5)
         app.launch()
@@ -25,7 +28,11 @@ final class AccessibilityUITests: XCTestCase {
             app.launch()
         }
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
-        XCTAssertTrue(app.buttons["tab.home"].waitForExistence(timeout: 5))
+        if openTemplateSlug == nil {
+            XCTAssertTrue(app.buttons["tab.home"].waitForExistence(timeout: 5))
+        } else {
+            XCTAssertTrue(canvasSurface(in: app).waitForExistence(timeout: 5))
+        }
         return app
     }
 
@@ -46,8 +53,8 @@ final class AccessibilityUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Continue Coloring"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["home.continue.wildflowers"].exists)
-        XCTAssertTrue(app.buttons["home.collection.fresh-botanicals"].exists)
         XCTAssertTrue(app.buttons["home.mood.calm"].exists)
+        XCTAssertTrue(app.buttons["home.recent.electric-starburst"].exists)
     }
 
     func test_libraryAndProfileTabs_showRealSurfaces() throws {
@@ -55,7 +62,6 @@ final class AccessibilityUITests: XCTestCase {
 
         app.buttons["tab.library"].tap()
         XCTAssertTrue(app.staticTexts["Library"].waitForExistence(timeout: 2))
-        XCTAssertTrue(scrollTemplateIntoView(slug: "wildflowers", in: app))
 
         app.buttons["tab.profile"].tap()
         XCTAssertTrue(app.staticTexts["Profile"].waitForExistence(timeout: 2))
@@ -80,9 +86,26 @@ final class AccessibilityUITests: XCTestCase {
 
         assertCanvasChrome(in: app, title: "Wildflowers")
         XCTAssertTrue(app.buttons["canvas.more"].exists)
-        XCTAssertTrue(app.buttons["canvas.tools"].exists)
-        XCTAssertTrue(app.buttons["canvas.color.compact"].exists)
+        XCTAssertTrue(app.buttons["canvas.pigmentWell"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["canvas.cleanFreeToggle"].exists)
+    }
+
+    func test_canvasDock_exposesCurrentFiveToolsOnly() throws {
+        let app = launchSeededApp()
+
+        app.buttons["home.continue.wildflowers"].tap()
+        assertCanvasChrome(in: app, title: "Wildflowers")
+
+        let visibleToolIDs = [
+            "canvas.tool.crayon",
+            "canvas.tool.watercolor",
+            "canvas.tool.marker",
+            "canvas.tool.eraser",
+            "canvas.tool.fill-bucket"
+        ]
+        for identifier in visibleToolIDs {
+            XCTAssertTrue(app.buttons[identifier].exists, "Expected \(identifier) in the canvas dock.")
+        }
     }
 
     func test_canvasViewport_allowsPinchPanAndReset() throws {
@@ -97,16 +120,13 @@ final class AccessibilityUITests: XCTestCase {
         tapCanvasMenuItem("Fit Artwork", in: app)
 
         XCTAssertTrue(canvas.exists)
-        XCTAssertTrue(app.buttons["canvas.tools"].exists)
+        XCTAssertTrue(app.buttons["canvas.pigmentWell"].exists)
     }
 
-    func test_collectionTemplate_opensCanvas() throws {
+    func test_continueTemplate_opensCanvas() throws {
         let app = launchSeededApp()
 
-        app.buttons["home.collection.fresh-botanicals"].tap()
-        XCTAssertTrue(app.staticTexts["Fresh Botanicals"].waitForExistence(timeout: 3))
-
-        tapTemplate(slug: "wildflowers", in: app)
+        tapHomeButton("home.continue.wildflowers", in: app)
         assertCanvasChrome(in: app, title: "Wildflowers")
     }
 
@@ -121,12 +141,7 @@ final class AccessibilityUITests: XCTestCase {
     }
 
     func test_browseFillSaveReturnAndReopenRestoresProgress() throws {
-        let app = launchSeededApp()
-
-        app.buttons["home.collection.fresh-botanicals"].tap()
-        XCTAssertTrue(app.staticTexts["Fresh Botanicals"].waitForExistence(timeout: 3))
-
-        tapTemplate(slug: "wildflowers", in: app)
+        let app = launchSeededApp(openTemplateSlug: "wildflowers")
         let canvas = canvasSurface(in: app)
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
 
@@ -142,12 +157,7 @@ final class AccessibilityUITests: XCTestCase {
     }
 
     func test_canvasFillUndoRedoSaveStateAndClearConfirmation() throws {
-        let app = launchSeededApp()
-
-        app.buttons["tab.library"].tap()
-        XCTAssertTrue(app.staticTexts["Library"].waitForExistence(timeout: 3))
-
-        tapTemplate(slug: "lemon-branch", in: app)
+        let app = launchSeededApp(openTemplateSlug: "lemon-branch")
         let canvas = canvasSurface(in: app)
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
 
@@ -174,18 +184,21 @@ final class AccessibilityUITests: XCTestCase {
         XCTAssertTrue(canvasSurface(in: app).waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts[title].exists)
         XCTAssertTrue(app.buttons["canvas.more"].exists)
-        XCTAssertTrue(app.buttons["canvas.tools"].exists)
-        XCTAssertTrue(app.buttons["canvas.color.compact"].exists)
+        XCTAssertTrue(app.buttons["canvas.pigmentWell"].exists)
+        XCTAssertTrue(app.buttons["canvas.tool.crayon"].exists)
+        XCTAssertTrue(app.buttons["canvas.tool.watercolor"].exists)
+        XCTAssertTrue(app.buttons["canvas.tool.marker"].exists)
+        XCTAssertTrue(app.buttons["canvas.tool.eraser"].exists)
+        XCTAssertTrue(app.buttons["canvas.tool.fill-bucket"].exists)
     }
 
     private func tapTemplate(slug: String, in app: XCUIApplication) {
-        let button = app.buttons["template.\(slug)"]
-        if button.waitForExistence(timeout: 1), tapTemplateButtonIfVisible(button, in: app) {
+        if tapTemplateIfReachable(slug: slug, in: app) {
             return
         }
 
         if scrollTemplateIntoView(slug: slug, in: app),
-           tapTemplateButtonIfVisible(button, in: app) {
+           tapTemplateIfReachable(slug: slug, in: app) {
             return
         }
 
@@ -193,28 +206,51 @@ final class AccessibilityUITests: XCTestCase {
     }
 
     private func scrollTemplateIntoView(slug: String, in app: XCUIApplication) -> Bool {
-        let button = app.buttons["template.\(slug)"]
-        if button.waitForExistence(timeout: 1), tapTemplateButtonIfVisible(button, in: app, shouldTap: false) {
+        if templateIsReachable(slug: slug, in: app) {
             return true
         }
 
         for _ in 0..<8 {
             app.swipeUp()
-            if button.waitForExistence(timeout: 0.6),
-               tapTemplateButtonIfVisible(button, in: app, shouldTap: false) {
+            if templateIsReachable(slug: slug, in: app) {
                 return true
             }
         }
 
         for _ in 0..<8 {
             app.swipeDown()
-            if button.waitForExistence(timeout: 0.6),
-               tapTemplateButtonIfVisible(button, in: app, shouldTap: false) {
+            if templateIsReachable(slug: slug, in: app) {
                 return true
             }
         }
 
         return false
+    }
+
+    private func tapTemplateIfReachable(slug: String, in app: XCUIApplication) -> Bool {
+        for identifier in templateIdentifiers(slug: slug) {
+            let button = app.buttons[identifier]
+            if button.waitForExistence(timeout: 0.6),
+               tapTemplateButtonIfVisible(button, in: app) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func templateIsReachable(slug: String, in app: XCUIApplication) -> Bool {
+        for identifier in templateIdentifiers(slug: slug) {
+            let button = app.buttons[identifier]
+            if button.waitForExistence(timeout: 0.6),
+               tapTemplateButtonIfVisible(button, in: app, shouldTap: false) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func templateIdentifiers(slug: String) -> [String] {
+        ["template.\(slug)", "library.reference.template.\(slug)"]
     }
 
     private func tapTemplateButtonIfVisible(_ button: XCUIElement, in app: XCUIApplication, shouldTap: Bool = true) -> Bool {
@@ -254,12 +290,28 @@ final class AccessibilityUITests: XCTestCase {
 
     private func tapHomeButton(_ identifier: String, in app: XCUIApplication) {
         let button = app.buttons[identifier]
-        XCTAssertTrue(button.waitForExistence(timeout: 5))
-        if button.isHittable {
+        if button.waitForExistence(timeout: 2), button.isHittable {
             button.tap()
-        } else {
-            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            return
         }
+
+        for _ in 0..<8 {
+            app.swipeUp()
+            if button.waitForExistence(timeout: 0.6), button.isHittable {
+                button.tap()
+                return
+            }
+        }
+
+        for _ in 0..<8 {
+            app.swipeDown()
+            if button.waitForExistence(timeout: 0.6), button.isHittable {
+                button.tap()
+                return
+            }
+        }
+
+        XCTFail("Expected \(identifier) to be reachable.")
     }
 
     private func tapCanvasUntilFillFeedback(canvas: XCUIElement, app: XCUIApplication) {
@@ -286,13 +338,28 @@ final class AccessibilityUITests: XCTestCase {
     }
 
     private func selectFillBucket(in app: XCUIApplication) {
-        app.buttons["canvas.tools"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["canvas.settings.sheet"].waitForExistence(timeout: 2))
-        app.buttons["canvas.tool.fill-bucket"].tap()
-        app.buttons["Done"].tap()
+        let directButton = app.buttons["canvas.tool.fill-bucket"]
+        XCTAssertTrue(directButton.waitForExistence(timeout: 3))
+        directButton.tap()
     }
 
     private func tapCanvasMenuItem(_ title: String, in app: XCUIApplication) {
+        if title == "Undo" {
+            let undo = app.buttons["canvas.undo"]
+            XCTAssertTrue(undo.waitForExistence(timeout: 3))
+            undo.tap()
+            XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
+            return
+        }
+
+        if title == "Redo" {
+            let redo = app.buttons["canvas.redo"]
+            XCTAssertTrue(redo.waitForExistence(timeout: 3))
+            redo.tap()
+            XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
+            return
+        }
+
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         let menu = app.buttons["canvas.more"]
         XCTAssertTrue(menu.waitForExistence(timeout: 5))

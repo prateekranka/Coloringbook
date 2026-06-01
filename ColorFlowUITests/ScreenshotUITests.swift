@@ -59,12 +59,11 @@ final class ScreenshotUITests: XCTestCase {
         try recordScreenshot()
     }
 
-    func test_captureCollection() throws {
+    func test_captureContinueCanvas() throws {
         launchForScreenshot()
 
-        XCTAssertTrue(app.buttons["home.collection.fresh-botanicals"].waitForExistence(timeout: 5))
-        app.buttons["home.collection.fresh-botanicals"].tap()
-        XCTAssertTrue(app.staticTexts["Fresh Botanicals"].waitForExistence(timeout: 5))
+        tapHomeButton("home.continue.wildflowers")
+        XCTAssertTrue(app.descendants(matching: .any)["canvas.surface"].waitForExistence(timeout: 5))
         sleep(2)
         try recordScreenshot()
     }
@@ -195,6 +194,32 @@ final class ScreenshotUITests: XCTestCase {
         return true
     }
 
+    private func tapHomeButton(_ identifier: String) {
+        let button = app.buttons[identifier]
+        if button.waitForExistence(timeout: 2), button.isHittable {
+            button.tap()
+            return
+        }
+
+        for _ in 0..<8 {
+            app.swipeUp()
+            if button.waitForExistence(timeout: 0.6), button.isHittable {
+                button.tap()
+                return
+            }
+        }
+
+        for _ in 0..<8 {
+            app.swipeDown()
+            if button.waitForExistence(timeout: 0.6), button.isHittable {
+                button.tap()
+                return
+            }
+        }
+
+        XCTFail("Expected \(identifier) to be reachable.")
+    }
+
     private func addSampleFills(to canvas: XCUIElement) {
         let points = [
             CGVector(dx: 0.50, dy: 0.50),
@@ -214,19 +239,9 @@ final class ScreenshotUITests: XCTestCase {
     }
 
     private func selectCanvasTool(_ identifier: String) {
-        app.buttons["canvas.tools"].tap()
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 4))
         let toolButton = app.buttons[identifier]
-        if !toolButton.waitForExistence(timeout: 1) {
-            for _ in 0..<4 where !toolButton.exists {
-                app.swipeUp()
-                _ = toolButton.waitForExistence(timeout: 0.5)
-            }
-        }
-        XCTAssertTrue(toolButton.exists)
+        XCTAssertTrue(toolButton.waitForExistence(timeout: 4))
         toolButton.tap()
-        app.buttons["Done"].tap()
-        XCTAssertTrue(app.buttons["canvas.tools"].waitForExistence(timeout: 2))
     }
 }
 

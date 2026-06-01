@@ -17,7 +17,9 @@ The helper:
 1. verifies `gh` is authenticated,
 2. pushes the current branch to `origin`,
 3. triggers `.github/workflows/testflight.yml` with the supplied notes,
-4. watches the run until success or failure.
+4. watches the run until success or failure,
+5. expires previous unexpired valid TestFlight builds after the new processed
+   build uploads, leaving only the latest build available for testing.
 
 Set `PUSH=0` or pass `--no-push` if the branch is already pushed. Set `WATCH=0` or pass `--no-watch` to trigger the workflow without waiting.
 

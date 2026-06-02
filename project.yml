@@ -33,7 +33,9 @@ targets:
       - path: ColorFlow
         excludes:
           - "Package.swift"
+          - "Package.swift.bak"
           - "Scripts/**"
+          - "Design/**"
           - "Resources/**"         # bundled via resources below
           - ".build/**"            # stray SwiftPM cache — never belongs in the app target
 

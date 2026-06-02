@@ -11,9 +11,8 @@ struct ProfileView: View {
     @Environment(AppThemeStore.self) private var themeStore
     @State private var viewModel: MyLibraryViewModel
     @AppStorage("gouache.displayName") private var displayName = "Prateek"
-    @State private var selectedFilter: MyWorkFilter = .all
-    @State private var resetPage: ColoringPage?
     @State private var isSearchExpanded = false
+    @State private var isSettingsPresented = false
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
     let focus: ProfileFocus?
@@ -33,61 +32,27 @@ struct ProfileView: View {
         GeometryReader { geometry in
             let metrics = GouacheProfileMetrics(size: geometry.size)
 
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
-                        profileTopBar(proxy: proxy, metrics: metrics)
-                        profileHero(metrics: metrics)
-                        recentlyCompletedSection(metrics: metrics)
-                        settingsPanel
-                            .id("profile.settings")
-                        myWorkSection
-                            .id(ProfileFocus.myWork)
-                    }
-                    .padding(.horizontal, metrics.horizontalInset)
-                    .padding(.top, metrics.topContentPadding)
-                    .padding(.bottom, 110)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
+                    profileTopBar(metrics: metrics)
+                    profileHero(metrics: metrics)
+                    recentlyCompletedSection(metrics: metrics)
                 }
-                .background(SableTheme.gouacheBackground(for: colorScheme).ignoresSafeArea())
-                .task {
-                    await viewModel.load()
-                    scrollToFocus(with: proxy)
-                }
-                .onChange(of: focus) { _, _ in
-                    scrollToFocus(with: proxy)
-                }
+                .padding(.horizontal, metrics.horizontalInset)
+                .padding(.top, metrics.topContentPadding)
+                .padding(.bottom, 110)
+            }
+            .background(SableTheme.gouacheBackground(for: colorScheme).ignoresSafeArea())
+            .task {
+                await viewModel.load()
             }
         }
-        .confirmationDialog(
-            "Reset this artwork?",
-            isPresented: Binding(
-                get: { resetPage != nil },
-                set: { if !$0 { resetPage = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Reset Artwork", role: .destructive) {
-                resetPage = nil
-            }
-            Button("Cancel", role: .cancel) {
-                resetPage = nil
-            }
-        } message: {
-            Text("This will remove all coloring progress and cannot be undone.")
+        .sheet(isPresented: $isSettingsPresented) {
+            settingsSheet
         }
     }
 
-    private func scrollToFocus(with proxy: ScrollViewProxy) {
-        guard let focus else { return }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(80))
-            withAnimation(.snappy(duration: 0.28)) {
-                proxy.scrollTo(focus, anchor: .top)
-            }
-        }
-    }
-
-    private func profileTopBar(proxy: ScrollViewProxy, metrics: GouacheProfileMetrics) -> some View {
+    private func profileTopBar(metrics: GouacheProfileMetrics) -> some View {
         HStack(alignment: .center) {
             Text("Gouache")
                 .font(SableTheme.Typography.fraunces(metrics.brandSize, weight: .regular))
@@ -98,9 +63,7 @@ struct ProfileView: View {
             profileSearchControl(metrics: metrics)
 
             Button {
-                withAnimation(.snappy(duration: 0.28)) {
-                    proxy.scrollTo("profile.settings", anchor: .top)
-                }
+                isSettingsPresented = true
             } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 18, weight: .regular))
@@ -266,25 +229,30 @@ struct ProfileView: View {
         }
     }
 
+    @ViewBuilder
     private func recentlyCompletedSection(metrics: GouacheProfileMetrics) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Recently Completed")
-                .font(SableTheme.Typography.fraunces(24, weight: .regular))
-                .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+        let pages = recentlyCompletedPages
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: metrics.cardGap) {
-                    ForEach(recentlyCompletedPages) { page in
-                        ProfileRecentCompletedCard(
-                            page: page,
-                            width: metrics.recentCardWidth,
-                            imageHeight: metrics.recentImageHeight
-                        ) {
-                            navigate(.coloringPage(page))
+        if !pages.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Recently Completed")
+                    .font(SableTheme.Typography.fraunces(24, weight: .regular))
+                    .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: metrics.cardGap) {
+                        ForEach(pages) { page in
+                            ProfileRecentCompletedCard(
+                                page: page,
+                                width: metrics.recentCardWidth,
+                                imageHeight: metrics.recentImageHeight
+                            ) {
+                                navigate(.coloringPage(page))
+                            }
                         }
                     }
+                    .padding(.vertical, 2)
                 }
-                .padding(.vertical, 2)
             }
         }
     }
@@ -294,58 +262,19 @@ struct ProfileView: View {
     }
 
     private var recentlyCompletedPages: [ColoringPage] {
-        let completed = viewModel.pages.filter { $0.progress >= 1 }
-        let candidates = completed.isEmpty ? viewModel.pages : completed
+        let candidates = viewModel.pages.filter { $0.progress > 0.9 }
         let query = normalizedSearchQuery
+        let visible = query.isEmpty ? candidates : candidates.filter { $0.title.localizedCaseInsensitiveContains(query) }
 
-        if !candidates.isEmpty {
-            let visible = query.isEmpty ? candidates : candidates.filter { $0.title.localizedCaseInsensitiveContains(query) }
-            return Array(visible.prefix(5))
-        }
-
-        let fallbackTemplates = query.isEmpty
-            ? Template.loadAll()
-            : Template.loadAll().filter { template in
-                template.name.localizedCaseInsensitiveContains(query)
-                    || template.difficulty.displayTitle.localizedCaseInsensitiveContains(query)
-                    || template.category.rawValue.localizedCaseInsensitiveContains(query)
-            }
-
-        return fallbackTemplates.prefix(5).map {
-            ColoringPage(
-                id: $0.id,
-                templateId: $0.id,
-                title: $0.name,
-                progress: 0,
-                thumbnailColorHex: SableTheme.progressPinkHex
-            )
-        }
+        return Array(visible.prefix(5))
     }
 
     private var controlFill: Color {
         colorScheme == .dark ? SableTheme.controlFillDark : SableTheme.controlFillLight
     }
 
-    private var settingsPanel: some View {
+    private var settingsSheet: some View {
         VStack(alignment: .leading, spacing: SableTheme.Spacing.xxl) {
-            HStack(spacing: SableTheme.Spacing.xl) {
-                ProfileAvatarBadge(name: displayName)
-
-                VStack(alignment: .leading, spacing: SableTheme.Spacing.xs) {
-                    Text("Display Name")
-                        .font(SableTheme.Typography.labelMedium.weight(.black))
-                        .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
-
-                    TextField("Display name", text: $displayName)
-                        .font(SableTheme.Typography.fraunces(22, weight: .bold))
-                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
-                        .textFieldStyle(.plain)
-                        .padding(.vertical, SableTheme.Spacing.sm)
-                        .padding(.horizontal, SableTheme.Spacing.md)
-                        .background(SableTheme.surface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
-                }
-            }
-
             ProfileSettingRow(title: "Appearance", detail: "Follow the system, stay light, or stay dark.") {
                 Picker("Theme", selection: Binding(
                     get: { themeStore.selectedTheme },
@@ -357,25 +286,6 @@ struct ProfileView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 310)
-            }
-
-            ProfileSettingRow(title: "Apple Pencil & Touch", detail: "Two-finger undo, three-finger redo, pinch zoom, and clean color regions.") {
-                Image(systemName: "hand.point.up.left.fill")
-                    .font(SableTheme.Typography.bodyLarge.weight(.bold))
-                    .foregroundStyle(SableTheme.progressPink)
-                    .frame(width: 34, height: 34)
-                    .background(SableTheme.surface(for: colorScheme), in: Circle())
-            }
-
-            ProfileSettingRow(title: "My Palettes", detail: "A quick view of your current Gouache colors.") {
-                HStack(spacing: -SableTheme.Spacing.xxxs) {
-                    ForEach([SableTheme.crimson, SableTheme.mist, SableTheme.butter, SableTheme.lavender], id: \.self) { color in
-                        Circle()
-                            .fill(color)
-                            .frame(width: 28, height: 28)
-                            .overlay(Circle().stroke(.white.opacity(0.8), lineWidth: SableTheme.Border.hairlineWidth))
-                    }
-                }
             }
 
             ProfileSettingRow(title: "Storage & Sync", detail: "Artwork is saved on this iPad as you color.") {
@@ -408,95 +318,13 @@ struct ProfileView: View {
             RoundedRectangle(cornerRadius: SableTheme.Radius.card)
                 .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
         }
-    }
-
-    private var myWorkSection: some View {
-        VStack(alignment: .leading, spacing: SableTheme.Spacing.xl) {
-            HStack {
-                Text("My Work")
-                    .font(SableTheme.Typography.sectionTitle)
-                    .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
-
-                Spacer()
-
-                SegmentedFilter(options: MyWorkFilter.allCases, selection: $selectedFilter) { $0.title }
-            }
-
-            if viewModel.isLoading {
-                ProgressView()
-                    .tint(SableTheme.progressPink)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 220)
-            } else if filteredPages.isEmpty {
-                emptyWork
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300, maximum: 440), spacing: SableTheme.Spacing.xxl)], spacing: SableTheme.Spacing.xxl) {
-                    ForEach(filteredPages) { page in
-                        MyWorkCard(
-                            page: page,
-                            open: { navigate(.coloringPage(page)) },
-                            duplicate: {},
-                            share: {},
-                            reset: { resetPage = page }
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private var filteredPages: [ColoringPage] {
-        let filtered: [ColoringPage]
-        switch selectedFilter {
-        case .all:
-            filtered = viewModel.pages
-        case .incomplete:
-            filtered = viewModel.pages.filter { $0.progress < 1 }
-        case .complete:
-            filtered = viewModel.pages.filter { $0.progress >= 1 }
-        }
-
-        let query = normalizedSearchQuery
-        guard !query.isEmpty else { return filtered }
-        return filtered.filter { $0.title.localizedCaseInsensitiveContains(query) }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+        .background(SableTheme.gouacheBackground(for: colorScheme))
     }
 
     private var normalizedSearchQuery: String {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var emptyWork: some View {
-        VStack(spacing: SableTheme.Spacing.md) {
-            Image(systemName: "paintpalette")
-                .font(.system(size: 44, weight: .semibold))
-                .foregroundStyle(SableTheme.progressPink)
-
-            Text("Your saved artwork will appear here.")
-                .font(SableTheme.Typography.bodyMedium.weight(.semibold))
-                .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 220)
-        .background(SableTheme.cardSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
-    }
-}
-
-private enum MyWorkFilter: String, CaseIterable, Identifiable {
-    case all
-    case incomplete
-    case complete
-
-    var id: Self { self }
-
-    var title: String {
-        switch self {
-        case .all:
-            return "All"
-        case .incomplete:
-            return "Incomplete"
-        case .complete:
-            return "Complete"
-        }
     }
 }
 
@@ -707,90 +535,6 @@ private struct ProfileSettingRow<Accessory: View>: View {
             Spacer()
             accessory
         }
-    }
-}
-
-private struct ProfileAvatarBadge: View {
-    let name: String
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(SableTheme.blush.opacity(0.72))
-            Text(String(name.prefix(1)).uppercased())
-                .font(.system(size: 32, weight: .black))
-                .foregroundStyle(SableTheme.ink)
-        }
-        .frame(width: 72, height: 72)
-        .overlay {
-            Circle().stroke(SableTheme.ink.opacity(0.14), lineWidth: SableTheme.Border.hairlineWidth)
-        }
-    }
-}
-
-private struct MyWorkCard: View {
-    @Environment(\.colorScheme) private var colorScheme
-    let page: ColoringPage
-    let open: () -> Void
-    let duplicate: () -> Void
-    let share: () -> Void
-    let reset: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button(action: open) {
-                ProjectArtworkThumbnail(page: page, style: .wide)
-                    .aspectRatio(1.34, contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                    .clipped()
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("profile.project.\(page.title.normalizedIdentifier)")
-
-            VStack(alignment: .leading, spacing: SableTheme.Spacing.md) {
-                HStack(spacing: SableTheme.Spacing.md) {
-                    Text(page.title)
-                        .font(SableTheme.Typography.fraunces(21, weight: .black))
-                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-
-                    Spacer()
-
-                    Text("\(Int((page.progress * 100).rounded()))%")
-                        .font(SableTheme.Typography.labelLarge.weight(.black))
-                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
-                }
-
-                ProgressTrack(progress: page.progress)
-
-                HStack(spacing: SableTheme.Spacing.sm) {
-                    actionButton("Duplicate", systemImage: "plus.square.on.square", action: duplicate)
-                    actionButton("Share", systemImage: "square.and.arrow.up", action: share)
-                    actionButton("Reset", systemImage: "arrow.counterclockwise", role: .destructive, action: reset)
-                }
-            }
-            .padding(SableTheme.Spacing.lg)
-        }
-        .background(SableTheme.cardSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
-        .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.card))
-        .overlay {
-            RoundedRectangle(cornerRadius: SableTheme.Radius.card)
-                .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
-        }
-    }
-
-    private func actionButton(_ title: String, systemImage: String, role: ButtonRole? = nil, action: @escaping () -> Void) -> some View {
-        Button(role: role, action: action) {
-            Label(title, systemImage: systemImage)
-                .labelStyle(.iconOnly)
-                .font(SableTheme.Typography.bodyMedium.weight(.bold))
-                .frame(width: 36, height: 34)
-                .background(SableTheme.surface(for: colorScheme), in: RoundedRectangle(cornerRadius: SableTheme.Radius.card))
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(role == .destructive ? SableTheme.crimson : SableTheme.gouachePrimaryText(for: colorScheme))
-        .accessibilityLabel(title)
     }
 }
 

@@ -58,9 +58,22 @@ enum TemplateCollectionCatalog {
         ),
         Definition(
             id: UUID(uuidString: "44444444-0000-0000-0000-000000000104")!,
-            name: "Canopy Color",
+            name: "Pattern Studies",
+            category: .abstract,
+            templateFilenames: [
+                "radiant-peaks.svg",
+                "art-deco-bloom.svg",
+                "compass-bloom.svg",
+                "sunburst-bloom.svg",
+                "lotus-crown.svg",
+                "electric-starburst.svg"
+            ]
+        ),
+        Definition(
+            id: UUID(uuidString: "44444444-0000-0000-0000-000000000105")!,
+            name: "Animal Studies",
             category: .animals,
-            templateFilenames: ["toucan-canopy.svg"]
+            templateFilenames: ["toucan-canopy.svg", "lion-crest.svg"]
         )
     ]
 

@@ -35,7 +35,7 @@ artifacts/canvas-redesign/
 artifacts/pencil-hid/
 
 # Release cleanup: local/private/generated preservation candidates
-Scripts/coredevice_tailnet_bridge.sh
+Scripts/coredevice_tailnet_bridge.sh*
 docs/app-store/screenshots/generated/
 gouache-smooth-deepseekv4pro/
 

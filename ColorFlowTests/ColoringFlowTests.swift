@@ -106,6 +106,34 @@ final class ColoringFlowTests: XCTestCase {
         XCTAssertEqual(pages.prefix(3).map(\.title), ["Newest Saved Page", "Middle Saved Page", "Older Saved Page"])
     }
 
+    func test_sableRepository_inProgressPagesReturnAllActiveProjectsNewestFirst() async throws {
+        var savedProjects: [Project] = []
+        var templates: [Template] = []
+
+        for index in 0..<7 {
+            let template = try uniqueTemplate(named: "Saved Page \(index)")
+            templates.append(template)
+
+            var project = Project(template: template)
+            project.updateCompletion(filledRegionCount: index + 1, totalRegionCount: 10)
+            storage.save(project: &project, drawing: PKDrawing(), fillLayer: nil, templateImage: nil)
+            projectsToDelete.append(project)
+            savedProjects.append(project)
+            usleep(20_000)
+        }
+
+        let repository = SableHomeRepository(storageService: storage, templates: templates)
+        let homePreviewPages = await repository.fetchContinuePages()
+        let inProgressPages = await repository.fetchInProgressPages()
+
+        XCTAssertEqual(homePreviewPages.count, 6)
+        XCTAssertEqual(inProgressPages.count, 7)
+        XCTAssertEqual(
+            inProgressPages.map(\.projectId),
+            savedProjects.reversed().map { Optional($0.id) }
+        )
+    }
+
     func test_sableRepository_freshUserHasNoFakeContinuePlaceholders() async throws {
         let repository = SableHomeRepository(storageService: storage, templates: [try uniqueTemplate()])
 

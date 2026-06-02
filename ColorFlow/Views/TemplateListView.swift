@@ -6,22 +6,27 @@ struct TemplateListView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var viewModel: TemplateListViewModel
     let navigate: (AppRoute) -> Void
+    let showAllTemplates: () -> Void
 
     init(
         source: TemplateListViewModel.Source,
         repository: any ColoringFlowRepositoryProtocol = SableHomeRepository(),
-        navigate: @escaping (AppRoute) -> Void = { _ in }
+        navigate: @escaping (AppRoute) -> Void = { _ in },
+        showAllTemplates: @escaping () -> Void = {}
     ) {
         _viewModel = State(initialValue: TemplateListViewModel(source: source, repository: repository))
         self.navigate = navigate
+        self.showAllTemplates = showAllTemplates
     }
 
     init(
         viewModel: TemplateListViewModel,
-        navigate: @escaping (AppRoute) -> Void = { _ in }
+        navigate: @escaping (AppRoute) -> Void = { _ in },
+        showAllTemplates: @escaping () -> Void = {}
     ) {
         _viewModel = State(initialValue: viewModel)
         self.navigate = navigate
+        self.showAllTemplates = showAllTemplates
     }
 
     var body: some View {
@@ -29,9 +34,12 @@ struct TemplateListView: View {
             if viewModel.source.isReferenceLibrary {
                 LibraryReferenceView(
                     templates: viewModel.filteredTemplates,
+                    pages: viewModel.filteredPages,
+                    configuration: viewModel.source.referenceConfiguration,
                     isLoading: viewModel.isLoading,
-                    onSearch: { navigate(.search("")) },
-                    onSelectTemplate: openReferenceTemplate(_:)
+                    onShowAllTemplates: viewModel.source.showsAllTemplatesReturn ? showAllTemplates : nil,
+                    onSelectTemplate: openReferenceTemplate(_:),
+                    onSelectPage: openReferencePage(_:)
                 )
             } else {
                 ZStack {
@@ -197,14 +205,40 @@ struct TemplateListView: View {
             navigate(route)
         }
     }
+
+    private func openReferencePage(_ page: ColoringPage) {
+        navigate(.coloringPage(page))
+    }
 }
 
 private extension TemplateListViewModel.Source {
     var isReferenceLibrary: Bool {
-        if case .explore = self {
+        switch self {
+        case .explore, .inProgress, .recentlyAdded:
             return true
+        default:
+            return false
         }
-        return false
+    }
+
+    var showsAllTemplatesReturn: Bool {
+        if case .explore = self {
+            return false
+        }
+        return isReferenceLibrary
+    }
+
+    var referenceConfiguration: LibraryReferenceConfiguration {
+        switch self {
+        case .explore:
+            return .allTemplates
+        case .inProgress:
+            return .inProgress
+        case .recentlyAdded:
+            return .recentlyAdded
+        default:
+            return .allTemplates
+        }
     }
 }
 

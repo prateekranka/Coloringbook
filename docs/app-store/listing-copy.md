@@ -73,9 +73,9 @@ Pages page or public repository page is acceptable for v1.
 
 | Field | Target | Status |
 | --- | --- | --- |
-| Support URL | `https://github.com/prateekranka/colorflow` | Verify public before submission |
+| Support URL | `https://github.com/prateekranka/Coloringbook` | Verified public before submission |
 | Marketing URL | Same as support URL for v1 | Optional |
-| Privacy Policy | `https://github.com/prateekranka/colorflow` privacy section/page | Must be public before submission |
+| Privacy Policy | `https://github.com/prateekranka/Coloringbook` privacy section/page | Must be public before submission |
 
 ### Minimum privacy policy copy
 
@@ -88,7 +88,7 @@ Artwork you create is stored locally on your device. If you choose to export art
 
 Gouache does not use analytics SDKs, advertising networks, tracking SDKs, crash-reporting services, accounts, or user-facing network features.
 
-For support, open an issue at: https://github.com/prateekranka/colorflow
+For support, open an issue at: https://github.com/prateekranka/Coloringbook
 ```
 
 ## Age rating

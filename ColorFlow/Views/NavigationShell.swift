@@ -14,15 +14,14 @@ struct NavigationShell: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            ZStack(alignment: .bottom) {
-                selectedContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.bottom, 86)
-
-                SableTabBar(selectedTab: $selectedTab)
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 18)
-            }
+            selectedContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    SableTabBar(selectedTab: $selectedTab)
+                        .padding(.horizontal, 32)
+                        .padding(.top, 8)
+                        .padding(.bottom, 18)
+                }
             .background(SableTheme.appBackground(for: colorScheme).ignoresSafeArea())
             #if DEBUG && SHOW_RENDER_METRICS
             .overlay(alignment: .topTrailing) {
@@ -52,7 +51,7 @@ struct NavigationShell: View {
                 repository: repository,
                 navigate: navigate,
                 openProfile: openProfile,
-                openMyWork: openMyWork,
+                openMyWork: openInProgressLibrary,
                 openCollections: openCollections,
                 openRecentlyAdded: openRecentlyAdded
             )
@@ -60,7 +59,8 @@ struct NavigationShell: View {
             TemplateListView(
                 source: librarySource,
                 repository: repository,
-                navigate: navigate
+                navigate: navigate,
+                showAllTemplates: showAllTemplates
             )
             .id(librarySource)
         case .profile:
@@ -136,10 +136,10 @@ struct NavigationShell: View {
         selectedTab = .profile
     }
 
-    private func openMyWork() {
+    private func openInProgressLibrary() {
         path.removeAll()
-        profileFocus = .myWork
-        selectedTab = .profile
+        librarySource = .inProgress
+        selectedTab = .library
     }
 
     private func openCollections() {
@@ -151,6 +151,12 @@ struct NavigationShell: View {
     private func openRecentlyAdded() {
         path.removeAll()
         librarySource = .recentlyAdded
+        selectedTab = .library
+    }
+
+    private func showAllTemplates() {
+        path.removeAll()
+        librarySource = .explore
         selectedTab = .library
     }
 }
@@ -278,9 +284,11 @@ private struct SableTabBar: View {
                     HStack(spacing: 8) {
                         Image(systemName: tab.systemImageName)
                             .font(.system(size: 18, weight: .medium))
+                            .accessibilityLabel(tab.title)
 
                         Text(tab.title)
                             .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                            .accessibilityHidden(true)
                     }
                     .foregroundStyle(isSelected ? selectedForeground : unselectedForeground)
                     .frame(minWidth: 118, minHeight: 38)
@@ -294,6 +302,9 @@ private struct SableTabBar: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(tab.title)
+                .accessibilityValue(selectedTab == tab ? "Selected" : "")
                 .accessibilityIdentifier("tab.\(tab.rawValue)")
             }
         }

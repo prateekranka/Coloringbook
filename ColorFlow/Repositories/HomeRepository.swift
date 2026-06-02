@@ -10,6 +10,7 @@ protocol HomeRepositoryProtocol {
 
 protocol ColoringFlowRepositoryProtocol {
     func fetchExploreTemplates() async -> [Template]
+    func fetchInProgressPages() async -> [ColoringPage]
     func fetchCollections() async -> [PageCollection]
     func fetchTemplates(for collection: PageCollection) async -> [Template]
     func fetchTemplates(for mood: MoodCategory) async -> [Template]
@@ -30,9 +31,7 @@ struct SableHomeRepository: HomeRepositoryProtocol, ColoringFlowRepositoryProtoc
     }
 
     func fetchContinuePages() async -> [ColoringPage] {
-        storageService.loadAllProjects()
-            .filter { $0.status != .completed }
-            .sorted { $0.modifiedAt > $1.modifiedAt }
+        inProgressProjects()
             .prefix(6)
             .map(coloringPage)
     }
@@ -53,6 +52,10 @@ struct SableHomeRepository: HomeRepositoryProtocol, ColoringFlowRepositoryProtoc
         storageService.loadAllProjects()
             .sorted { $0.modifiedAt > $1.modifiedAt }
             .map(coloringPage)
+    }
+
+    func fetchInProgressPages() async -> [ColoringPage] {
+        inProgressProjects().map(coloringPage)
     }
 
     func fetchCollections() async -> [PageCollection] {
@@ -95,6 +98,12 @@ struct SableHomeRepository: HomeRepositoryProtocol, ColoringFlowRepositoryProtoc
         }
 
         return nil
+    }
+
+    private func inProgressProjects() -> [Project] {
+        storageService.loadAllProjects()
+            .filter { $0.status != .completed }
+            .sorted { $0.modifiedAt > $1.modifiedAt }
     }
 
     private func accentHex(for category: TemplateCategory?) -> String {
@@ -203,6 +212,10 @@ struct MockHomeRepository: HomeRepositoryProtocol {
 extension MockHomeRepository: ColoringFlowRepositoryProtocol {
     func fetchExploreTemplates() async -> [Template] {
         Template.loadAll().sorted { $0.name < $1.name }
+    }
+
+    func fetchInProgressPages() async -> [ColoringPage] {
+        Self.continuePages
     }
 
     func fetchTemplates(for collection: PageCollection) async -> [Template] {

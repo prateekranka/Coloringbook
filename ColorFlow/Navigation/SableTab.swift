@@ -25,7 +25,7 @@ enum SableTab: String, CaseIterable, Identifiable {
         case .library:
             return "Library"
         case .profile:
-            return "My Work"
+            return "Profile"
         }
     }
 

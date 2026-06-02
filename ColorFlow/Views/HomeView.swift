@@ -136,7 +136,7 @@ private struct GouacheHomeMetrics {
     }
 
     var heroHeight: CGFloat {
-        isLandscape ? 490 : 360
+        isLandscape ? 370 : 360
     }
 
     var eyebrowSize: CGFloat {
@@ -148,7 +148,7 @@ private struct GouacheHomeMetrics {
     }
 
     var titleBlockTop: CGFloat {
-        isLandscape ? 60 : 54
+        isLandscape ? 32 : 36
     }
 
     var titleBlockSpacing: CGFloat {
@@ -164,7 +164,7 @@ private struct GouacheHomeMetrics {
     }
 
     var sectionSpacing: CGFloat {
-        isLandscape ? 44 : 28
+        isLandscape ? 32 : 28
     }
 
     var sectionHeaderSpacing: CGFloat {
@@ -220,7 +220,7 @@ private struct GouacheHomeMetrics {
     }
 
     var bottomContentPadding: CGFloat {
-        132
+        32
     }
 
     var topContentPadding: CGFloat {
@@ -228,19 +228,19 @@ private struct GouacheHomeMetrics {
     }
 
     var shelfArtworkWidth: CGFloat {
-        isLandscape ? min(880, contentWidth * 0.86) : min(580, contentWidth * 0.86)
+        isLandscape ? min(760, contentWidth * 0.70) : min(580, contentWidth * 0.86)
     }
 
     var shelfArtworkCenterX: CGFloat {
-        isLandscape ? contentWidth * 0.57 : contentWidth * 0.52
+        contentWidth * 0.5
     }
 
     var shelfArtworkCenterY: CGFloat {
-        isLandscape ? heroHeight * 0.70 : heroHeight * 0.71
+        isLandscape ? heroHeight * 0.66 : heroHeight * 0.71
     }
 
     var shelfArtworkYOffsetLight: CGFloat {
-        isLandscape ? -12 : 0
+        isLandscape ? -4 : 0
     }
 }
 
@@ -734,6 +734,14 @@ private struct ContinueSection: View {
 
             if pages.isEmpty {
                 ContinueEmptyCard(width: metrics.contentWidth)
+            } else if pages.count == 1, let page = pages.first {
+                ContinueFeatureCard(
+                    page: page,
+                    width: metrics.contentWidth,
+                    isLandscape: metrics.isLandscape
+                ) {
+                    navigate(page)
+                }
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: metrics.cardGap) {
@@ -791,6 +799,87 @@ private struct ContinueEmptyCard: View {
                 .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
         }
         .accessibilityIdentifier("home.continue.empty")
+    }
+}
+
+private struct ContinueFeatureCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let page: ColoringPage
+    let width: CGFloat
+    let isLandscape: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: isLandscape ? 18 : 16) {
+                HomePageArtwork(page: page, style: .wide, contentMode: .fill)
+                    .frame(width: artworkWidth, height: cardHeight)
+                    .background(SableTheme.paper)
+                    .clipped()
+
+                VStack(alignment: .leading, spacing: isLandscape ? 12 : 10) {
+                    Text(page.title)
+                        .font(SableTheme.Typography.fraunces(isLandscape ? 24 : 22, weight: .semibold))
+                        .foregroundStyle(SableTheme.gouachePrimaryText(for: colorScheme))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    HStack(alignment: .lastTextBaseline, spacing: 10) {
+                        Text(progressText)
+                            .font(SableTheme.Typography.bodyMedium.weight(.semibold))
+                            .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
+
+                        Spacer(minLength: 0)
+
+                        Label("Continue", systemImage: "paintbrush.pointed")
+                            .font(SableTheme.Typography.labelMedium.weight(.semibold))
+                            .foregroundStyle(SableTheme.selectedText(for: colorScheme))
+                            .padding(.horizontal, 13)
+                            .frame(height: 34)
+                            .background(SableTheme.selectedSurface(for: colorScheme), in: Capsule())
+                    }
+
+                    ProgressTrack(progress: page.progress)
+                        .frame(maxWidth: isLandscape ? 260 : .infinity)
+
+                    Text("Resume your latest saved artwork.")
+                        .font(SableTheme.Typography.bodySmall)
+                        .foregroundStyle(SableTheme.gouacheSecondaryText(for: colorScheme))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.trailing, isLandscape ? 24 : 18)
+            }
+            .frame(width: width, height: cardHeight)
+            .background(SableTheme.gouachePanel(for: colorScheme))
+            .clipShape(RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCard, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: SableTheme.Radius.continuousCard, style: .continuous)
+                    .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
+            }
+            .shadow(
+                color: Color.black.opacity(colorScheme == .dark ? 0.20 : 0.07),
+                radius: 9,
+                x: 0,
+                y: 5
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(page.title), \(progressText) complete, continue coloring")
+        .accessibilityIdentifier("home.continue.feature")
+    }
+
+    private var artworkWidth: CGFloat {
+        min(width * (isLandscape ? 0.34 : 0.42), isLandscape ? 340 : 280)
+    }
+
+    private var cardHeight: CGFloat {
+        isLandscape ? 168 : 172
+    }
+
+    private var progressText: String {
+        "\(Int((page.progress * 100).rounded()))% complete"
     }
 }
 
@@ -1865,8 +1954,10 @@ private extension PageCollection {
             return "HomeAmalfiColored"
         case "Quiet Rooms":
             return "HomeInteriorColored"
-        case "Canopy Color":
-            return "HomeAmalfiLine"
+        case "Pattern Studies":
+            return "HomeMoodBold"
+        case "Animal Studies":
+            return "HomeMoodDreamy"
         default:
             return nil
         }

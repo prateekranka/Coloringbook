@@ -31,9 +31,9 @@ final class DesignSystemTests: XCTestCase {
         XCTAssertEqual(pages.map { Int(($0.progress * 100).rounded()) }, [72, 48, 31])
 
         let collections = await repository.fetchCollections()
-        XCTAssertEqual(collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Canopy Color"])
-        XCTAssertEqual(collections.map(\.pageCount), [3, 3, 3, 1])
-        XCTAssertEqual(collections.map(\.category), [.botanicals, .architecture, .lifestyle, .animals])
+        XCTAssertEqual(collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Pattern Studies", "Animal Studies"])
+        XCTAssertEqual(collections.map(\.pageCount), [3, 3, 3, 6, 2])
+        XCTAssertEqual(collections.map(\.category), [.botanicals, .architecture, .lifestyle, .abstract, .animals])
 
         let moods = await repository.fetchMoodCategories()
         XCTAssertEqual(moods, [.calm, .bold, .playful, .dreamy, .wild, .noir])
@@ -53,7 +53,7 @@ final class DesignSystemTests: XCTestCase {
         XCTAssertEqual(viewModel.continuePages.count, 3)
         XCTAssertEqual(viewModel.recentlyAddedPages.count, 8)
         XCTAssertEqual(viewModel.libraryPages.count, 3)
-        XCTAssertEqual(viewModel.collections.count, 4)
+        XCTAssertEqual(viewModel.collections.count, 5)
         XCTAssertEqual(viewModel.moods.count, 6)
     }
 
@@ -112,15 +112,23 @@ final class DesignSystemTests: XCTestCase {
 
         let collections = await repository.fetchCollections()
 
-        XCTAssertEqual(collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Canopy Color"])
-        XCTAssertEqual(collections.map(\.pageCount), [3, 3, 3, 1])
+        XCTAssertEqual(collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Pattern Studies", "Animal Studies"])
+        XCTAssertEqual(collections.map(\.pageCount), [3, 3, 3, 6, 2])
         XCTAssertEqual(
             collections.map(\.templateFilenames),
             [
                 ["wildflowers.svg", "lemon-branch.svg", "florist-window.svg"],
                 ["amalfi-afternoon.svg", "lemon-balcony.svg", "mediterranean-kitchen-window.svg"],
                 ["sunday-light.svg", "quiet-balcony-room.svg", "rainy-library.svg"],
-                ["toucan-canopy.svg"]
+                [
+                    "radiant-peaks.svg",
+                    "art-deco-bloom.svg",
+                    "compass-bloom.svg",
+                    "sunburst-bloom.svg",
+                    "lotus-crown.svg",
+                    "electric-starburst.svg"
+                ],
+                ["toucan-canopy.svg", "lion-crest.svg"]
             ]
         )
 
@@ -155,7 +163,7 @@ final class DesignSystemTests: XCTestCase {
         await viewModel.load()
 
         XCTAssertTrue(viewModel.showsCollectionIndex)
-        XCTAssertEqual(viewModel.collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Canopy Color"])
+        XCTAssertEqual(viewModel.collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Pattern Studies", "Animal Studies"])
         XCTAssertTrue(viewModel.templates.isEmpty)
     }
 
@@ -166,8 +174,19 @@ final class DesignSystemTests: XCTestCase {
 
         XCTAssertTrue(viewModel.showsExploreCollections)
         XCTAssertFalse(viewModel.showsCollectionIndex)
-        XCTAssertEqual(viewModel.collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Canopy Color"])
+        XCTAssertEqual(viewModel.collections.map(\.name), ["Fresh Botanicals", "Sunlit Places", "Quiet Rooms", "Pattern Studies", "Animal Studies"])
         XCTAssertEqual(viewModel.templates.count, Template.loadAll().count)
+    }
+
+    func test_templateListViewModel_inProgressLoadsSavedWorkNewestFirst() async {
+        let viewModel = TemplateListViewModel(source: .inProgress, repository: MockHomeRepository())
+
+        await viewModel.load()
+
+        XCTAssertTrue(viewModel.templates.isEmpty)
+        XCTAssertEqual(viewModel.pages.map(\.title), ["Rainy Library", "Lemon Balcony", "Wildflowers"])
+        XCTAssertEqual(viewModel.source.title, "Continue Coloring")
+        XCTAssertEqual(viewModel.source.subtitle, "LATEST WORK FIRST")
     }
 
     func test_templateListViewModel_sortsRecentlyAddedByCatalogOrderDescending() async {

@@ -18,6 +18,11 @@ DerivedData/
 .claude/
 .agent/
 
+# Shared agent skills (tracked)
+!.claude/
+!.claude/skills/
+!.claude/skills/**
+
 # Template pipeline working directory (rasters, intermediate SVGs, etc.)
 pipeline_work/
 

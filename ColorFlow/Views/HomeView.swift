@@ -411,6 +411,8 @@ private struct SearchPill: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 17, weight: .medium))
                     .frame(width: 20, height: 20)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -443,6 +445,7 @@ private struct SearchPill: View {
         .overlay {
             Capsule().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
         }
+        .compositingGroup()
         .shadow(
             color: SableTheme.Shadow.searchPill(for: colorScheme).color,
             radius: SableTheme.Shadow.searchPill(for: colorScheme).radius,

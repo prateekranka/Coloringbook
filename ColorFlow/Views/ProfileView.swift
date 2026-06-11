@@ -567,7 +567,7 @@ private struct GouacheProfileMetrics {
     }
 
     var actionButtonSize: CGFloat {
-        scaled(42)
+        scaled(44)
     }
 
     var actionIconSize: CGFloat {

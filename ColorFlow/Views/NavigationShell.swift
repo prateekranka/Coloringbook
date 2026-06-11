@@ -3,6 +3,7 @@ import SwiftUI
 @MainActor
 struct NavigationShell: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab: SableTab = .home
     @State private var path: [AppRoute] = []
     @State private var librarySource: TemplateListViewModel.Source = .explore
@@ -16,12 +17,6 @@ struct NavigationShell: View {
         NavigationStack(path: $path) {
             selectedContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    SableTabBar(selectedTab: $selectedTab)
-                        .padding(.horizontal, 32)
-                        .padding(.top, 8)
-                        .padding(.bottom, 18)
-                }
             .background(SableTheme.appBackground(for: colorScheme).ignoresSafeArea())
             #if DEBUG && SHOW_RENDER_METRICS
             .overlay(alignment: .topTrailing) {
@@ -38,9 +33,39 @@ struct NavigationShell: View {
             }
             .onAppear(perform: applyLaunchRouteIfNeeded)
         }
+        // The tab bar wraps the whole stack so Home/Library/Profile stay one
+        // tap away on pushed list screens; only the immersive canvas hides it.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !isCanvasRouteActive {
+                SableTabBar(selectedTab: selectedTab, onSelect: selectTab)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 8)
+                    .padding(.bottom, 18)
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isCanvasRouteActive)
         .environment(renderTuning)
         .environment(appThemeStore)
         .preferredColorScheme(appThemeStore.selectedTheme.preferredColorScheme)
+    }
+
+    private var isCanvasRouteActive: Bool {
+        switch path.last {
+        case .canvas, .coloringPage:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Tapping any tab pops pushed routes first, so the bar always returns
+    /// the user to a tab root (including tapping the current tab to pop).
+    private func selectTab(_ tab: SableTab) {
+        if !path.isEmpty {
+            path.removeAll()
+        }
+        selectedTab = tab
     }
 
     @ViewBuilder
@@ -271,13 +296,14 @@ private struct RenderTuningSlider: View {
 
 private struct SableTabBar: View {
     @Environment(\.colorScheme) private var colorScheme
-    @Binding var selectedTab: SableTab
+    let selectedTab: SableTab
+    let onSelect: (SableTab) -> Void
 
     var body: some View {
         HStack(spacing: 4) {
             ForEach(SableTab.allCases) { tab in
                 Button {
-                    selectedTab = tab
+                    onSelect(tab)
                 } label: {
                     let isSelected = selectedTab == tab
 
@@ -314,6 +340,7 @@ private struct SableTabBar: View {
         .overlay {
             Capsule().stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
         }
+        .compositingGroup()
         .shadow(
             color: SableTheme.Shadow.tabBar(for: colorScheme).color,
             radius: SableTheme.Shadow.tabBar(for: colorScheme).radius,

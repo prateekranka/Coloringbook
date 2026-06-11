@@ -263,75 +263,6 @@ struct LibraryReferenceView: View {
         }
     }
 
-    private func hero(metrics: LibraryReferenceMetrics) -> some View {
-        ZStack(alignment: .topLeading) {
-            Image(colorScheme == .dark ? "LibraryHeroBackgroundDark" : "LibraryHeroBackgroundLight")
-                .resizable()
-                .scaledToFill()
-                .frame(width: metrics.size.width, height: metrics.heroHeight)
-                .clipped()
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .black, location: 0),
-                            .init(color: .black, location: 0.58),
-                            .init(color: .black.opacity(0.72), location: 0.78),
-                            .init(color: .clear, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .overlay(alignment: .bottom) {
-                    LinearGradient(
-                        colors: [.clear, pageBackground.opacity(0.92), pageBackground],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: metrics.heroHeight * 0.42)
-                }
-                .allowsHitTesting(false)
-
-            VStack(alignment: .leading, spacing: metrics.headerSpacing) {
-                Text("Gouache")
-                    .font(SableTheme.Typography.fraunces(metrics.brandSize, weight: .regular))
-                    .foregroundStyle(primaryText)
-
-                Text("Library")
-                    .font(SableTheme.Typography.fraunces(metrics.titleSize, weight: .regular))
-                    .foregroundStyle(primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.76)
-
-                HStack(spacing: 12) {
-                    ForEach(LibraryReferenceFilter.allCases) { filter in
-                        filterButton(filter)
-                    }
-                }
-            }
-            .padding(.leading, metrics.horizontalInset)
-            .padding(.top, metrics.topInset)
-
-            Button(action: {}) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: metrics.searchIconSize, weight: .regular))
-                    .foregroundStyle(primaryText)
-                    .frame(width: metrics.searchButtonSize, height: metrics.searchButtonSize)
-                    .background(searchFill, in: Circle())
-                    .overlay {
-                        Circle()
-                            .stroke(SableTheme.gouacheHairline(for: colorScheme), lineWidth: SableTheme.Border.hairlineWidth)
-                    }
-            }
-            .buttonStyle(.plain)
-            .padding(.top, metrics.topInset + 4)
-            .padding(.trailing, metrics.horizontalInset)
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .accessibilityLabel("Search")
-        }
-        .frame(height: metrics.heroHeight)
-    }
-
     private func filterButton(_ filter: LibraryReferenceFilter) -> some View {
         let isSelected = selectedFilter == filter
 
@@ -1098,7 +1029,7 @@ private struct LibraryReferenceMetrics {
     }
 
     var searchButtonSize: CGFloat {
-        scaled(42)
+        scaled(44)
     }
 
     var searchIconSize: CGFloat {

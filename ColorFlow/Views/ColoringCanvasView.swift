@@ -8,13 +8,15 @@ struct ColoringCanvasView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(RenderTuningStore.self) private var renderTuning
     @State private var viewModel: ColoringSessionViewModel
     @State private var showClearArtworkConfirmation = false
     @State private var fillFeedbackID: UUID?
     @State private var isUIHidden = false
     @State private var fingerPaints = false
-    @State private var showSettingsSheet = false
+    @State private var showSettingsPanel = false
+    @State private var previousTool: ToolType?
     @State private var showColorPicker = false
     @State private var showColorTray = false
     @State private var isEyedropperActive = false
@@ -118,6 +120,8 @@ struct ColoringCanvasView: View {
                             toolSettings: viewModel.selectedToolSettings,
                             fingerPaints: fingerPaints,
                             isEyedropperActive: isEyedropperActive,
+                            canUndo: viewModel.canUndo,
+                            canRedo: viewModel.canRedo,
                             liveStrokeSeed: viewModel.liveStrokeSeed,
                             fillLayerImage: viewModel.fillLayerImage,
                             lineArtImage: viewModel.lineArtImage,
@@ -170,6 +174,9 @@ struct ColoringCanvasView: View {
                             },
                             liveStrokeClip: { samples in
                                 viewModel.liveStrokeClip(samples: samples, canvasSize: canvasSize)
+                            },
+                            onPencilDoubleTap: { action in
+                                handlePencilDoubleTap(action)
                             }
                         )
                         .frame(width: availableSize.width, height: availableSize.height)
@@ -203,7 +210,7 @@ struct ColoringCanvasView: View {
             if let zoomFeedbackID {
                 CanvasZoomHint(scale: viewModel.viewport.scale)
                     .id(zoomFeedbackID)
-                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     .offset(y: -120)
                     .allowsHitTesting(false)
@@ -215,6 +222,7 @@ struct ColoringCanvasView: View {
                     selectedDockToolID: $selectedDockToolID,
                     showColorTray: $showColorTray,
                     showColorPicker: $showColorPicker,
+                    showSettingsPanel: $showSettingsPanel,
                     isDimmed: zoomFeedbackID != nil,
                     onBack: {
                         flushFreehandThenSave()
@@ -229,12 +237,6 @@ struct ColoringCanvasView: View {
                         guard viewModel.canRedo else { return }
                         undoRedoFeedbackID = UUID()
                         Task { await viewModel.redoFill() }
-                    },
-                    onLayers: {
-                        showSettingsSheet = true
-                    },
-                    onSettings: {
-                        showSettingsSheet = true
                     },
                     onShare: {
                         presentShareSheet()
@@ -260,6 +262,24 @@ struct ColoringCanvasView: View {
                             showColorTray = false
                             isEyedropperActive = true
                         }
+                    },
+                    settingsPanel: {
+                        CanvasSettingsPanel(
+                            viewModel: viewModel,
+                            precisionSlidersEnabled: $precisionSlidersEnabled,
+                            eyedropperShortcutEnabled: $eyedropperShortcutEnabled,
+                            leftHandedMode: $leftHandedMode,
+                            colorBlindMode: $colorBlindMode,
+                            fingerPaints: $fingerPaints,
+                            onRestart: {
+                                showSettingsPanel = false
+                                showClearArtworkConfirmation = true
+                            },
+                            onClear: {
+                                showSettingsPanel = false
+                                showClearArtworkConfirmation = true
+                            }
+                        )
                     }
                 )
             } else {
@@ -272,7 +292,7 @@ struct ColoringCanvasView: View {
                             }
                         }
                         .labelStyle(.iconOnly)
-                        .font(.system(size: 17, weight: .bold))
+                        .font(.body.weight(.bold))
                         .foregroundStyle(SableTheme.primaryText(for: colorScheme))
                         .frame(width: 44, height: 44)
                         .background(SableTheme.canvasChrome(for: colorScheme), in: Circle())
@@ -287,19 +307,6 @@ struct ColoringCanvasView: View {
             }
         }
         .ignoresSafeArea(edges: .bottom)
-        .sheet(isPresented: $showSettingsSheet) {
-            CanvasSettingsSheet(
-                viewModel: viewModel,
-                precisionSlidersEnabled: $precisionSlidersEnabled,
-                eyedropperShortcutEnabled: $eyedropperShortcutEnabled,
-                leftHandedMode: $leftHandedMode,
-                colorBlindMode: $colorBlindMode,
-                onRestart: { showClearArtworkConfirmation = true },
-                onDelete: { showClearArtworkConfirmation = true }
-            )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-        }
         .sheet(item: $sharePayload) { payload in
             CanvasShareSheet(image: payload.image)
         }
@@ -312,9 +319,18 @@ struct ColoringCanvasView: View {
             guard abs(newValue - oldValue) > 0.015 else { return }
             showZoomFeedback()
         }
-        .onChange(of: viewModel.selectedTool) { _, tool in
+        .onChange(of: viewModel.selectedTool) { oldTool, tool in
+            previousTool = oldTool
             if CanvasToolDockItem.item(id: selectedDockToolID)?.tool != tool {
                 selectedDockToolID = CanvasToolDockItem.primaryID(for: tool)
+            }
+        }
+        .onChange(of: fingerPaints) { _, enabled in
+            viewModel.setFingerPaints(enabled)
+        }
+        .onChange(of: viewModel.fingerPaints, initial: true) { _, enabled in
+            if fingerPaints != enabled {
+                fingerPaints = enabled
             }
         }
     }
@@ -367,7 +383,7 @@ struct ColoringCanvasView: View {
                     selectedTool: viewModel.selectedTool,
                     colorHex: viewModel.selectedColorHex,
                     settings: viewModel.selectedToolSettings,
-                    fingerPaints: true,
+                    fingerPaints: fingerPaints,
                     onDrawingChanged: { viewModel.syncFreehandDrawingFromCanvas($0) },
                     onPigmentEraserBegan: { samples in
                         handleStrokeBegan(samples: samples, canvasSize: canvasSize)
@@ -388,6 +404,9 @@ struct ColoringCanvasView: View {
                             throttleKey: throttleKey,
                             minimumInterval: minimumInterval
                         )
+                    },
+                    onPencilDoubleTap: { action in
+                        handlePencilDoubleTap(action)
                     }
                 )
             }
@@ -418,7 +437,7 @@ struct ColoringCanvasView: View {
             HStack {
                 Spacer()
                 Label("Filled", systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 14, weight: .black))
+                    .font(.subheadline.weight(.black))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -427,7 +446,7 @@ struct ColoringCanvasView: View {
                         Capsule().stroke(Color(hex: viewModel.selectedColorHex), lineWidth: 2)
                     }
                     .padding(14)
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.95)))
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("Filled")
                     .accessibilityIdentifier(A11y.Canvas.fillFeedback)
@@ -536,6 +555,30 @@ struct ColoringCanvasView: View {
         viewport.reset()
         viewModel.updateViewport(viewport)
         viewModel.commitViewportChange()
+    }
+
+    /// Routes Apple Pencil double-tap to the action the person chose in
+    /// Settings (UIPencilInteraction.preferredTapAction); never hardcodes one.
+    private func handlePencilDoubleTap(_ action: UIPencilPreferredAction) {
+        switch action {
+        case .switchEraser:
+            if viewModel.selectedTool == .eraser {
+                let restored = previousTool.flatMap { $0 == .eraser ? nil : $0 } ?? .watercolor
+                viewModel.selectTool(restored)
+            } else {
+                viewModel.selectTool(.eraser)
+            }
+        case .switchPrevious:
+            if let previousTool, previousTool != viewModel.selectedTool {
+                viewModel.selectTool(previousTool)
+            }
+        case .showColorPalette, .showContextualPalette:
+            withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.88)) {
+                showColorTray.toggle()
+            }
+        default:
+            break
+        }
     }
 
     private func showZoomFeedback() {
@@ -869,6 +912,7 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
     var onPigmentEraserEnded: ([StrokeSample]) -> Bool
     var onPigmentEraserCancelled: () -> Void
     var onDebugEvent: (String, String?, TimeInterval) -> Void
+    var onPencilDoubleTap: (UIPencilPreferredAction) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -881,6 +925,9 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
         canvas.drawingPolicy = fingerPaints ? .anyInput : .pencilOnly
         canvas.delegate = context.coordinator
         canvas.eraserTouchDelegate = context.coordinator
+        let pencilInteraction = UIPencilInteraction()
+        pencilInteraction.delegate = context.coordinator
+        canvas.addInteraction(pencilInteraction)
         canvas.drawing = drawing
         context.coordinator.appliedExternalRevision = drawingExternalRevision
         canvas.tool = makeTool()
@@ -945,7 +992,7 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
         String(format: "%.1f", Double(value))
     }
 
-    final class Coordinator: NSObject, PKCanvasViewDelegate, FreehandEraserTouchDelegate {
+    final class Coordinator: NSObject, PKCanvasViewDelegate, FreehandEraserTouchDelegate, UIPencilInteractionDelegate {
         var parent: FreehandCanvasRepresentable
         var appliedExternalRevision = 0
         var handledFlushRequestID = 0
@@ -976,6 +1023,10 @@ private struct FreehandCanvasRepresentable: UIViewRepresentable {
                     self.flushDrawing(from: canvasView)
                 }
             }
+        }
+
+        func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap) {
+            parent.onPencilDoubleTap(UIPencilInteraction.preferredTapAction)
         }
 
         func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
@@ -1121,6 +1172,8 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
     var toolSettings: ToolSettings
     var fingerPaints: Bool
     var isEyedropperActive: Bool
+    var canUndo: Bool
+    var canRedo: Bool
     var liveStrokeSeed: UInt64?
     var fillLayerImage: UIImage?
     var lineArtImage: UIImage?
@@ -1142,6 +1195,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
     var onStrokeCancelled: () -> Void
     var onDebugInput: (CanvasDebugInput) -> Void
     var liveStrokeClip: ([StrokeSample]) -> StrokeRenderClip?
+    var onPencilDoubleTap: (UIPencilPreferredAction) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -1169,19 +1223,12 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         view.addGestureRecognizer(doubleTap)
         tap.require(toFail: doubleTap)
 
-        let undoTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleUndoTap(_:)))
-        undoTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
-        undoTap.numberOfTouchesRequired = 2
-        undoTap.delegate = context.coordinator
-        view.addGestureRecognizer(undoTap)
-        tap.require(toFail: undoTap)
-
-        let redoTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleRedoTap(_:)))
-        redoTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
-        redoTap.numberOfTouchesRequired = 3
-        redoTap.delegate = context.coordinator
-        view.addGestureRecognizer(redoTap)
-        tap.require(toFail: redoTap)
+        // Undo/redo intentionally has no custom tap recognizers: the view is a
+        // first responder exposing the edit stack through UndoManager, so the
+        // system three-finger swipe/tap undo gestures and shortcut bar apply.
+        let pencilInteraction = UIPencilInteraction()
+        pencilInteraction.delegate = context.coordinator
+        view.addInteraction(pencilInteraction)
 
         let focusTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleFocusTap(_:)))
         focusTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
@@ -1235,7 +1282,7 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
         case pinchZoom
     }
 
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate, UIPencilInteractionDelegate {
         var parent: CanvasInteractionOverlay
         private var panStartOffset = CGSize.zero
         private var pinchStartScale = CanvasViewport.minimumScale
@@ -1280,14 +1327,8 @@ private struct CanvasInteractionOverlay: UIViewRepresentable {
             parent.onFit()
         }
 
-        @objc func handleUndoTap(_ recognizer: UITapGestureRecognizer) {
-            guard recognizer.state == .ended else { return }
-            parent.onUndo()
-        }
-
-        @objc func handleRedoTap(_ recognizer: UITapGestureRecognizer) {
-            guard recognizer.state == .ended else { return }
-            parent.onRedo()
+        func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap) {
+            parent.onPencilDoubleTap(UIPencilInteraction.preferredTapAction)
         }
 
         @objc func handleFocusTap(_ recognizer: UITapGestureRecognizer) {
@@ -1956,7 +1997,21 @@ private struct LiveStrokePreviewConfiguration {
 
 private final class CanvasInteractionUIView: UIView {
     weak var coordinator: CanvasInteractionOverlay.Coordinator?
+    private lazy var undoBridge = CanvasUndoBridge(host: self)
     private var previewConfiguration: LiveStrokePreviewConfiguration?
+
+    override var canBecomeFirstResponder: Bool { true }
+
+    override var undoManager: UndoManager? { undoBridge }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil {
+            becomeFirstResponder()
+        } else if isFirstResponder {
+            resignFirstResponder()
+        }
+    }
     private var previewImage: UIImage?
     private var pendingPreviewSamples: [StrokeSample] = []
     private var cachedViewportSamples: [StrokeSample] = []
@@ -2478,6 +2533,30 @@ private final class CanvasInteractionUIView: UIView {
     }
 }
 
+/// Bridges the view model's CanvasEditAction undo/redo stack into the
+/// responder chain, so the system undo affordances (three-finger swipe and
+/// tap shortcut bar, Cmd-Z) drive the same history as the toolbar buttons.
+private final class CanvasUndoBridge: UndoManager {
+    private weak var host: CanvasInteractionUIView?
+
+    init(host: CanvasInteractionUIView) {
+        self.host = host
+        super.init()
+    }
+
+    override var canUndo: Bool { host?.coordinator?.parent.canUndo ?? false }
+
+    override var canRedo: Bool { host?.coordinator?.parent.canRedo ?? false }
+
+    override func undo() {
+        host?.coordinator?.parent.onUndo()
+    }
+
+    override func redo() {
+        host?.coordinator?.parent.onRedo()
+    }
+}
+
 #if DEBUG && SHOW_RENDER_METRICS
 private struct CanvasRenderTuningPopover: View {
     let tuning: RenderTuningStore
@@ -2651,24 +2730,25 @@ private struct CanvasPaperBackground: View {
     }
 }
 
-private struct CanvasChromeLayer: View {
+private struct CanvasChromeLayer<SettingsContent: View>: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let viewModel: ColoringSessionViewModel
     @Binding var selectedDockToolID: String
     @Binding var showColorTray: Bool
     @Binding var showColorPicker: Bool
+    @Binding var showSettingsPanel: Bool
     let isDimmed: Bool
     let onBack: () -> Void
     let onUndo: () -> Void
     let onRedo: () -> Void
-    let onLayers: () -> Void
-    let onSettings: () -> Void
     let onShare: () -> Void
     let onSave: () -> Void
     let onResetView: () -> Void
     let onFocus: () -> Void
     let onClear: () -> Void
     let onEyedropper: () -> Void
+    @ViewBuilder let settingsPanel: () -> SettingsContent
 
     var body: some View {
         GeometryReader { proxy in
@@ -2684,16 +2764,17 @@ private struct CanvasChromeLayer: View {
                         canSave: viewModel.canSave,
                         hasArtwork: viewModel.hasArtwork,
                         saveLabel: viewModel.saveState.label,
+                        isCompact: metrics.isCompactWidth,
+                        showSettings: $showSettingsPanel,
                         onBack: onBack,
                         onUndo: onUndo,
                         onRedo: onRedo,
-                        onLayers: onLayers,
-                        onSettings: onSettings,
                         onShare: onShare,
                         onSave: onSave,
                         onResetView: onResetView,
                         onFocus: onFocus,
-                        onClear: onClear
+                        onClear: onClear,
+                        settingsContent: settingsPanel
                     )
                     .frame(maxWidth: metrics.topBarWidth)
                     .padding(.top, metrics.topPadding)
@@ -2702,7 +2783,7 @@ private struct CanvasChromeLayer: View {
                     Spacer(minLength: 0)
 
                     VStack(spacing: 8) {
-                        CleanFreeControl(
+                        CleanFreeToggle(
                             selection: Binding(
                                 get: { viewModel.coloringMode },
                                 set: { viewModel.selectColoringMode($0) }
@@ -2720,7 +2801,7 @@ private struct CanvasChromeLayer: View {
                                 viewModel.selectTool(item.tool)
                             },
                             onPigmentTapped: {
-                                withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                                withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.88)) {
                                     showColorTray.toggle()
                                 }
                             }
@@ -2770,7 +2851,7 @@ private struct CanvasChromeLayer: View {
                         x: proxy.size.width - metrics.trayTrailing - metrics.trayWidth / 2,
                         y: proxy.size.height - metrics.bottomPadding - metrics.dockHeight - metrics.trayHeight / 2 - metrics.trayVerticalGap
                     )
-                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
                 }
 
                 Color.clear
@@ -2798,8 +2879,20 @@ private struct CanvasChromeMetrics {
         size.width > size.height
     }
 
+    /// True in Split View, Slide Over, and narrow Stage Manager windows,
+    /// where the chrome collapses secondary elements to fit.
+    var isCompactWidth: Bool {
+        size.width < 700
+    }
+
+    /// Width actually available to chrome rows after horizontal padding.
+    private var availableWidth: CGFloat {
+        max(size.width - horizontalPadding * 2, 0)
+    }
+
     var horizontalPadding: CGFloat {
-        isLandscape ? 32 : 28
+        if isCompactWidth { return 16 }
+        return isLandscape ? 32 : 28
     }
 
     var topPadding: CGFloat {
@@ -2811,11 +2904,11 @@ private struct CanvasChromeMetrics {
     }
 
     var topBarWidth: CGFloat {
-        min(size.width - horizontalPadding * 2, isLandscape ? 820 : 760)
+        min(availableWidth, isLandscape ? 820 : 760)
     }
 
     var dockWidth: CGFloat {
-        min(size.width - horizontalPadding * 2, isLandscape ? 580 : 610)
+        min(availableWidth, isLandscape ? 580 : 610)
     }
 
     var dockHeight: CGFloat {
@@ -2823,7 +2916,8 @@ private struct CanvasChromeMetrics {
     }
 
     var sliderTrailing: CGFloat {
-        isLandscape ? 60 : 50
+        if isCompactWidth { return 28 }
+        return isLandscape ? 60 : 50
     }
 
     var sliderYFactor: CGFloat {
@@ -2831,7 +2925,7 @@ private struct CanvasChromeMetrics {
     }
 
     var trayWidth: CGFloat {
-        min(size.width - horizontalPadding * 2, isLandscape ? 460 : 500)
+        min(availableWidth, isLandscape ? 460 : 500)
     }
 
     var trayHeight: CGFloat {
@@ -2847,7 +2941,7 @@ private struct CanvasChromeMetrics {
     }
 }
 
-private struct CanvasTopBar: View {
+private struct CanvasTopBar<SettingsContent: View>: View {
     @Environment(\.colorScheme) private var colorScheme
     let title: String
     let progress: Double
@@ -2856,57 +2950,60 @@ private struct CanvasTopBar: View {
     let canSave: Bool
     let hasArtwork: Bool
     let saveLabel: String
+    let isCompact: Bool
+    @Binding var showSettings: Bool
     let onBack: () -> Void
     let onUndo: () -> Void
     let onRedo: () -> Void
-    let onLayers: () -> Void
-    let onSettings: () -> Void
     let onShare: () -> Void
     let onSave: () -> Void
     let onResetView: () -> Void
     let onFocus: () -> Void
     let onClear: () -> Void
+    @ViewBuilder let settingsContent: () -> SettingsContent
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             CanvasIconButton(systemName: "chevron.left", label: "Back", action: onBack)
                 .accessibilityIdentifier("canvas.back")
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
 
-                HStack(spacing: 7) {
-                    Text("\(Int((progress * 100).rounded()))% colored")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
-                        .monospacedDigit()
+                if !isCompact {
+                    HStack(spacing: 7) {
+                        Text("\(Int((progress * 100).rounded()))% colored")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
+                            .monospacedDigit()
 
-                    ProgressLine(progress: progress)
-                        .frame(width: 48, height: 3)
+                        ProgressLine(progress: progress)
+                            .frame(width: 48, height: 3)
+                    }
                 }
             }
-            .frame(width: 168, alignment: .leading)
+            .frame(maxWidth: isCompact ? 150 : 200, alignment: .leading)
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
 
-            Image(systemName: "ellipsis")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme).opacity(0.78))
-                .frame(width: 54, height: 34)
-
-            Spacer(minLength: 0)
-
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 CanvasIconButton(systemName: "arrow.uturn.backward", label: "Undo", isEnabled: canUndo, action: onUndo)
                     .accessibilityIdentifier(A11y.Canvas.undo)
                 CanvasIconButton(systemName: "arrow.uturn.forward", label: "Redo", isEnabled: canRedo, action: onRedo)
                     .accessibilityIdentifier(A11y.Canvas.redo)
-                CanvasIconButton(systemName: "square.stack.3d.up", label: "Layers", action: onLayers)
-                    .accessibilityIdentifier("canvas.layers")
+
+                CanvasIconButton(systemName: "gearshape", label: "Canvas settings") {
+                    showSettings = true
+                }
+                .accessibilityIdentifier("canvas.settings")
+                .popover(isPresented: $showSettings, arrowEdge: .top) {
+                    settingsContent()
+                        .presentationCompactAdaptation(.popover)
+                }
 
                 Menu {
                     Button("Save", systemImage: "square.and.arrow.down", action: onSave)
@@ -2914,15 +3011,17 @@ private struct CanvasTopBar: View {
                     Button("Share", systemImage: "square.and.arrow.up", action: onShare)
                     Button("Fit Artwork", systemImage: "arrow.up.left.and.down.right.magnifyingglass", action: onResetView)
                     Button("Focus Mode", systemImage: "eye.slash", action: onFocus)
-                    Button("Palette & Tools", systemImage: "paintpalette", action: onSettings)
+                    Button("Canvas Settings", systemImage: "gearshape") {
+                        showSettings = true
+                    }
                     Button("Clear Artwork", systemImage: "trash", role: .destructive, action: onClear)
                         .disabled(!hasArtwork)
                     Text(saveLabel)
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.body.weight(.semibold))
                         .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
-                        .frame(width: 34, height: 34)
+                        .frame(width: 44, height: 44)
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -2930,8 +3029,8 @@ private struct CanvasTopBar: View {
                 .accessibilityIdentifier("canvas.more")
             }
         }
-        .padding(.horizontal, 10)
-        .frame(height: 52)
+        .padding(.horizontal, 8)
+        .frame(height: 60)
         .background(
             Capsule(style: .continuous)
                 .fill(CanvasVisualSystem.paper(for: colorScheme).opacity(colorScheme == .dark ? 0.94 : 0.88))
@@ -2954,9 +3053,9 @@ private struct CanvasIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.body.weight(.semibold))
                 .foregroundStyle(isEnabled ? CanvasVisualSystem.ink(for: colorScheme) : CanvasVisualSystem.mutedInk(for: colorScheme).opacity(0.34))
-                .frame(width: 34, height: 34)
+                .frame(width: 44, height: 44)
                 .background(
                     Circle()
                         .fill(CanvasVisualSystem.paperSecondary(for: colorScheme).opacity(colorScheme == .dark ? 0.62 : 0.52))
@@ -2990,46 +3089,42 @@ private struct ProgressLine: View {
     }
 }
 
-private struct CleanFreeControl: View {
+/// Single icon button that cycles between Clean and Free coloring modes.
+/// Shows the symbol for the active mode; the symbol swap uses a Replace
+/// content transition (opacity-only under Reduce Motion).
+private struct CleanFreeToggle: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var selection: CanvasColoringMode
 
     var body: some View {
-        HStack(spacing: 2) {
-            segment(.clean)
-            segment(.free)
-        }
-        .padding(3)
-        .frame(width: 110, height: 28)
-        .background(
-            Capsule(style: .continuous)
-                .fill(CanvasVisualSystem.paper(for: colorScheme).opacity(colorScheme == .dark ? 0.90 : 0.86))
-        )
-        .overlay {
-            Capsule(style: .continuous)
-                .stroke(CanvasVisualSystem.hairline(for: colorScheme), lineWidth: 0.7)
-        }
-        .shadow(color: CanvasVisualSystem.shadow(for: colorScheme).opacity(0.55), radius: 9, x: 0, y: 4)
-        .accessibilityIdentifier("canvas.cleanFreeToggle")
-    }
-
-    private func segment(_ mode: CanvasColoringMode) -> some View {
         Button {
-            withAnimation(.easeOut(duration: 0.16)) {
-                selection = mode
+            let next: CanvasColoringMode = selection == .clean ? .free : .clean
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
+                selection = next
             }
         } label: {
-            Text(mode.rawValue)
-                .font(.system(size: 10, weight: selection == mode ? .semibold : .medium))
-                .foregroundStyle(selection == mode ? CanvasVisualSystem.ink(for: colorScheme) : CanvasVisualSystem.mutedInk(for: colorScheme))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Image(systemName: selection == .clean ? "pencil.tip.crop.circle" : "scribble.variable")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
+                .frame(width: 44, height: 44)
                 .background(
-                    Capsule(style: .continuous)
-                        .fill(selection == mode ? CanvasVisualSystem.paperSecondary(for: colorScheme).opacity(colorScheme == .dark ? 0.88 : 0.96) : .clear)
+                    Circle()
+                        .fill(CanvasVisualSystem.paper(for: colorScheme).opacity(colorScheme == .dark ? 0.90 : 0.86))
                 )
+                .overlay {
+                    Circle()
+                        .stroke(CanvasVisualSystem.hairline(for: colorScheme), lineWidth: 0.7)
+                }
+                .contentShape(Circle())
+                .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(mode.rawValue)
+        .shadow(color: CanvasVisualSystem.shadow(for: colorScheme).opacity(0.55), radius: 9, x: 0, y: 4)
+        .accessibilityLabel("Coloring mode")
+        .accessibilityValue("\(selection.rawValue) mode")
+        .accessibilityHint("Switches to \(selection == .clean ? CanvasColoringMode.free.rawValue : CanvasColoringMode.clean.rawValue) mode")
+        .accessibilityIdentifier("canvas.cleanFreeToggle")
     }
 }
 
@@ -3147,7 +3242,7 @@ private struct CanvasToolButton: View {
                 }
 
                 Text(item.title)
-                    .font(.system(size: 9, weight: isSelected ? .semibold : .medium))
+                    .font(.caption2.weight(isSelected ? .semibold : .medium))
                     .foregroundStyle(isSelected ? CanvasVisualSystem.ink(for: colorScheme) : CanvasVisualSystem.mutedInk(for: colorScheme))
                     .lineLimit(1)
                     .minimumScaleFactor(0.68)
@@ -3602,7 +3697,7 @@ private struct PigmentWellButton: View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: isOpen ? "chevron.down" : "chevron.up")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
 
                 ZStack {
@@ -3655,17 +3750,19 @@ private struct ColorTray: View {
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
                 Text(paletteTitle)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.caption2.weight(.bold))
+                    .imageScale(.small)
                     .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
                 Spacer(minLength: 0)
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.caption2.weight(.semibold))
                         .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
-                        .frame(width: 26, height: 26)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Close palette")
@@ -3679,11 +3776,11 @@ private struct ColorTray: View {
             HStack(spacing: 18) {
                 VStack(spacing: 9) {
                     Text("Current Color")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.caption2.weight(.medium))
                         .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
                     PigmentSwatch(hex: selectedColorHex, size: 70, isSelected: true, action: {})
                     Text(colorName)
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.caption2.weight(.medium))
                         .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
                         .lineLimit(1)
                 }
@@ -3720,11 +3817,11 @@ private struct ColorTray: View {
                 }
                 .accessibilityIdentifier("canvas.moreColors")
             }
-            .font(.system(size: 11, weight: .medium))
+            .font(.caption2.weight(.medium))
             .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
             .buttonStyle(.plain)
             .padding(.horizontal, 22)
-            .frame(height: 42)
+            .frame(height: 44)
         }
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -3755,7 +3852,7 @@ private struct ColorTray: View {
     private func swatchSection(title: String, colors: [String]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 9, weight: .medium))
+                .font(.caption2.weight(.medium))
                 .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
 
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(24), spacing: 10), count: 5), alignment: .leading, spacing: 10) {
@@ -3849,12 +3946,13 @@ private struct CanvasVerticalGauge: View {
     var body: some View {
         VStack(spacing: 5) {
             Text(valueText)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme).opacity(isEnabled ? 1 : 0.42))
                 .monospacedDigit()
             Text(title)
-                .font(.system(size: 8, weight: .medium))
+                .font(.caption2.weight(.medium))
                 .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme).opacity(isEnabled ? 1 : 0.42))
+                .minimumScaleFactor(0.8)
 
             GeometryReader { proxy in
                 let railHeight = proxy.size.height - 14
@@ -3909,7 +4007,7 @@ private struct CanvasZoomHint: View {
     var body: some View {
         VStack(spacing: 8) {
             Text("\(Int((scale * 100).rounded()))%")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(CanvasVisualSystem.paper(for: colorScheme))
                 .monospacedDigit()
                 .padding(.horizontal, 11)
@@ -3917,7 +4015,7 @@ private struct CanvasZoomHint: View {
                 .background(Color(hex: "#22201C").opacity(colorScheme == .dark ? 0.86 : 0.76), in: Capsule())
 
             Text("Pinch to zoom. Double tap to fit.")
-                .font(.system(size: 11, weight: .medium))
+                .font(.caption2.weight(.medium))
                 .foregroundStyle(CanvasVisualSystem.paper(for: colorScheme))
                 .padding(.horizontal, 13)
                 .frame(height: 28)
@@ -3966,147 +4064,151 @@ private struct BottomColorWheelView: View {
     }
 }
 
-private struct CanvasSettingsSheet: View {
+/// Compact settings panel presented as a popover from the top bar's settings
+/// button. Tools and colors are intentionally absent: the tool dock and the
+/// pigment well/color tray already own those tasks.
+private struct CanvasSettingsPanel: View {
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.dismiss) private var dismiss
     let viewModel: ColoringSessionViewModel
     @Binding var precisionSlidersEnabled: Bool
     @Binding var eyedropperShortcutEnabled: Bool
     @Binding var leftHandedMode: Bool
     @Binding var colorBlindMode: Bool
+    @Binding var fingerPaints: Bool
     let onRestart: () -> Void
-    let onDelete: () -> Void
+    let onClear: () -> Void
+    #if DEBUG
+    @State private var showDiagnostics = false
+    #endif
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section("Tools") {
-                    ForEach(ToolType.canvasTools) { tool in
-                        Button {
-                            viewModel.selectTool(tool)
-                        } label: {
-                            HStack(spacing: 12) {
-                                ToolIconView(
-                                    tool: tool,
-                                    color: viewModel.selectedTool == tool ? SableTheme.selectedText(for: colorScheme) : SableTheme.primaryText(for: colorScheme),
-                                    size: 20,
-                                    pigment: Color(hex: viewModel.selectedColorHex)
-                                )
-                                .frame(width: 36, height: 36)
-                                .background(
-                                    viewModel.selectedTool == tool ? SableTheme.selectedSurface(for: colorScheme) : SableTheme.surface(for: colorScheme),
-                                    in: RoundedRectangle(cornerRadius: 8)
-                                )
-
-                                Text(tool.rawValue)
-                                    .foregroundStyle(SableTheme.primaryText(for: colorScheme))
-
-                                Spacer()
-
-                                if viewModel.selectedTool == tool {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(SableTheme.progressPink)
-                                }
-                            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                if viewModel.selectedTool.supportsSizeControl || viewModel.selectedTool.supportsOpacityControl {
+                    panelSection("Brush") {
+                        if viewModel.selectedTool.supportsSizeControl {
+                            brushSlider(
+                                title: "Size",
+                                valueText: "\(Int(viewModel.selectedToolSettings.size.rounded()))",
+                                value: Binding(
+                                    get: { Double(viewModel.selectedToolSettings.size) },
+                                    set: { viewModel.updateSelectedToolSize(CGFloat($0)) }
+                                ),
+                                range: Double(ToolSettings.sizeRange.lowerBound)...Double(ToolSettings.sizeRange.upperBound)
+                            )
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(tool.accessibilityLabel)
-                        .accessibilityIdentifier(tool.accessibilityIdentifier)
-                    }
-                }
-
-                Section("Brush") {
-                    if viewModel.selectedTool.supportsSizeControl {
-                        Slider(
-                            value: Binding(
-                                get: { viewModel.selectedToolSettings.size },
-                                set: { viewModel.updateSelectedToolSize($0) }
-                            ),
-                            in: ToolSettings.sizeRange
-                        ) {
-                            Text("Size")
-                        }
-                    }
-                    if viewModel.selectedTool.supportsOpacityControl {
-                        Slider(
-                            value: Binding(
-                                get: { viewModel.selectedToolSettings.opacity },
-                                set: { viewModel.updateSelectedToolOpacity($0) }
-                            ),
-                            in: ToolSettings.opacityRange
-                        ) {
-                            Text("Opacity")
+                        if viewModel.selectedTool.supportsOpacityControl {
+                            brushSlider(
+                                title: "Opacity",
+                                valueText: "\(Int((viewModel.selectedToolSettings.opacity * 100).rounded()))%",
+                                value: Binding(
+                                    get: { viewModel.selectedToolSettings.opacity },
+                                    set: { viewModel.updateSelectedToolOpacity($0) }
+                                ),
+                                range: ToolSettings.opacityRange
+                            )
                         }
                     }
                 }
 
-                Section("Colors") {
-                    ForEach(viewModel.selectedSwatches) { swatch in
-                        Button {
-                            viewModel.selectColor(hex: swatch.hex)
-                        } label: {
-                            HStack(spacing: 12) {
-                                Circle()
-                                    .fill(Color(hex: swatch.hex))
-                                    .frame(width: 28, height: 28)
-                                    .overlay(Circle().stroke(SableTheme.divider(for: colorScheme), lineWidth: 1))
-                                Text(swatch.name)
-                                Spacer()
-                                if viewModel.selectedColorHex == swatch.hex {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(SableTheme.progressPink)
-                                }
-                            }
-                        }
-                        .accessibilityIdentifier(A11y.Canvas.color(swatch.hex))
-                    }
-                }
-
-                Section("Preferences") {
+                panelSection("Preferences") {
+                    Toggle("Draw with Finger", isOn: $fingerPaints)
+                        .accessibilityIdentifier("canvas.settings.fingerPaints")
                     Toggle("Precision Sliders", isOn: $precisionSlidersEnabled)
                     Toggle("Eyedropper Shortcut", isOn: $eyedropperShortcutEnabled)
                     Toggle("Left-Handed Mode", isOn: $leftHandedMode)
                     Toggle("Color Blind Mode", isOn: $colorBlindMode)
                 }
+                .toggleStyle(.switch)
+                .tint(CanvasVisualSystem.pigmentCoral)
+                .font(.subheadline)
+                .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
+
+                panelSection("Artwork") {
+                    Button(action: onRestart) {
+                        Label("Restart Artwork", systemImage: "arrow.counterclockwise")
+                    }
+                    .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
+                    .disabled(!viewModel.hasArtwork)
+
+                    Button(role: .destructive, action: onClear) {
+                        Label("Clear Artwork", systemImage: "trash")
+                    }
+                    .foregroundStyle(.red)
+                    .disabled(!viewModel.hasArtwork)
+                }
+                .font(.subheadline.weight(.medium))
+                .buttonStyle(.plain)
 
                 #if DEBUG
-                Section("Diagnostics") {
-                    Toggle("Canvas Diagnostics", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.enabledKey, alsoSetRuntimeEnabled: true))
-                    Toggle("Pencil Movement Logs", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilMovementEnabledKey))
-                    Toggle("Pencil Trace Overlay", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilTraceOverlayEnabledKey))
-                    Toggle("Pencil Sample Dots", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilSampleDotsEnabledKey, defaultValue: true))
-                    Toggle("Pencil Velocity", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilVelocityEnabledKey, defaultValue: true))
-                    Toggle("Pencil Pressure", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilPressureEnabledKey, defaultValue: true))
-                    Toggle("Log Every Pencil Sample", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.logEveryPencilSampleKey))
-                    Toggle("Persist Pencil Trace", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.persistPencilTraceKey))
-                    HStack {
-                        Text("Movement Log Interval")
-                        Slider(
-                            value: Binding(
-                                get: { CanvasDiagnosticsSettings.minimumMovementLogIntervalMs },
-                                set: { CanvasDiagnosticsSettings.minimumMovementLogIntervalMs = $0 }
-                            ),
-                            in: 0...250,
-                            step: 5
-                        )
+                DisclosureGroup("Diagnostics", isExpanded: $showDiagnostics) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Toggle("Canvas Diagnostics", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.enabledKey, alsoSetRuntimeEnabled: true))
+                        Toggle("Pencil Movement Logs", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilMovementEnabledKey))
+                        Toggle("Pencil Trace Overlay", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilTraceOverlayEnabledKey))
+                        Toggle("Pencil Sample Dots", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilSampleDotsEnabledKey, defaultValue: true))
+                        Toggle("Pencil Velocity", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilVelocityEnabledKey, defaultValue: true))
+                        Toggle("Pencil Pressure", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.pencilPressureEnabledKey, defaultValue: true))
+                        Toggle("Log Every Pencil Sample", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.logEveryPencilSampleKey))
+                        Toggle("Persist Pencil Trace", isOn: diagnosticsToggle(CanvasDiagnosticsSettings.persistPencilTraceKey))
+                        HStack {
+                            Text("Movement Log Interval")
+                            Slider(
+                                value: Binding(
+                                    get: { CanvasDiagnosticsSettings.minimumMovementLogIntervalMs },
+                                    set: { CanvasDiagnosticsSettings.minimumMovementLogIntervalMs = $0 }
+                                ),
+                                in: 0...250,
+                                step: 5
+                            )
+                        }
                     }
+                    .padding(.top, 8)
                 }
+                .toggleStyle(.switch)
+                .tint(CanvasVisualSystem.pigmentCoral)
+                .font(.subheadline)
+                .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
                 #endif
-
-                Section("Artwork") {
-                    Button("Restart Artwork", systemImage: "arrow.counterclockwise", action: onRestart)
-                    Button("Clear Artwork", systemImage: "trash", role: .destructive, action: onDelete)
-                }
             }
-            .navigationTitle("Palette & Tools")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
+            .padding(20)
         }
-        .accessibilityIdentifier("canvas.settings.sheet")
+        .frame(width: 340)
+        .frame(maxHeight: 520)
+        .presentationBackground(CanvasVisualSystem.paper(for: colorScheme))
+        .accessibilityIdentifier("canvas.settings.panel")
+    }
+
+    private func panelSection(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
+            content()
+        }
+    }
+
+    private func brushSlider(
+        title: String,
+        valueText: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(valueText)
+                    .monospacedDigit()
+                    .foregroundStyle(CanvasVisualSystem.mutedInk(for: colorScheme))
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(CanvasVisualSystem.ink(for: colorScheme))
+
+            Slider(value: value, in: range)
+                .tint(CanvasVisualSystem.pigmentCoral)
+        }
     }
 
     #if DEBUG

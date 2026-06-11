@@ -67,10 +67,9 @@ final class VerificationRecordingUITests: XCTestCase {
         rapidCleanStrokes(on: canvas)
         app.buttons["canvas.showControls"].tap()
         XCTAssertTrue(app.buttons["canvas.more"].waitForExistence(timeout: 2))
-        app.buttons["canvas.more"].tap()
-        XCTAssertTrue(app.buttons["Palette & Tools"].waitForExistence(timeout: 2))
-        app.buttons["Palette & Tools"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["canvas.settings.sheet"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["canvas.settings"].waitForExistence(timeout: 2))
+        app.buttons["canvas.settings"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["canvas.settings.panel"].waitForExistence(timeout: 2))
         Thread.sleep(forTimeInterval: 0.8)
     }
 

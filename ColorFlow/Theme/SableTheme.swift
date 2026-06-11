@@ -91,36 +91,39 @@ enum SableTheme {
 
     // MARK: - Typography Scale
 
+    /// All tokens scale with Dynamic Type: Fraunces sizes are anchored to a
+    /// text style via Font.custom(_:size:relativeTo:); system tokens use the
+    /// nearest text style at the same optical size.
     enum Typography {
         // Brand
-        static let display = SwiftUI.Font.custom("Fraunces", size: 88).weight(.black)
-        static let brand = SwiftUI.Font.custom("Fraunces", size: 38).weight(.black)
-        static let hero = SwiftUI.Font.custom("Fraunces", size: 66).weight(.regular)
-        static let heroLandscape = SwiftUI.Font.custom("Fraunces", size: 64).weight(.regular)
+        static let display = SwiftUI.Font.custom("Fraunces", size: 88, relativeTo: .largeTitle).weight(.black)
+        static let brand = SwiftUI.Font.custom("Fraunces", size: 38, relativeTo: .largeTitle).weight(.black)
+        static let hero = SwiftUI.Font.custom("Fraunces", size: 66, relativeTo: .largeTitle).weight(.regular)
+        static let heroLandscape = SwiftUI.Font.custom("Fraunces", size: 64, relativeTo: .largeTitle).weight(.regular)
 
         // Headings
-        static let sectionTitle = SwiftUI.Font.custom("Fraunces", size: 27).weight(.black)
-        static let sectionHeader = SwiftUI.Font.custom("Fraunces", size: 24).weight(.regular)
-        static let cardSerif = SwiftUI.Font.custom("Fraunces", size: 20).weight(.semibold)
+        static let sectionTitle = SwiftUI.Font.custom("Fraunces", size: 27, relativeTo: .title2).weight(.black)
+        static let sectionHeader = SwiftUI.Font.custom("Fraunces", size: 24, relativeTo: .title3).weight(.regular)
+        static let cardSerif = SwiftUI.Font.custom("Fraunces", size: 20, relativeTo: .title3).weight(.semibold)
 
         // Body
-        static let bodyLarge = SwiftUI.Font.system(size: 17, weight: .regular)
-        static let bodyMedium = SwiftUI.Font.system(size: 16, weight: .medium)
-        static let bodySmall = SwiftUI.Font.system(size: 14, weight: .regular)
+        static let bodyLarge = SwiftUI.Font.body
+        static let bodyMedium = SwiftUI.Font.callout.weight(.medium)
+        static let bodySmall = SwiftUI.Font.subheadline
 
         // Labels
-        static let labelLarge = SwiftUI.Font.system(size: 14, weight: .semibold)
-        static let labelMedium = SwiftUI.Font.system(size: 13, weight: .medium)
-        static let labelSmall = SwiftUI.Font.system(size: 12, weight: .semibold)
-        static let labelTiny = SwiftUI.Font.system(size: 11, weight: .medium)
+        static let labelLarge = SwiftUI.Font.subheadline.weight(.semibold)
+        static let labelMedium = SwiftUI.Font.footnote.weight(.medium)
+        static let labelSmall = SwiftUI.Font.caption.weight(.semibold)
+        static let labelTiny = SwiftUI.Font.caption2.weight(.medium)
 
         // Pills & Chips
-        static let pill = SwiftUI.Font.system(size: 12, weight: .semibold)
-        static let chip = SwiftUI.Font.system(size: 10, weight: .medium)
+        static let pill = SwiftUI.Font.caption.weight(.semibold)
+        static let chip = SwiftUI.Font.caption2.weight(.medium)
 
         // Badge
-        static let badge = SwiftUI.Font.system(size: 14, weight: .semibold)
-        static let cardTitle = SwiftUI.Font.system(size: 16, weight: .medium)
+        static let badge = SwiftUI.Font.subheadline.weight(.semibold)
+        static let cardTitle = SwiftUI.Font.callout.weight(.medium)
 
         // Helper
         static func fraunces(_ size: CGFloat, weight: SwiftUI.Font.Weight = .regular) -> SwiftUI.Font {

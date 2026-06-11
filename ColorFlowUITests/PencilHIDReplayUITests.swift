@@ -172,18 +172,19 @@ final class PencilHIDReplayUITests: XCTestCase {
     }
 
     private func selectMode(_ title: String) {
-        let target = app.buttons[title]
-        if target.waitForExistence(timeout: 1), target.isHittable {
-            target.tap()
-            Thread.sleep(forTimeInterval: 0.25)
+        let toggle = app.descendants(matching: .any)["canvas.cleanFreeToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 2), "Mode toggle did not appear.")
+
+        if let value = toggle.value as? String, value.hasPrefix(title) {
             return
         }
 
-        let toggle = app.descendants(matching: .any)["canvas.cleanFreeToggle"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 2), "Mode toggle did not appear.")
-        let offset = title == "Clean" ? CGVector(dx: 0.25, dy: 0.5) : CGVector(dx: 0.75, dy: 0.5)
-        toggle.coordinate(withNormalizedOffset: offset).tap()
+        toggle.tap()
         Thread.sleep(forTimeInterval: 0.25)
+
+        if let value = toggle.value as? String, value.hasPrefix(title) {
+            return
+        }
     }
 
     private func selectTool(_ identifier: String) {

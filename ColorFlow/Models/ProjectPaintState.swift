@@ -18,12 +18,16 @@ struct ProjectPaintState: Codable {
 
     var canvasState = CanvasState()
 
+    /// Whether finger touches paint (instead of only panning) on this project.
+    var fingerPaints: Bool = false
+
     init(
         regionFills: [String: String] = [:],
         pigmentLayerFilename: String? = nil,
         freehandDrawingData: Data? = nil,
         strokeActions: [StrokeAction] = [],
-        canvasState: CanvasState = CanvasState()
+        canvasState: CanvasState = CanvasState(),
+        fingerPaints: Bool = false
     ) {
         self.version = 2
         self.regionFills = regionFills
@@ -31,6 +35,7 @@ struct ProjectPaintState: Codable {
         self.freehandDrawingData = freehandDrawingData
         self.strokeActions = strokeActions
         self.canvasState = canvasState
+        self.fingerPaints = fingerPaints
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -40,6 +45,7 @@ struct ProjectPaintState: Codable {
         case freehandDrawingData
         case strokeActions
         case canvasState
+        case fingerPaints
     }
 
     init(from decoder: Decoder) throws {
@@ -50,5 +56,6 @@ struct ProjectPaintState: Codable {
         freehandDrawingData = try container.decodeIfPresent(Data.self, forKey: .freehandDrawingData)
         strokeActions = try container.decodeIfPresent([StrokeAction].self, forKey: .strokeActions) ?? []
         canvasState = try container.decodeIfPresent(CanvasState.self, forKey: .canvasState) ?? CanvasState()
+        fingerPaints = try container.decodeIfPresent(Bool.self, forKey: .fingerPaints) ?? false
     }
 }

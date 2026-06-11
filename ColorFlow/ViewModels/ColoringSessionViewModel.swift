@@ -55,6 +55,7 @@ final class ColoringSessionViewModel {
     var selectedTool: ToolType = .watercolor
     var selectedToolSettings = ToolType.watercolor.defaultSettings
     var coloringMode: CanvasColoringMode = .clean
+    var fingerPaints = false
     var recentColorHexes: [String] = [SableTheme.progressPinkHex]
     var canvasDocumentSize = CGSize(width: 800, height: 800)
     var viewport = CanvasViewport()
@@ -321,6 +322,14 @@ final class ColoringSessionViewModel {
         canvasDiagnostics.record(.lifecycle, "selected coloring mode \(mode.rawValue)")
     }
 
+    func setFingerPaints(_ enabled: Bool) {
+        guard fingerPaints != enabled else { return }
+        fingerPaints = enabled
+        paintState.fingerPaints = enabled
+        markCanvasStateDirty()
+        canvasDiagnostics.record(.lifecycle, "finger painting \(enabled ? "enabled" : "disabled")")
+    }
+
     func loadIfNeeded() async {
         guard !hasLoaded else { return }
         await load()
@@ -382,6 +391,7 @@ final class ColoringSessionViewModel {
             selectedTool = paintState.canvasState.selectedTool
             selectedToolSettings = toolSettingsCache[selectedTool] ?? selectedTool.defaultSettings
             coloringMode = paintState.canvasState.coloringMode
+            fingerPaints = paintState.fingerPaints
             // Viewport is transient: every canvas entry starts fit-to-screen.
             viewport = CanvasViewport()
             lastSavedRegionFills = paintState.regionFills
@@ -565,6 +575,7 @@ final class ColoringSessionViewModel {
         autosaveTask?.cancel()
         paintState.canvasState.selectedTool = selectedTool
         paintState.canvasState.coloringMode = coloringMode
+        paintState.fingerPaints = fingerPaints
         paintState.freehandDrawingData = nil
         paintState.version = 2
         paintState.pigmentLayerFilename = mutableProject.fillLayerPath

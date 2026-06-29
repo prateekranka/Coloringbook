@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gouache (ColorFlow) Architecture</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      background: #f5f3ef;
+      color: #1a1a2e;
+      padding: 16px;
+      line-height: 1.4;
+    }
+    h1 { font-size: 1.25rem; margin-bottom: 4px; }
+    p.sub { font-size: 0.875rem; color: #555; margin-bottom: 16px; }
+    svg { width: 100%; height: auto; display: block; background: #fff; border-radius: 12px; }
+    .legend {
+      margin-top: 16px;
+      font-size: 0.8125rem;
+      background: #fff;
+      border-radius: 12px;
+      padding: 12px 16px;
+    }
+    .legend dt { font-weight: 600; margin-top: 8px; }
+    .legend dt:first-child { margin-top: 0; }
+    .legend dd { color: #444; margin-left: 0; }
+  </style>
+</head>
+<body>
+  <h1>Gouache (ColorFlow)</h1>
+  <p class="sub">iPad coloring studio · SwiftUI · @Observable · iPad only</p>
+
+  <svg viewBox="0 0 720 980" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ColorFlow architecture diagram">
+    <defs>
+      <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#e85d8a"/>
+      </marker>
+      <marker id="arrow-dark" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#1a1a2e"/>
+      </marker>
+    </defs>
+
+    <!-- Layer labels -->
+    <text x="8" y="28" font-size="11" fill="#888" font-weight="600">APP ENTRY</text>
+    <text x="8" y="108" font-size="11" fill="#888" font-weight="600">UI VIEWS</text>
+    <text x="8" y="218" font-size="11" fill="#888" font-weight="600">VIEW MODELS</text>
+    <text x="8" y="348" font-size="11" fill="#888" font-weight="600">REPOSITORY</text>
+    <text x="8" y="468" font-size="11" fill="#888" font-weight="600">DATA</text>
+    <text x="380" y="468" font-size="11" fill="#888" font-weight="600">CANVAS</text>
+    <text x="8" y="848" font-size="11" fill="#888" font-weight="600">PHOTO PIPELINE</text>
+
+    <!-- App Entry -->
+    <rect x="180" y="8" width="360" height="44" rx="8" fill="#1a1a2e"/>
+    <text x="360" y="36" text-anchor="middle" fill="#fff" font-size="14" font-weight="600">ColorFlowApp → NavigationShell</text>
+
+    <!-- UI Views -->
+    <rect x="40" y="78" width="150" height="40" rx="8" fill="#fff" stroke="#1a1a2e" stroke-width="1.5"/>
+    <text x="115" y="104" text-anchor="middle" font-size="13">HomeView</text>
+    <rect x="210" y="78" width="150" height="40" rx="8" fill="#fff" stroke="#1a1a2e" stroke-width="1.5"/>
+    <text x="285" y="104" text-anchor="middle" font-size="13">TemplateListView</text>
+    <rect x="380" y="78" width="150" height="40" rx="8" fill="#fff" stroke="#1a1a2e" stroke-width="1.5"/>
+    <text x="455" y="104" text-anchor="middle" font-size="13">ProfileView</text>
+    <rect x="550" y="78" width="150" height="40" rx="8" fill="#fff" stroke="#e85d8a" stroke-width="2"/>
+    <text x="625" y="104" text-anchor="middle" font-size="13" font-weight="600">ColoringCanvasView</text>
+
+    <!-- ViewModels -->
+    <rect x="40" y="188" width="150" height="40" rx="8" fill="#f0ece6" stroke="#1a1a2e" stroke-width="1.5"/>
+    <text x="115" y="214" text-anchor="middle" font-size="12">HomeViewModel</text>
+    <rect x="210" y="188" width="150" height="40" rx="8" fill="#f0ece6" stroke="#1a1a2e" stroke-width="1.5"/>
+    <text x="285" y="214" text-anchor="middle" font-size="12">TemplateListViewModel</text>
+    <rect x="380" y="188" width="150" height="40" rx="8" fill="#f0ece6" stroke="#1a1a2e" stroke-width="1.5"/>
+    <text x="455" y="214" text-anchor="middle" font-size="12">MyLibraryViewModel</text>
+    <rect x="550" y="188" width="150" height="40" rx="8" fill="#f0ece6" stroke="#e85d8a" stroke-width="2"/>
+    <text x="625" y="214" text-anchor="middle" font-size="12" font-weight="600">ColoringSessionViewModel</text>
+
+    <!-- Repository -->
+    <rect x="140" y="318" width="440" height="48" rx="8" fill="#1a1a2e"/>
+    <text x="360" y="348" text-anchor="middle" fill="#fff" font-size="15" font-weight="600">SableHomeRepository</text>
+
+    <!-- Data Sources -->
+    <rect x="40" y="438" width="300" height="44" rx="8" fill="#fff" stroke="#1a1a2e" stroke-width="1.5"/>
+    <text x="190" y="466" text-anchor="middle" font-size="13">Template.loadAll()</text>
+    <rect x="40" y="498" width="300" height="56" rx="8" fill="#fff" stroke="#1a1a2e" stroke-width="1.5"/>
+    <text x="190" y="522" text-anchor="middle" font-size="12">Resources</text>
+    <text x="190" y="540" text-anchor="middle" font-size="11" fill="#555">templates.json · SVGs · palettes</text>
+    <rect x="40" y="570" width="300" height="44" rx="8" fill="#fff" stroke="#1a1a2e" stroke-width="1.5"/>
+    <text x="190" y="598" text-anchor="middle" font-size="13">StorageService</text>
+    <rect x="40" y="630" width="300" height="56" rx="8" fill="#fff" stroke="#1a1a2e" stroke-width="1.5"/>
+    <text x="190" y="654" text-anchor="middle" font-size="12">Documents</text>
+    <text x="190" y="672" text-anchor="middle" font-size="11" fill="#555">projects.json · fills · drawings · thumbnails</text>
+
+    <!-- Canvas Pipeline -->
+    <rect x="380" y="438" width="300" height="44" rx="8" fill="#fff" stroke="#e85d8a" stroke-width="1.5"/>
+    <text x="530" y="466" text-anchor="middle" font-size="12">SVGParser → TemplateGeometry</text>
+    <rect x="380" y="498" width="300" height="44" rx="8" fill="#fff" stroke="#e85d8a" stroke-width="1.5"/>
+    <text x="530" y="526" text-anchor="middle" font-size="12">RegionPigmentEngine</text>
+    <rect x="380" y="558" width="300" height="44" rx="8" fill="#fff" stroke="#e85d8a" stroke-width="1.5"/>
+    <text x="530" y="586" text-anchor="middle" font-size="12">TemplateRenderer</text>
+    <rect x="380" y="618" width="300" height="44" rx="8" fill="#fff" stroke="#e85d8a" stroke-width="1.5"/>
+    <text x="530" y="646" text-anchor="middle" font-size="12">BrushRenderers</text>
+    <rect x="380" y="678" width="300" height="44" rx="8" fill="#fff" stroke="#e85d8a" stroke-width="1.5"/>
+    <text x="530" y="706" text-anchor="middle" font-size="12">NotebookCanvas / PKCanvasView</text>
+
+    <!-- Photo Pipeline -->
+    <rect x="40" y="818" width="640" height="48" rx="8" fill="#f0ece6" stroke="#1a1a2e" stroke-width="1.5"/>
+    <text x="360" y="848" text-anchor="middle" font-size="12">PreValidator → Edge Detection → SVG Assembly → UserTemplate</text>
+    <text x="360" y="862" text-anchor="middle" font-size="10" fill="#666">(on-device photo-to-template)</text>
+
+    <!-- Arrows: App to Views -->
+    <line x1="360" y1="52" x2="360" y2="72" stroke="#1a1a2e" stroke-width="1.5" marker-end="url(#arrow-dark)"/>
+
+    <!-- Views to ViewModels -->
+    <line x1="115" y1="118" x2="115" y2="182" stroke="#1a1a2e" stroke-width="1.5" marker-end="url(#arrow-dark)"/>
+    <line x1="285" y1="118" x2="285" y2="182" stroke="#1a1a2e" stroke-width="1.5" marker-end="url(#arrow-dark)"/>
+    <line x1="455" y1="118" x2="455" y2="182" stroke="#1a1a2e" stroke-width="1.5" marker-end="url(#arrow-dark)"/>
+    <line x1="625" y1="118" x2="625" y2="182" stroke="#e85d8a" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <!-- ViewModels to Repository -->
+    <line x1="115" y1="228" x2="200" y2="318" stroke="#1a1a2e" stroke-width="1.5" marker-end="url(#arrow-dark)"/>
+    <line x1="285" y1="228" x2="280" y2="318" stroke="#1a1a2e" stroke-width="1.5" marker-end="url(#arrow-dark)"/>
+    <line x1="455" y1="228" x2="440" y2="318" stroke="#1a1a2e" stroke-width="1.5" marker-end="url(#arrow-dark)"/>
+    <line x1="625" y1="228" x2="520" y2="318" stroke="#e85d8a" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <!-- Repository to Data -->
+    <line x1="260" y1="366" x2="190" y2="432" stroke="#1a1a2e" stroke-width="1.5" marker-end="url(#arrow-dark)"/>
+    <line x1="190" y1="482" x2="190" y2="492" stroke="#1a1a2e" stroke-width="1.5" marker-end="url(#arrow-dark)"/>
+    <line x1="190" y1="554" x2="190" y2="566" stroke="#1a1a2e" stroke-width="1.5" marker-end="url(#arrow-dark)"/>
+    <line x1="190" y1="614" x2="190" y2="626" stroke="#1a1a2e" stroke-width="1.5" marker-end="url(#arrow-dark)"/>
+
+    <!-- Session VM to Canvas -->
+    <line x1="625" y1="228" x2="625" y2="280" stroke="#e85d8a" stroke-width="1.5"/>
+    <line x1="625" y1="280" x2="530" y2="280" stroke="#e85d8a" stroke-width="1.5"/>
+    <line x1="530" y1="280" x2="530" y2="432" stroke="#e85d8a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="530" y1="482" x2="530" y2="492" stroke="#e85d8a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="530" y1="542" x2="530" y2="552" stroke="#e85d8a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="530" y1="602" x2="530" y2="612" stroke="#e85d8a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="530" y1="662" x2="530" y2="672" stroke="#e85d8a" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <!-- AppRoute label -->
+    <text x="520" y="148" font-size="10" fill="#e85d8a" font-weight="600">AppRoute push</text>
+  </svg>
+
+  <dl class="legend">
+    <dt>Navigation</dt>
+    <dd>Three tabs (home, library, profile) + pushed canvas via AppRoute</dd>
+    <dt>State</dt>
+    <dd>@MainActor @Observable view models; @State ownership in views</dd>
+    <dt>Persistence</dt>
+    <dd>StorageService serializes all Documents I/O</dd>
+    <dt>Canvas</dt>
+    <dd>SVG → geometry → pigment bitmap + PencilKit overlay</dd>
+  </dl>
+</body>
+</html>
